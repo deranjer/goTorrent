@@ -1,0 +1,120 @@
+* {box-sizing: border-box;}
+.wrapper {
+	display: grid;
+	grid-gap: 10px;
+	width: 100%;
+	height: 100%;
+	background-color: #F8F9F9;	
+	grid-template-columns: 200px 1fr;
+
+}
+
+.box {
+	background-color: #F2F3F4;
+	border-radius: 1px;
+	
+}
+
+.navcolumn {
+	grid-column: 1;
+	grid-row: 2 / span 2;
+	border-style: double;
+}
+
+.navcolumnImage {
+	padding-right: 10%;
+	vertical-align: middle;
+}
+
+.liNavcolumn {
+	padding: 0;
+}
+
+.liNavcolumn:hover {
+	background-color: grey;
+
+}
+	
+.navsettings {
+	grid-column: 1 / span 2;
+	grid-row: 1;
+	border-style: double;
+	max-height: 80px;
+}
+
+.imagezoom {
+	height: 50px;
+}
+
+
+.imagezoom:hover {
+	background-color: grey;
+}
+
+
+.torrentlist {
+	grid-column: 2;
+	grid-row: 2;
+	border-style: double;
+	min-height: 400px;
+}
+
+.torrentdetails {
+	grid-column: 2;
+	grid-row: 3;
+	border-style: double;
+	min-height: 100px;
+}
+
+ul.none {
+	list-style-type: none;
+	padding: 0 2% 0 0;
+}
+
+ul.navsettingsUl {
+	list-style-type: none;
+	margin: 0;
+	padding-left: 0;
+}
+
+li.top {
+	display: inline;
+}
+
+
+hr {
+	border-width: 2px;
+	padding: 0;
+}
+
+.verticalLine {
+	border-left: solid grey;
+}
+
+table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+td, th {
+	border: 1px solid #dddddd;
+    text-align: left;
+    padding: 8px;
+	background-color: #3B83CB;
+}
+
+tr:nth-child(even) {
+    background-color: #dddddd;
+}
+
+.activeButton {
+	background-color: red;
+}
+
+.tab {
+	display: none;
+}
+
+.defaultTab {
+	display: initial;
+}
