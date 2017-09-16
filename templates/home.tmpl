@@ -18,11 +18,19 @@
 		  document.getElementById(tabName).style.display = "block";
 		  evt.currentTarget.className += " activeButton";
 		}
+		
+		
 		</script>
 		<script type="text/javascript">
          function myWebsocketStart()
          {
-               var ws = new WebSocket("ws://192.168.1.141:8000/websocket");
+               
+			   var torrentLinkSubmit = document.getElementById('torrentLinkSubmit');
+			   var magnetLink = document.getElementById('magnetLink');
+			   var modal = document.getElementById('addTorrentModal');
+			   
+			   
+			   var ws = new WebSocket("ws://192.168.1.141:8000/websocket");
 
                ws.onopen = function()
                {
@@ -46,11 +54,52 @@
                   var myTextArea = document.getElementById("loggerData");
                   myTextArea.innerHTML = myTextArea.innerHTML + "\n" + "Connection closed";
                };
+				
+				
+				torrentLinkSubmit.onclick = function(e) {
+					e.preventDefault();
+					
+					var magnetLinkjs = magnetLink.value;
+					
+					ws.send(magnetLinkjs);
+					
+					modal.style.display = "none";
+				}
+					
 
          }
+		 
+		 function sendEvent(message)
+		 {
+			ws.send(message);
+		 }
 
     </script>
 	</head>
+	<!-- The addlink Modal -->
+	<div id="addTorrentModal" class="addTorrentModal">
+
+	  <!-- Modal content -->
+	  <div class="addTorrentModalContent">
+		<span class="addTorrentModalClose">&times;</span>
+		<form id="torrentLinkForm" action="#" method="post">
+		Input Magnet Link: <input type="text" id="magnetLink">
+		<button id="torrentLinkSubmit">Submit</button>
+		</form>
+	  </div>
+
+	</div>
+	<!-- The addTorrent Modal -->
+	<div id="addTorrentFileModal" class="addTorrentModal">
+
+	  <!-- Modal content -->
+	  <div class="addTorrentModalContent">
+		<span class="addTorrentFileModalClose">&times;</span>
+		Input Torrent File: <input type="file" name="torrentFile">
+		<button id="torrentFileSubmit">Submit</button>
+	  </div>
+
+	</div>
 	<body onload="javascript:myWebsocketStart()">
 		<div class="wrapper">
 			<div class="box navcolumn">
@@ -66,7 +115,7 @@
 			</div>
 			<div class="box navsettings">
 				<ul class="navsettingsUl">
-					<li class="top" id="addTorrent"><img class="imagezoom" src="/static/images/iconAddTorrent.png"></li>
+					<li class="top" id="addTorrentFile"><img class="imagezoom" src="/static/images/iconAddTorrent.png"></li>
 					<li class="top" id="addTorrentLink"><img class="imagezoom" src="/static/images/iconAddTorrentLink.png"></li>
 					<li class="top verticalLine" id="deleteTorrent"><img class="imagezoom" src="/static/images/iconDelete.png"></li>
 					<li class="top verticalLine" id="startTorrent"><img class="imagezoom" src="/static/images/iconStart.png"></li>
@@ -82,7 +131,7 @@
 					<tr>	
 						<th>Name</th>
 						<th>Size</th>
-						<th>Done</th>
+						<th>Progress</th>
 						<th>Status</th>
 						<th>Seeds</th>
 						<th>Peers</th>
@@ -151,11 +200,12 @@
 					<h2>Logger</h2>
 					<p id="loggerData">Logger lines here</p>
 				</div>
-				
 			
 			</div>
 		</div>
+		
 	</body>
+	<script type="text/javascript" src="/static/js/addTorrents.js"></script>
 	<footer>Icons by <a href="https://icons8.com">icons8</a>
 </html>
 {{end}}

@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -57,6 +58,8 @@ func main() {
 					fmt.Println(err)
 					return
 				}
+			} else if strings.HasPrefix(string(msg), "magnet:") {
+				fmt.Println(string(msg))
 			} else {
 				conn.Close()
 				fmt.Println(string(msg))
