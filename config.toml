@@ -1,0 +1,59 @@
+[torrentClientConfig]
+DataDir = "downloads"    #the full OR relative path of the default download directory for torrents
+#The address to listen for new uTP and TCP bittorrent protocolconnections. DHT shares a UDP socket with uTP unless configured otherwise.
+ListenAddr = "" #Leave Blank for default, syntax "HOST:PORT"
+#Don't announce to trackers. This only leaves DHT to discover peers.
+DisableTrackers = false  #boolean
+DisablePEX = false # boolean
+# Don't create a DHT.
+NoDHT = false #boolean
+# Overrides the default DHT configuration, see dhtServerConfig
+DHTConfig = false # boolean, set to true and edit dhtServerConfig table to utilize
+# Never send chunks to peers.
+NoUpload = false #boolean
+#seed after download
+Seed = true #boolean
+# Events are data bytes sent in pieces. The burst must be large enough to fit a whole chunk.
+UploadRateLimiter = "" #*rate.Limiter
+#The events are bytes read from connections. The burst must be biggerthan the largest Read performed on a Conn minus one. This is likely to
+#be the larger of the main read loop buffer (~4096), and the requested chunk size (~16KiB).
+DownloadRateLimiter = "" #*rate.Limiter
+#User-provided Client peer ID. If not present, one is generated automatically.
+PeerID = "" #string
+#For the bittorrent protocol.
+DisableUTP = false #bool
+#For the bittorrent protocol.
+DisableTCP = false #bool
+#Called to instantiate storage for each added torrent. Builtin backends
+# are in the storage package. If not set, the "file" implementation is used.
+DefaultStorage = dht.ServerConfig #storage.ClientImpl
+
+#encryption policy
+IPBlocklist = "" #iplist.Ranger
+DisableIPv6 = false #boolean
+Debug = false #boolean
+
+
+[dhtServerConfig]
+# Set NodeId Manually. Caller must ensure that if NodeId does not conform to DHT Security Extensions, that NoSecurity is also set.
+NodeId = "" #[20]byte
+Conn = "" # https://godoc.org/net#PacketConn #not implemented
+# Don't respond to queries from other nodes.
+Passive = false # boolean
+# the default addressses are "router.utorrent.com:6881","router.bittorrent.com:6881","dht.transmissionbt.com:6881","dht.aelitis.com:6881",
+#https://github.com/anacrolix/dht/blob/master/dht.go
+StartingNodes = "dht.GlobalBootstrapAddrs"
+#Disable the DHT security extension: http://www.libtorrent.org/dht_sec.html.
+NoSecurity = false
+#Initial IP blocklist to use. Applied before serving and bootstrapping begins.
+IPBlocklist = "" #iplist.Ranger
+#Used to secure the server's ID. Defaults to the Conn's LocalAddr(). Set to the IP that remote nodes will see,
+#as that IP is what they'll use to validate our ID.
+PublicIP = "" #net.IP
+
+#Hook received queries. Return true if you don't want to propagate to the default handlers.
+OnQuery = "func(query *krpc.Msg, source net.Addr) (propagate bool)"
+#Called when a peer successfully announces to us.
+OnAnnouncePeer = "func(infoHash metainfo.Hash, peer Peer)"
+#How long to wait before resending queries that haven't received a response. Defaults to a random value between 4.5 and 5.5s.
+QueryResendDelay = "func() time.Duration"

@@ -1,81 +1,17 @@
 {{define "base"}}
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<link rel="stylesheet" href="/static/css/gridbase.css" type="text/css" />
-		<title>torrent-project</title>
-		<script>
-		function openTab(evt, tabName) {
-		  var i, x, tablinks;
-		  x = document.getElementsByClassName("tab");
-		  for (i = 0; i < x.length; i++) {
-			  x[i].style.display = "none";
-		  }
-		  tablinks = document.getElementsByClassName("tablink");
-		  for (i = 0; i < x.length; i++) {
-			  tablinks[i].className = tablinks[i].className.replace(" activeButton", "");
-		  }
-		  document.getElementById(tabName).style.display = "block";
-		  evt.currentTarget.className += " activeButton";
-		}
-		
-		
-		</script>
-		<script type="text/javascript">
-         function myWebsocketStart()
-         {
-               
-			   var torrentLinkSubmit = document.getElementById('torrentLinkSubmit');
-			   var magnetLink = document.getElementById('magnetLink');
-			   var modal = document.getElementById('addTorrentModal');
-			   
-			   
-			   var ws = new WebSocket("ws://192.168.1.141:8000/websocket");
+    <head>
+        <title>torrent-project</title>
 
-               ws.onopen = function()
-               {
-                  // Web Socket is connected, send data using send()
-                  ws.send("ping");
-                  var myTextArea = document.getElementById("loggerData");
-                  myTextArea.innerHTML = myTextArea.innerHTML + "\n" + "First message sent";
-               };
+        <link rel="stylesheet" href="/static/css/gridbase.css" type="text/css" />
+        <script type="text/javascript" src="/static/js/websocket.js"></script>
+        <script type="text/javascript" src="/static/js/tabControl.js"></script>
 
-               ws.onmessage = function (evt)
-               {
-                  var myTextArea = document.getElementById("loggerData");
-                  myTextArea.innerHTML = myTextArea.innerHTML + "\n" + evt.data
-                  if(evt.data == "pong") {
-                    setTimeout(function(){ws.send("ping");}, 2000);
-                  }
-               };
+    </head>
 
-               ws.onclose = function()
-               {
-                  var myTextArea = document.getElementById("loggerData");
-                  myTextArea.innerHTML = myTextArea.innerHTML + "\n" + "Connection closed";
-               };
-				
-				
-				torrentLinkSubmit.onclick = function(e) {
-					e.preventDefault();
-					
-					var magnetLinkjs = magnetLink.value;
-					
-					ws.send(magnetLinkjs);
-					
-					modal.style.display = "none";
-				}
-					
+    <body onload="javascript:myWebsocketStart()">
 
-         }
-		 
-		 function sendEvent(message)
-		 {
-			ws.send(message);
-		 }
-
-    </script>
-	</head>
 	<!-- The addlink Modal -->
 	<div id="addTorrentModal" class="addTorrentModal">
 
@@ -100,49 +36,46 @@
 	  </div>
 
 	</div>
-	<body onload="javascript:myWebsocketStart()">
 		<div class="wrapper">
 			<div class="box navcolumn">
 				<hr>
 				<ul class="none">
-					<li class="liNavcolumn" id="allTorrents"><img class="navcolumnImage" src="/static/images/iconTorrent.png">All Torrents</li><hr>
-					<li class="liNavcolumn" id="downloading"><img class="navcolumnImage" src="/static/images/iconDownload.png">Downloading</li><hr>
-					<li class="liNavcolumn" id="uploading"><img class="navcolumnImage" src="/static/images/iconUpload.png">Uploading</li><hr>
-					<li class="liNavcolumn" id="active"><img class="navcolumnImage" src="/static/images/iconActiveTorrents.png">Active</li><hr>
-					<li class="liNavcolumn" id="inactive"><img class="navcolumnImage" src="/static/images/iconInactiveTorrents.png">Inactive</li>
+                    <li class="liNavcolumn" id="allTorrents"><img class="navcolumnImage" src="/static/images/iconTorrent.png" alt="All Torrents">All Torrents</li>
+					<li class="liNavcolumn" id="downloading"><img class="navcolumnImage" src="/static/images/iconDownload.png" alt="Downloading Torrents">Downloading</li>
+					<li class="liNavcolumn" id="uploading"><img class="navcolumnImage" src="/static/images/iconUpload.png" alt="Uploading Torrents">Uploading</li>
+					<li class="liNavcolumn" id="active"><img class="navcolumnImage" src="/static/images/iconActiveTorrents.png" alt="Active Torrents">Active</li>
+					<li class="liNavcolumn" id="inactive"><img class="navcolumnImage" src="/static/images/iconInactiveTorrents.png" alt="Inactive Torrents">Inactive</li>
 				</ul>
 				<hr>
 			</div>
 			<div class="box navsettings">
 				<ul class="navsettingsUl">
-					<li class="top" id="addTorrentFile"><img class="imagezoom" src="/static/images/iconAddTorrent.png"></li>
-					<li class="top" id="addTorrentLink"><img class="imagezoom" src="/static/images/iconAddTorrentLink.png"></li>
-					<li class="top verticalLine" id="deleteTorrent"><img class="imagezoom" src="/static/images/iconDelete.png"></li>
-					<li class="top verticalLine" id="startTorrent"><img class="imagezoom" src="/static/images/iconStart.png"></li>
-					<li class="top" id="pauseTorrent"><img class="imagezoom" src="/static/images/iconPause.png"></li>
-					<li class="top" id="stopTorrent"><img class="imagezoom" src="/static/images/iconStop.png"></li>
-					<li class="top verticalLine" id="upTorrent"><img class="imagezoom" src="/static/images/iconScrollUp.png"></li>
-					<li class="top" id="downTorrent"><img class="imagezoom" src="/static/images/iconScrollDown.png"></li>
-					<li class="top verticalLine" id="rssTorrent"><img class="imagezoom" src="/static/images/iconRss.png"></li>
-					<li class="top verticalLine" id="settingsIcon"><img class="imagezoom" src="/static/images/iconSettings.png"></li>
+					<li class="top" id="addTorrentFile"><img class="imagezoom" src="/static/images/iconAddTorrent.png" alt="Upload Torrent File"></li>
+					<li class="top" id="addTorrentLink"><img class="imagezoom" src="/static/images/iconAddTorrentLink.png" alt="Add Magnet Links"></li>
+					<li class="top verticalLine" id="deleteTorrent"><img class="imagezoom" src="/static/images/iconDelete.png" alt="Delete Torrent"></li>
+					<li class="top verticalLine" id="startTorrent"><img class="imagezoom" src="/static/images/iconStart.png" alt="Start Torrent"></li>
+					<li class="top" id="pauseTorrent"><img class="imagezoom" src="/static/images/iconPause.png" alt="Pause Torrent"></li>
+					<li class="top" id="stopTorrent"><img class="imagezoom" src="/static/images/iconStop.png" alt="Stop Torrent"></li>
+					<li class="top verticalLine" id="upTorrent"><img class="imagezoom" src="/static/images/iconScrollUp.png" alt="Move Torrent Up"></li>
+					<li class="top" id="downTorrent"><img class="imagezoom" src="/static/images/iconScrollDown.png" alt="Down Torrent"></li>
+					<li class="top verticalLine" id="rssTorrent"><img class="imagezoom" src="/static/images/iconRss.png" alt="RSS Torrent"></li>
+					<li class="top verticalLine" id="settingsIcon"><img class="imagezoom" src="/static/images/iconSettings.png" alt="Settings"></li>
+				</ul>
 			</div>
-			<div class="box torrentlist">
-				<table>
-					<tr>	
-						<th>Name</th>
-						<th>Size</th>
-						<th>Progress</th>
-						<th>Status</th>
-						<th>Seeds</th>
-						<th>Peers</th>
-						<th>Down Speed</th>
-						<th>Up Speed</th>
-						<th>ETA</th>
-						<th>Ratio</th>
-						<th>Avail.</th>
-					</tr>
-				</table>
-			</div>
+
+			 <div id="torrentlist" class="box torrentlist">
+                <div class="ui container">
+                  <vuetable ref="vuetable"
+                      api-url="http://192.168.1.141:8000/api"
+                      :fields="fields"
+                      data-path="data"
+                      pagination-path=""
+                    >
+                    </vuetable>
+
+			 </div>
+
+
 			<div class="box torrentdetails">
 				
 				<div>
@@ -157,6 +90,7 @@
 				
 				<div id="General" class="tab defaultTab">
 					<h2>General</h2>
+					<p id="hash"></p>
 					<p>General Information</p>
 				</div>
 				
@@ -203,9 +137,15 @@
 			
 			</div>
 		</div>
-		
+
+	 <script src="https://unpkg.com/vuetable-2@1.6.0"></script>
+	 <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.16.1/axios.min.js"></script>
+     <script src="https://unpkg.com/vue@latest/dist/vue.js"></script>
+	 <script type="text/javascript" src="/static/js/addTorrents.js"></script>
+	 <script type="text/javascript" src="/static/js/grid.js"></script>
+
+
+	<footer>Icons by <a href="https://icons8.com">icons8</a></footer>
 	</body>
-	<script type="text/javascript" src="/static/js/addTorrents.js"></script>
-	<footer>Icons by <a href="https://icons8.com">icons8</a>
 </html>
 {{end}}

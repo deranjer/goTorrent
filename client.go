@@ -3,9 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/anacrolix/torrent"
-	"log"
-	"os"
-	"path/filepath"
 	"time"
 )
 
@@ -29,17 +26,6 @@ type ClientConfig struct {
 	DownloadDir    string
 }
 
-// NewClientConfig creates a new default configuration.
-func NewClientConfig() ClientConfig {
-	return ClientConfig{
-		Port:           8080,
-		TorrentPort:    50007,
-		Seed:           false,
-		TCP:            true,
-		MaxConnections: 200,
-		DownloadDir:    "Download",
-	}
-}
 
 type Client struct {
 	Client        *torrent.Client
@@ -57,33 +43,4 @@ type Client struct {
 	Config        ClientConfig
 }
 
-func NewClient(cfg ClientConfig) (client Client, err error) {
 
-	var t *torrent.Torrent
-	var c *torrent.Client
-
-	client.Config = cfg
-
-	//create the download directory
-	_, err := os.Create(cfg.DownloadDir)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	c, err = torrent.NewClient(&torrent.Config{
-		DataDir:    cfg.DownloadDir,
-		NoUpload:   !cfg.Seed,
-		Seed:       cfg.Seed,
-		DisableTCP: !cfg.TCP,
-		ListenAddr: fmt.Sprintf("%d", cfg.TorrentPort),
-	})
-	if err != nil {
-		return client, ClientError{Type: "creating torrent client", Origin: err}
-	}
-
-	client.Client = c
-
-	//adding torrents
-
-}
