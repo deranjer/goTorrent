@@ -1,0 +1,12 @@
+downloads/
+storage.db.lock
+storage.db
+.torrent.bolt.db.lock
+.torrent.bolt.db
+.idea/torrent-project.iml
+.idea/modules.xml
+.idea/misc.xml
+output.json
+configtest.toml
+.idea/workspace.xml
+.idea/vcs.xml
