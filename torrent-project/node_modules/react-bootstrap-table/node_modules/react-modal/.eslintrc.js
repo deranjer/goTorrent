@@ -1,0 +1,50 @@
+module.exports = {
+  "env": {
+    "es6": true,
+    "browser": true
+  },
+
+  "parser": "babel-eslint",
+
+  "parserOptions": {
+    "ecmaVersion": 7,
+    "ecmaFeatures": {
+      "jsx": true
+    },
+    "sourceType": "module"
+  },
+
+  "settings": {
+    "react": {
+      "createClass": "createReactClass",
+      "pragma": "React",
+      "version": "15.0"
+    },
+    "propWrapperFunctions": [ "forbidExtraProps" ]
+  },
+
+  "extends": ["eslint:recommended", "plugin:react/recommended", "prettier"],
+
+  "plugins": ["prettier"],
+
+  "globals": {
+    "process": true
+  },
+
+  "rules": {
+    "quotes": [0],
+    "comma-dangle": [2, "only-multiline"],
+    "max-len": [1, {"code": 80}],
+    "no-unused-expressions": [0],
+    "no-continue": [0],
+    "no-plusplus": [0],
+    "func-names": [0],
+    "arrow-parens": [0],
+    "space-before-function-paren": [0],
+    "jsx-a11y/no-static-element-interactions": [0],
+    "prettier/prettier": "error",
+    "react/no-find-dom-node": [0],
+    "react/jsx-closing-bracket-location": [0],
+    "react/require-default-props": 0
+  }
+}

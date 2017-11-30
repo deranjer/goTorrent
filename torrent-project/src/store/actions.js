@@ -1,0 +1,3 @@
+export const SORTLIST = 'SORTLIST';
+export const CHANGE_SELECTION = 'CHANGE_SELECTION';
+

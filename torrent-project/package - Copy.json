@@ -1,0 +1,11 @@
+{
+  "name": "torrent-project",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+     "build": "babel src -d lib"
+   },
+  "devDependencies": {
+      "babel-cli": "^6.0.0"
+   }
+}

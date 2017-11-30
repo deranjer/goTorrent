@@ -3,12 +3,12 @@ function myWebsocketStart()
 
     var torrentLinkSubmit = document.getElementById('torrentLinkSubmit');
     var magnetLink = document.getElementById('magnetLink');
-    var modal = document.getElementById('addTorrentModal');
+    var addTorrentModal = document.getElementById('addTorrentModal');
     var myTextArea = document.getElementById("loggerData");
     var torrentHash = document.getElementById("hash");
 
 
-    var ws = new WebSocket("ws://192.168.1.141:8000/websocket");
+    var ws = new WebSocket("ws://192.168.1.141:8000/websocket"); //creating websocket
 
     ws.onopen = function()
     {
@@ -52,7 +52,7 @@ function myWebsocketStart()
 
         ws.send(magnetLinkjs);
         myTextArea.innerHTML = myTextArea.innerHTML + "</br> Send:" + magnetLinkjs
-        modal.style.display = "none";
+        addTorrentModal.style.display = "none";
         magnetLink.value = '';
     }
 
