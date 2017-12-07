@@ -12,6 +12,7 @@ import {
     DragDropContext, TableColumnReordering,
 } from '@devexpress/dx-react-grid-material-ui';
 
+import { ProgressBarCell } from './ProgressBarCell';
 //react redux
 import {connect} from 'react-redux';
 import * as actionTypes from './store/actions';
@@ -51,11 +52,13 @@ ws.onmessage = function (evt) //When we recieve a message from the websocket
             torrents = []; //clearing out the torrent array to make room for new (so that it does keep adding)
             for(var i = 0; i < clientUpdate.total; i++){
                 //console.log("TorrentName: ", clientUpdate.data[i].TorrentName)
+                console.log("PercentDone: ", clientUpdate.data[i].PercentDone)
                 torrents.push({
                     TorrentHashString: clientUpdate.data[i].TorrentHashString,
                     TorrentName: clientUpdate.data[i].TorrentName,
                     DownloadedSize: clientUpdate.data[i].DownloadedSize,
-                    DownloadSpeed: clientUpdate.data[i].DownloadedSpeed,
+                    Size: clientUpdate.data[i].Size,
+                    DownloadSpeed: clientUpdate.data[i].DownloadSpeed,
                     UploadSpeed: clientUpdate.data[i].UploadSpeed,
                     PercentDone: clientUpdate.data[i].PercentDone,
                     StoragePath: clientUpdate.data[i].StoragePath,
@@ -96,10 +99,10 @@ class TorrentListTable extends React.Component {
                 { name: 'TorrentName', title: 'Torrent Name' },
                 { name: 'DownloadedSize', title: 'Dl Size'},
                 { name: 'Size', title: 'Size'},
-                { name: 'Done', title: 'Percent Done'},
+                { name: 'PercentDone', title: 'Percent Done'},
                 { name: 'Status', title: 'Status'},
-                { name: 'DownloadSpeed', title: 'Download Speed'},
-                { name: 'UploadSpeed', title: 'Upload Speed'},
+                { name: 'DownloadSpeed', title: 'DL Speed'},
+                { name: 'UploadSpeed', title: 'UL Speed'},
                 { name: 'ActivePeers', title: 'Active Peers' },
                 { name: 'TotalPeers', title: 'Total Peers' },
                 { name: 'ETA', title: 'ETA'},
@@ -107,8 +110,8 @@ class TorrentListTable extends React.Component {
                 { name: 'Availability', title: 'Availability'},
                 { name: 'TorrentHashString', title: 'Torrent Hash' }
             ],
-            columnOrder: ['TorrentName', 'DownloadedSize', 'Size', 'Done', 'Status', 'DownloadSpeed', 'UploadSpeed','ActivePeers', 'TotalPeers', 'ETA', 'Ratio', 'Availability', 'TorrentHashString'],
-            columnWidths: {TorrentName: 250, DownloadedSize: 175, Size: 175, Done: 175, Status: 250, DownloadSpeed: 100, UploadSpeed: 100, ActivePeers: 100, TotalPeers: 100, ETA: 175, Ratio: 175, Availability: 175, TorrentHashString: 250,}
+            columnOrder: ['TorrentName', 'DownloadedSize', 'Size', 'PercentDone', 'Status', 'DownloadSpeed', 'UploadSpeed','ActivePeers', 'TotalPeers', 'ETA', 'Ratio', 'Availability', 'TorrentHashString'],
+            columnWidths: {TorrentName: 250, DownloadedSize: 175, Size: 175, PercentDone: 175, Status: 250, DownloadSpeed: 100, UploadSpeed: 100, ActivePeers: 100, TotalPeers: 100, ETA: 175, Ratio: 175, Availability: 175, TorrentHashString: 250,}
 
         };
  
@@ -145,7 +148,14 @@ class TorrentListTable extends React.Component {
                 <SortingState sorting={this.props.sorting} onSortingChange={this.props.changeSorting} />
                 <LocalSorting />
                 <SelectionState onSelectionChange={this.props.changeSelection} selection={this.props.selection}/>
-                <TableView />
+                <TableView  tableCellTemplate={({ row, column, style }) => {
+                    if (column.name === 'PercentDone') {
+                    return (
+                        <ProgressBarCell value={row.PercentDone * 100} style={style} />
+                    );
+                    }
+                    return undefined;
+                }}/>
                 <DragDropContext />
                 <TableColumnResizing columnWidths={this.state.columnWidths} onColumnWidthsChange={this.changeColumnWidths}/>
                 <TableColumnReordering order={this.state.columnOrder} onOrderChange={this.changeColumnOrder} />

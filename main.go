@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -47,10 +48,10 @@ type clientDB struct {
 	UploadSpeed       float32 `json:"UploadSpeed"`
 	DataBytesWritten  int64
 	DataBytesRead     int64
-	ActivePeers       int    `json:"ActivePeers"`
-	TotalPeers        int    `json:"TotalPeers"`
-	TorrentHashString string `json:"TorrentHashString"`
-	PercentDone       int64  `json:"Done"`
+	ActivePeers       int     `json:"ActivePeers"`
+	TotalPeers        int     `json:"TotalPeers"`
+	TorrentHashString string  `json:"TorrentHashString"`
+	PercentDone       float32 `json:"PercentDone"`
 	TorrentHash       metainfo.Hash
 	StoragePath       string `json:"StorageLocation"`
 	DateAdded         string
@@ -63,15 +64,24 @@ type clientDB struct {
 func calculateTorrentSpeed(t *torrent.Torrent, c *clientDB) {
 	now := time.Now()
 	bytes := t.BytesCompleted()
-	if !c.UpdatedAt.IsZero() {
+	fmt.Println("UpdatedAt: ", c.UpdatedAt)
+	if c.UpdatedAt.IsZero() {
+		c.UpdatedAt = now
+		fmt.Println("Setting Time", c.UpdatedAt)
+
+	} else {
 		dt := float32(now.Sub(c.UpdatedAt))
+		fmt.Println("Delta Time: ", dt)
 		db := float32(bytes - c.BytesCompleted)
+		fmt.Println("Delta Bytes:", db)
 		rate := db * (float32(time.Second) / dt)
+
+		fmt.Println("form: ", float32(time.Second))
 		if rate >= 0 {
 			c.DownloadSpeed = rate
 		}
 	}
-	c.UpdatedAt = now
+
 }
 
 func calculateTorrentStatus(t *torrent.Torrent, c *clientDB) {
@@ -79,7 +89,9 @@ func calculateTorrentStatus(t *torrent.Torrent, c *clientDB) {
 		c.Status = "Seeding"
 	} else if t.Stats().ActivePeers > 0 && t.BytesMissing() > 0 {
 		c.Status = "Downloading"
-	} else if t.Stats().ActivePeers == 0 {
+	} else if t.Stats().ActivePeers == 0 && t.BytesMissing() == 0 {
+		c.Status = "Completed"
+	} else if t.Stats().ActivePeers == 0 && t.BytesMissing() > 0 {
 		c.Status = "Awaiting Peers"
 	} else {
 		c.Status = "Unknown"
@@ -91,56 +103,104 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 	s1.ExecuteTemplate(w, "base", map[string]string{"APP_ID": APP_ID})
 }
 
-func startTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage *TorrentLocal, Config torrent.Config, torrentDbStorage *bolt.DB, torrentLocal []*TorrentLocal, tclient *torrent.Client) {
-	<-clientTorrent.GotInfo() //waiting for all of the torrent info to be downloaded
+func startTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage *TorrentLocal, torrentDbStorage *bolt.DB, dataDir string, torrentFile string, torrentFileName string) {
+
+	timeout := make(chan bool, 1) //creating a timeout channel for our gotinfo
+	go func() {
+		time.Sleep(45 * time.Second)
+		timeout <- true
+	}()
+	select {
+	case <-clientTorrent.GotInfo(): //attempting to retrieve info for torrent
+		fmt.Println("Recieved torrent info..")
+		clientTorrent.DownloadAll()
+	case <-timeout: // getting info for torrent has timed out so purging the torrent
+		fmt.Println("Dropping Torrent")
+		clientTorrent.Drop()
+		return
+	}
+
 	var TempHash metainfo.Hash
 	TempHash = clientTorrent.InfoHash()
 	fmt.Println(clientTorrent.Info().Source)
 	torrentLocalStorage.Hash = TempHash.String() // we will store the infohash to add it back later on client restart (if needed)
 	torrentLocalStorage.DateAdded = time.Now().Format("Jan _2 2006")
-	torrentLocalStorage.StoragePath = Config.DataDir //TODO check full path information for torrent storage
+	torrentLocalStorage.StoragePath = dataDir //TODO check full path information for torrent storage
 	torrentLocalStorage.TorrentName = clientTorrent.Name()
 	torrentLocalStorage.TorrentStatus = "downloading" //by default start all the torrents as downloading.
-
+	torrentLocalStorage.TorrentType = torrentFile     //either "file" or "magnet" maybe more in the future
+	if torrentFile == "file" {
+		torrentLocalStorage.TorrentFileName = torrentFileName
+	} else {
+		torrentLocalStorage.TorrentFileName = ""
+	}
 	fmt.Printf("%+v\n", torrentLocalStorage)
 	addTorrentLocalStorage(torrentDbStorage, torrentLocalStorage) //writing all of the data to the database
-
-	clientTorrent.DownloadAll() //starting the download
-	createRunningTorrentArray(tclient, torrentLocal)
+	clientTorrent.DownloadAll()                                   //starting the download
 }
 
-func createRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*TorrentLocal) (RunningTorrentArray []clientDB) {
+func createRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*TorrentLocal, config fullClientSettings, db *bolt.DB) (RunningTorrentArray []clientDB) {
 	for _, element := range TorrentLocalArray { //re-adding all the torrents we had stored from last shutdown
 
-		elementMagnet := "magnet:?xt=urn:btih:" + element.Hash
-		singleTorrent, _ := tclient.AddMagnet(elementMagnet) //adding back in the torrents by hash
+		var singleTorrent *torrent.Torrent
 
-		fmt.Println("Here...", elementMagnet)
-		//<-singleTorrent.GotInfo()
-		//singleTorrent.DownloadAll()
-		fmt.Println("Past...")
+		if element.TorrentType == "file" { //if it is a file pull it from the uploaded torrent folder
+			fmt.Println("Filename", element.TorrentFileName)
+			if _, err := os.Stat(element.TorrentFileName); err == nil { //if we CAN find the torrent, add it
+				fmt.Println("Adding file name...", element.TorrentFileName)
+				singleTorrent, _ = tclient.AddTorrentFromFile(element.TorrentFileName)
+			} else { //if we cant find the torrent delete it
+				fmt.Println("File Error", err)
+				delTorrentLocalStorage(db, element)
+				continue
+			}
+
+		} else {
+			elementMagnet := "magnet:?xt=urn:btih:" + element.Hash //For magnet links just need to prepend the magnet part to the hash to readd
+			singleTorrent, _ = tclient.AddMagnet(elementMagnet)
+		}
+
+		timeout := make(chan bool, 1) //creating a timeout channel for our gotinfo
+		go func() {
+			time.Sleep(45 * time.Second)
+			timeout <- true
+		}()
+		select {
+		case <-singleTorrent.GotInfo(): //attempting to retrieve info for torrent
+			singleTorrent.DownloadAll()
+		case <-timeout: // getting info for torrent has timed out so purging the torrent
+			fmt.Println("Dropping Torrent")
+			singleTorrent.Drop()
+			delTorrentLocalStorage(db, element) //purging torrent from the local database
+			continue
+		}
+
+		fmt.Println("Recieved info for: ", element.TorrentName)
 		fullClientDB := new(clientDB)
 		fullStruct := singleTorrent.Stats()
 
-		//bytesMissing := singleTorrent.BytesMissing()
-		//bytesTotal := singleTorrent.Length()
+		bytesTotal := singleTorrent.Length()
 		//bytesCompleted := singleTorrent.BytesCompleted()
-		//
+
 		calculateTorrentSpeed(singleTorrent, fullClientDB) //Setting the downloadSpeed for the torrent
+		//fullClientDB.UpdatedAt = time.Now()                // setting the current time to measure download speed.
 		var TempHash metainfo.Hash
 		TempHash = singleTorrent.InfoHash()
-		//fullClientDB.DownloadedSize = singleTorrent.BytesCompleted()
-		//fullClientDB.Size = bytesTotal
+		fullClientDB.DownloadedSize = singleTorrent.BytesCompleted() / 1024 / 1024
+		fullClientDB.Size = bytesTotal / 1024 / 1024
 		fullClientDB.TorrentHash = TempHash
-		//fullClientDB.PercentDone = 1 - (bytesMissing / bytesTotal)
-		//fullClientDB.DataBytesRead = fullStruct.ConnStats.DataBytesRead
-		//fullClientDB.DataBytesWritten = fullStruct.ConnStats.DataBytesWritten
+		fullClientDB.PercentDone = (float32(fullClientDB.DownloadedSize) / float32(fullClientDB.Size))
+		fullClientDB.DataBytesRead = fullStruct.ConnStats.DataBytesRead
+		fullClientDB.DataBytesWritten = fullStruct.ConnStats.DataBytesWritten
 		fullClientDB.ActivePeers = fullStruct.ActivePeers
 		fullClientDB.TotalPeers = fullStruct.TotalPeers
 		fullClientDB.TorrentHashString = TempHash.AsString()
 		fullClientDB.StoragePath = element.StoragePath
 		fullClientDB.TorrentName = element.TorrentName
 		fullClientDB.DateAdded = element.DateAdded
+		fmt.Println("Download Speed: ", fullClientDB.DownloadSpeed)
+		fmt.Println("Percent Done: ", fullClientDB.PercentDone)
+		fmt.Println("UpdatedAt: ", fullClientDB.UpdatedAt)
 
 		calculateTorrentStatus(singleTorrent, fullClientDB) //calculate the status of the torrent
 
@@ -158,9 +218,9 @@ func updateClient(torrentstats []clientDB, conn *websocket.Conn) { //get the tor
 
 func main() {
 	//setting up the torrent client
-	Config := fullClientSettingsNew() //grabbing from settings.go
-
-	torrentLocalStorage := new(TorrentLocal) //creating a new struct that stores all of our local storage info
+	Config := fullClientSettingsNew()              //grabbing from settings.go
+	os.Mkdir(Config.tFileUploadFolder, os.ModeDir) //creating a directory to store uploaded torrent files
+	torrentLocalStorage := new(TorrentLocal)       //creating a new struct that stores all of our local storage info
 
 	fmt.Printf("%+v\n", Config)
 
@@ -180,8 +240,9 @@ func main() {
 
 	TorrentLocalArray = readInTorrents(db) //pulling in all the already added torrents
 
-	if TorrentLocalArray != nil {
-		RunningTorrentArray = createRunningTorrentArray(tclient, TorrentLocalArray) //Updates the RunningTorrentArray with the current client data as well
+	if TorrentLocalArray != nil { //the first creation of the running torrent array
+		RunningTorrentArray = createRunningTorrentArray(tclient, TorrentLocalArray, Config, db) //Updates the RunningTorrentArray with the current client data as well
+
 	} else {
 		fmt.Println("Database is empty!")
 	}
@@ -196,8 +257,9 @@ func main() {
 		if err != nil {
 			fmt.Println("Error with fetching file or request issue", file)
 		}
-		defer file.Close()                                                           //defer closing the file until we are done manipulating it
-		fileName, err := os.OpenFile(header.Filename, os.O_WRONLY|os.O_CREATE, 0666) //generating the fileName
+		defer file.Close()                                                      //defer closing the file until we are done manipulating it
+		var filePath = filepath.Join(Config.tFileUploadFolder, header.Filename) //creating a full filepath to store the .torrent files
+		fileName, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE, 0666)   //generating the fileName
 		if err != nil {
 			panic(err)
 		}
@@ -207,21 +269,20 @@ func main() {
 			fmt.Println("Error adding Torrent from file: ", fileName.Name())
 		} else {
 			fmt.Println("Adding Torrent via file", fileName)
-			startTorrent(clientTorrent, torrentLocalStorage, Config.Config, db, TorrentLocalArray, tclient)
+			startTorrent(clientTorrent, torrentLocalStorage, db, Config.DataDir, "file", fileName.Name())
 		}
 
 	})
 	http.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) { //exposing the data to the
-		if len(RunningTorrentArray) > 0 {
-			RunningTorrentArray = createRunningTorrentArray(tclient, TorrentLocalArray) //Updates the RunningTorrentArray with the current client data as well
-			var torrentlistArray = new(torrentList)
-			torrentlistArray.ClientDBstruct = RunningTorrentArray
-			torrentlistArray.Totaltorrents = len(RunningTorrentArray)
-			torrentlistArrayJSON, _ := json.Marshal(torrentlistArray)
-			w.Header().Set("Content-Type", "application/json")
-			w.Write(torrentlistArrayJSON)
-			//updateClient(RunningTorrentArray, conn) // sending the client update information over the websocket
-		}
+		TorrentLocalArray = readInTorrents(db)
+		RunningTorrentArray = createRunningTorrentArray(tclient, TorrentLocalArray, Config, db) //Updates the RunningTorrentArray with the current client data as well
+		var torrentlistArray = new(torrentList)
+		torrentlistArray.ClientDBstruct = RunningTorrentArray
+		torrentlistArray.Totaltorrents = len(RunningTorrentArray)
+		torrentlistArrayJSON, _ := json.Marshal(torrentlistArray)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(torrentlistArrayJSON)
+		//updateClient(RunningTorrentArray, conn) // sending the client update information over the websocket
 	})
 	http.HandleFunc("/websocket", func(w http.ResponseWriter, r *http.Request) { //websocket is the main data pipe to the frontend
 		conn, err := upgrader.Upgrade(w, r, nil)
@@ -239,22 +300,21 @@ func main() {
 			}
 			if string(msg) == "clientUpdateRequest" { //6 second update ping
 				fmt.Println("client Requested Update")
-				time.Sleep(6 * time.Second)
+				//time.Sleep(6 * time.Second)
 				err = conn.WriteMessage(msgType, []byte("clientUpdate"))
 				if err != nil {
 					fmt.Println("Websocket Write err", err)
 					return
 				}
 
-				if len(RunningTorrentArray) > 0 {
-					RunningTorrentArray = createRunningTorrentArray(tclient, TorrentLocalArray) //Updates the RunningTorrentArray with the current client data as well
-					var torrentlistArray = new(torrentList)
-					torrentlistArray.ClientDBstruct = RunningTorrentArray
-					torrentlistArray.Totaltorrents = len(RunningTorrentArray)
-					fmt.Printf("%+v\n", torrentlistArray)
-					conn.WriteJSON(torrentlistArray)
-					//updateClient(RunningTorrentArray, conn) // sending the client update information over the websocket
-				}
+				TorrentLocalArray = readInTorrents(db)
+				RunningTorrentArray = createRunningTorrentArray(tclient, TorrentLocalArray, Config, db) //Updates the RunningTorrentArray with the current client data as well
+				var torrentlistArray = new(torrentList)
+				torrentlistArray.ClientDBstruct = RunningTorrentArray
+				torrentlistArray.Totaltorrents = len(RunningTorrentArray)
+				//fmt.Printf("%+v\n", torrentlistArray)
+				conn.WriteJSON(torrentlistArray)
+				//updateClient(RunningTorrentArray, conn) // sending the client update information over the websocket
 
 			} else if strings.HasPrefix(string(msg), "magnet:") {
 				fmt.Println(string(msg))
@@ -263,9 +323,9 @@ func main() {
 					fmt.Println("Magnet Error", err)
 				}
 				fmt.Println(clientTorrent)
-				fmt.Printf("Adding")
+				fmt.Printf("Adding Magnet Link")
 
-				startTorrent(clientTorrent, torrentLocalStorage, Config.Config, db, TorrentLocalArray, tclient) //starting the torrent and creating local DB entry
+				startTorrent(clientTorrent, torrentLocalStorage, db, Config.DataDir, "magnet", "") //starting the torrent and creating local DB entry
 
 			} else {
 				conn.Close()

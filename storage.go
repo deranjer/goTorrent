@@ -8,27 +8,30 @@ import (
 )
 
 type TorrentLocal struct { //local storage of the torrents for readd on server restart
-	Hash          string
-	DateAdded     string
-	StoragePath   string
-	TorrentName   string
-	TorrentStatus string
-	TorrentType   string //magnet or .torrent file
+	Hash            string
+	DateAdded       string
+	StoragePath     string
+	TorrentName     string
+	TorrentStatus   string
+	TorrentType     string //magnet or .torrent file
+	TorrentFileName string
 }
 
-func readInTorrents(torrentStorage *bolt.DB) (TorrentLocalArray []*TorrentLocal) {
+func readInTorrents(torrentStorage *bolt.DB) (torrentLocalArray []*TorrentLocal) {
 
-	TorrentLocalArray = []*TorrentLocal{}
+	torrentLocalArray = []*TorrentLocal{}
 
 	torrentStorage.View(func(tx *bolt.Tx) error {
 
 		tx.ForEach(func(name []byte, b *bolt.Bucket) error {
-			torrentLocal := new(TorrentLocal) //create a struct to store to an array
+			torrentLocal := new(TorrentLocal) //create a struct to store to an array //TODO clean this the fuck up just read the struct into something that converts them all the byte arrays
 			var Dateadded []byte
 			var StoragePath []byte
 			var Hash []byte
 			var TorrentName []byte
 			var TorrentStatus []byte
+			var TorrentType []byte
+			var TorrentFileName []byte
 			Dateadded = b.Get([]byte("Date"))
 			if Dateadded == nil {
 				fmt.Println("Date added error!")
@@ -53,21 +56,33 @@ func readInTorrents(torrentStorage *bolt.DB) (TorrentLocalArray []*TorrentLocal)
 				fmt.Println("Torrent Status not found in local storage")
 				TorrentStatus = []byte("")
 			}
+			TorrentType = b.Get([]byte("TorrentType"))
+			if TorrentType == nil {
+				fmt.Println("Torrent Type not found in local storage")
+				TorrentStatus = []byte("")
+			}
+			TorrentFileName = b.Get([]byte("TorrentFileName"))
+			if TorrentFileName == nil {
+				fmt.Println("Torrent File Name not found in local storage")
+				TorrentFileName = []byte("")
+			}
 
 			torrentLocal.DateAdded = string(Dateadded)
 			torrentLocal.StoragePath = string(StoragePath)
 			torrentLocal.Hash = string(Hash) //Converting the byte slice back into the full hash
 			torrentLocal.TorrentName = string(TorrentName)
 			torrentLocal.TorrentStatus = string(TorrentStatus)
+			torrentLocal.TorrentType = string(TorrentType)
+			torrentLocal.TorrentFileName = string(TorrentFileName)
 
 			fmt.Println("Torrentlocal list: ", torrentLocal)
-			TorrentLocalArray = append(TorrentLocalArray, torrentLocal) //dumping it into the array
+			torrentLocalArray = append(torrentLocalArray, torrentLocal) //dumping it into the array
 			return nil
 		})
 		return nil
 	})
 
-	return TorrentLocalArray //all done, return the entire Array to add to the torrent client
+	return torrentLocalArray //all done, return the entire Array to add to the torrent client
 }
 
 func addTorrentLocalStorage(torrentStorage *bolt.DB, local *TorrentLocal) {
@@ -94,7 +109,27 @@ func addTorrentLocalStorage(torrentStorage *bolt.DB, local *TorrentLocal) {
 		if err != nil {
 			return err
 		}
-
+		err = b.Put([]byte("TorrentType"), []byte(local.TorrentType))
+		if err != nil {
+			return err
+		}
+		err = b.Put([]byte("TorrentFileName"), []byte(local.TorrentFileName))
+		if err != nil {
+			return err
+		}
 		return nil
 	})
+}
+
+func delTorrentLocalStorage(torrentStorage *bolt.DB, local *TorrentLocal) { //deleting a torrent by hash
+	println("Deleting torrent", local.TorrentFileName)
+
+	torrentStorage.Update(func(tx *bolt.Tx) error {
+		err := tx.DeleteBucket([]byte(local.Hash))
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
 }
