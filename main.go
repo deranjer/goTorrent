@@ -20,6 +20,7 @@ import (
 
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/boltdb/bolt"
+	//tengine "github.com/deranjer/gtEngine/engine"
 )
 
 var (
@@ -41,17 +42,18 @@ type torrentList struct { //helps create the JSON structure that react expects t
 }
 
 type clientDB struct {
-	TorrentName       string  `json:"TorrentName"`
-	DownloadedSize    int64   `json:"DownloadedSize"`
-	Size              int64   `json:"Size"`
-	DownloadSpeed     float32 `json:"DownloadSpeed"`
-	UploadSpeed       float32 `json:"UploadSpeed"`
+	TorrentName      string `json:"TorrentName"`
+	DownloadedSize   string `json:"DownloadedSize"`
+	Size             string `json:"Size"`
+	DownloadSpeed    string `json:"DownloadSpeed"`
+	downloadSpeedInt int64
+	UploadSpeed      string `json:"UploadSpeed"`
+	//UploadSpeedInt    int64
 	DataBytesWritten  int64
 	DataBytesRead     int64
-	ActivePeers       int     `json:"ActivePeers"`
-	TotalPeers        int     `json:"TotalPeers"`
-	TorrentHashString string  `json:"TorrentHashString"`
-	PercentDone       float32 `json:"PercentDone"`
+	ActivePeers       string `json:"ActivePeers"`
+	TorrentHashString string `json:"TorrentHashString"`
+	PercentDone       string `json:"PercentDone"`
 	TorrentHash       metainfo.Hash
 	StoragePath       string `json:"StorageLocation"`
 	DateAdded         string
@@ -59,33 +61,92 @@ type clientDB struct {
 	Status            string `json:"Status"`
 	BytesCompleted    int64
 	UpdatedAt         time.Time
+	ETA               string `json:"ETA"`
 }
 
-func calculateTorrentSpeed(t *torrent.Torrent, c *clientDB) {
+func secondsToMinutes(inSeconds int64) string {
+	minutes := inSeconds / 60
+	seconds := inSeconds % 60
+	minutesString := fmt.Sprintf("%d", minutes)
+	secondsString := fmt.Sprintf("%d", seconds)
+	str := minutesString + " Min/ " + secondsString + " Sec"
+	return str
+}
+
+func convertSizetoGB(t float32, d float32) (tDelta string, dDelta string) { //converting sizes to MB or GB as needed and adding string
+	if t > 1024 && d > 1024 {
+		t := fmt.Sprintf("%.2f", t/1024)
+		t = t + " GB"
+		d := fmt.Sprintf("%.2f", d/1024)
+		d = d + " GB"
+		return t, d
+	} else if d > 1024 || t > 1024 {
+		if d > 1024 {
+			d := fmt.Sprintf("%.2f", d/1024)
+			d = d + " GB"
+			t := fmt.Sprintf("%.2f", t)
+			t = t + " MB"
+			return t, d
+		}
+		d := fmt.Sprintf("%.2f", d)
+		d = d + " MB"
+		t := fmt.Sprintf("%.2f", t/1024)
+		t = t + " GB"
+		return t, d
+	} else {
+		d := fmt.Sprintf("%.2f", d)
+		t := fmt.Sprintf("%.2f", t)
+		t = t + " MB"
+		d = d + " MB"
+		return t, d
+	}
+}
+
+func calculateTorrentSpeed(t *torrent.Torrent, c *clientDB, oc clientDB) {
 	now := time.Now()
 	bytes := t.BytesCompleted()
-	fmt.Println("UpdatedAt: ", c.UpdatedAt)
-	if c.UpdatedAt.IsZero() {
-		c.UpdatedAt = now
-		fmt.Println("Setting Time", c.UpdatedAt)
-
-	} else {
-		dt := float32(now.Sub(c.UpdatedAt))
-		fmt.Println("Delta Time: ", dt)
-		db := float32(bytes - c.BytesCompleted)
-		fmt.Println("Delta Bytes:", db)
-		rate := db * (float32(time.Second) / dt)
-
-		fmt.Println("form: ", float32(time.Second))
-		if rate >= 0 {
-			c.DownloadSpeed = rate
-		}
+	bytesUpload := t.Stats().DataBytesWritten
+	dt := float32(now.Sub(oc.UpdatedAt))     // get the delta time length between now and last updated
+	db := float32(bytes - oc.BytesCompleted) //getting the delta bytes
+	rate := db * (float32(time.Second) / dt) // converting into seconds
+	dbU := float32(bytesUpload - oc.DataBytesWritten)
+	fmt.Println("BytesWritten", bytesUpload)
+	fmt.Println("WireBytes", t.Stats().DataBytesWritten)
+	fmt.Println("ChunksWritten", t.Stats().ChunksWritten)
+	rateUpload := dbU * (float32(time.Second) / dt)
+	if rate >= 0 {
+		rate = rate / 1024 / 1024 //creating integer to calculate ETA
+		c.DownloadSpeed = fmt.Sprintf("%.2f", rate)
+		c.DownloadSpeed = c.DownloadSpeed + " MB/s"
+		c.downloadSpeedInt = int64(rate)
 	}
+	if rateUpload >= 0 {
+		rateUpload = rateUpload / 1024 / 1024
+		c.UploadSpeed = fmt.Sprintf("%.2f", rateUpload)
+		c.UploadSpeed = c.UploadSpeed + " MB/s"
+		//c.UploadSpeedInt = int64(rateUpload)
+	}
+	//c.DownloadSpeed = fmt.Sprintf("%.2f", rate) //setting zero for download speed
+	//c.DownloadSpeed = c.DownloadSpeed + " MB/s"
+	c.UpdatedAt = now
+}
 
+func calculateTorrentETA(t *torrent.Torrent, c *clientDB) {
+	missingBytes := t.Length() - t.BytesCompleted()
+	missingMB := missingBytes / 1024 / 1024
+	if missingMB == 0 {
+		c.ETA = "Done"
+	} else if c.downloadSpeedInt == 0 {
+		c.ETA = "N/A"
+	} else {
+		ETASeconds := missingMB / c.downloadSpeedInt
+		str := secondsToMinutes(ETASeconds) //converting seconds to minutes + seconds
+		c.ETA = str
+	}
 }
 
 func calculateTorrentStatus(t *torrent.Torrent, c *clientDB) {
-	if t.Seeding() {
+	if t.Seeding() && t.Stats().ActivePeers > 0 && t.BytesMissing() == 0 {
 		c.Status = "Seeding"
 	} else if t.Stats().ActivePeers > 0 && t.BytesMissing() > 0 {
 		c.Status = "Downloading"
@@ -103,23 +164,28 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 	s1.ExecuteTemplate(w, "base", map[string]string{"APP_ID": APP_ID})
 }
 
-func startTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage *TorrentLocal, torrentDbStorage *bolt.DB, dataDir string, torrentFile string, torrentFileName string) {
-
+func timeOutInfo(clientTorrent *torrent.Torrent, seconds time.Duration) (deleted bool) { //forcing a timeout of the
 	timeout := make(chan bool, 1) //creating a timeout channel for our gotinfo
 	go func() {
-		time.Sleep(45 * time.Second)
+		time.Sleep(seconds * time.Second)
 		timeout <- true
 	}()
 	select {
 	case <-clientTorrent.GotInfo(): //attempting to retrieve info for torrent
 		fmt.Println("Recieved torrent info..")
 		clientTorrent.DownloadAll()
+		return false
 	case <-timeout: // getting info for torrent has timed out so purging the torrent
 		fmt.Println("Dropping Torrent")
 		clientTorrent.Drop()
-		return
+		return true
 	}
 
+}
+
+func startTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage *TorrentLocal, torrentDbStorage *bolt.DB, dataDir string, torrentFile string, torrentFileName string) {
+
+	timeOutInfo(clientTorrent, 45) //seeing if adding the torrrent times out (giving 45 seconds)
 	var TempHash metainfo.Hash
 	TempHash = clientTorrent.InfoHash()
 	fmt.Println(clientTorrent.Info().Source)
@@ -139,15 +205,15 @@ func startTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage *TorrentLo
 	clientTorrent.DownloadAll()                                   //starting the download
 }
 
-func createRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*TorrentLocal, config fullClientSettings, db *bolt.DB) (RunningTorrentArray []clientDB) {
+func createRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*TorrentLocal, PreviousTorrentArray []clientDB, config fullClientSettings, db *bolt.DB) (RunningTorrentArray []clientDB) {
 	for _, element := range TorrentLocalArray { //re-adding all the torrents we had stored from last shutdown
 
 		var singleTorrent *torrent.Torrent
 
 		if element.TorrentType == "file" { //if it is a file pull it from the uploaded torrent folder
-			fmt.Println("Filename", element.TorrentFileName)
+			//fmt.Println("Filename", element.TorrentFileName)
 			if _, err := os.Stat(element.TorrentFileName); err == nil { //if we CAN find the torrent, add it
-				fmt.Println("Adding file name...", element.TorrentFileName)
+				//fmt.Println("Adding file name...", element.TorrentFileName)
 				singleTorrent, _ = tclient.AddTorrentFromFile(element.TorrentFileName)
 			} else { //if we cant find the torrent delete it
 				fmt.Println("File Error", err)
@@ -160,49 +226,51 @@ func createRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Tor
 			singleTorrent, _ = tclient.AddMagnet(elementMagnet)
 		}
 
-		timeout := make(chan bool, 1) //creating a timeout channel for our gotinfo
-		go func() {
-			time.Sleep(45 * time.Second)
-			timeout <- true
-		}()
-		select {
-		case <-singleTorrent.GotInfo(): //attempting to retrieve info for torrent
-			singleTorrent.DownloadAll()
-		case <-timeout: // getting info for torrent has timed out so purging the torrent
-			fmt.Println("Dropping Torrent")
-			singleTorrent.Drop()
+		timeOut := timeOutInfo(singleTorrent, 45)
+		if timeOut == true { // if we did timeout then drop the torrent from the boltdb database
 			delTorrentLocalStorage(db, element) //purging torrent from the local database
-			continue
 		}
 
-		fmt.Println("Recieved info for: ", element.TorrentName)
 		fullClientDB := new(clientDB)
 		fullStruct := singleTorrent.Stats()
 
-		bytesTotal := singleTorrent.Length()
-		//bytesCompleted := singleTorrent.BytesCompleted()
+		//ranging over the previous torrent array to calculate the speed for each torrent
+		if len(PreviousTorrentArray) > 0 { //if we actually have  a previous array
+			for _, previousElement := range PreviousTorrentArray {
+				TempHash := singleTorrent.InfoHash()
+				if previousElement.TorrentHashString == TempHash.AsString() { //matching previous to new
+					calculateTorrentSpeed(singleTorrent, fullClientDB, previousElement)
+				}
+			}
+		}
+		activePeersString := fmt.Sprintf("%v", fullStruct.ActivePeers) //converting to strings
+		totalPeersString := fmt.Sprintf("%v", fullStruct.TotalPeers)
+		bytesCompletedMB := float32(singleTorrent.BytesCompleted() / 1024 / 1024)
+		totalSizeMB := float32(singleTorrent.Length() / 1024 / 1024)
+		//downloadSizeString := fmt.Sprintf("%d", bytesCompletedMB)
 
-		calculateTorrentSpeed(singleTorrent, fullClientDB) //Setting the downloadSpeed for the torrent
-		//fullClientDB.UpdatedAt = time.Now()                // setting the current time to measure download speed.
+		tSize, dSize := convertSizetoGB(totalSizeMB, bytesCompletedMB) //convert size to GB if needed
 		var TempHash metainfo.Hash
 		TempHash = singleTorrent.InfoHash()
-		fullClientDB.DownloadedSize = singleTorrent.BytesCompleted() / 1024 / 1024
-		fullClientDB.Size = bytesTotal / 1024 / 1024
+
+		fullClientDB.DownloadedSize = dSize
+		fullClientDB.Size = tSize
+		PercentDone := fmt.Sprintf("%.2f", bytesCompletedMB/totalSizeMB)
 		fullClientDB.TorrentHash = TempHash
-		fullClientDB.PercentDone = (float32(fullClientDB.DownloadedSize) / float32(fullClientDB.Size))
+		fullClientDB.PercentDone = PercentDone
 		fullClientDB.DataBytesRead = fullStruct.ConnStats.DataBytesRead
 		fullClientDB.DataBytesWritten = fullStruct.ConnStats.DataBytesWritten
-		fullClientDB.ActivePeers = fullStruct.ActivePeers
-		fullClientDB.TotalPeers = fullStruct.TotalPeers
+		fullClientDB.ActivePeers = activePeersString + " / (" + totalPeersString + ")"
 		fullClientDB.TorrentHashString = TempHash.AsString()
 		fullClientDB.StoragePath = element.StoragePath
 		fullClientDB.TorrentName = element.TorrentName
 		fullClientDB.DateAdded = element.DateAdded
-		fmt.Println("Download Speed: ", fullClientDB.DownloadSpeed)
-		fmt.Println("Percent Done: ", fullClientDB.PercentDone)
-		fmt.Println("UpdatedAt: ", fullClientDB.UpdatedAt)
-
-		calculateTorrentStatus(singleTorrent, fullClientDB) //calculate the status of the torrent
+		fullClientDB.BytesCompleted = singleTorrent.BytesCompleted()
+		calculateTorrentETA(singleTorrent, fullClientDB) //calculating the ETA for the torrent
+		//fmt.Println("Download Speed: ", fullClientDB.DownloadSpeed)
+		//fmt.Println("Percent Done: ", fullClientDB.PercentDone)
+		//tclient.WriteStatus(os.Stdout)
+		calculateTorrentStatus(singleTorrent, fullClientDB) //calculate the status of the torrent, ie downloading seeding etc
 
 		RunningTorrentArray = append(RunningTorrentArray, *fullClientDB)
 
@@ -211,8 +279,6 @@ func createRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Tor
 }
 
 func updateClient(torrentstats []clientDB, conn *websocket.Conn) { //get the torrent client and the websocket connection to write msg
-	//first get the list of torrents in the client
-
 	conn.WriteJSON(torrentstats) //converting to JSON and writing to the client
 }
 
@@ -237,11 +303,12 @@ func main() {
 
 	var TorrentLocalArray = []*TorrentLocal{} //this is an array of ALL of the local storage torrents, they will be added back in via hash
 	var RunningTorrentArray = []clientDB{}    //this stores ALL of the torrents that are running, used for client update pushes combines Local Storage and Running tclient info
+	var PreviousTorrentArray = []clientDB{}
 
 	TorrentLocalArray = readInTorrents(db) //pulling in all the already added torrents
 
 	if TorrentLocalArray != nil { //the first creation of the running torrent array
-		RunningTorrentArray = createRunningTorrentArray(tclient, TorrentLocalArray, Config, db) //Updates the RunningTorrentArray with the current client data as well
+		RunningTorrentArray = createRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db) //Updates the RunningTorrentArray with the current client data as well
 
 	} else {
 		fmt.Println("Database is empty!")
@@ -275,8 +342,8 @@ func main() {
 	})
 	http.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) { //exposing the data to the
 		TorrentLocalArray = readInTorrents(db)
-		RunningTorrentArray = createRunningTorrentArray(tclient, TorrentLocalArray, Config, db) //Updates the RunningTorrentArray with the current client data as well
-		var torrentlistArray = new(torrentList)
+		RunningTorrentArray = createRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db) //Updates the RunningTorrentArray with the current client data as well
+		var torrentlistArray = new(torrentList)                                                                       //the full JSON that includes the number of torrents as the root
 		torrentlistArray.ClientDBstruct = RunningTorrentArray
 		torrentlistArray.Totaltorrents = len(RunningTorrentArray)
 		torrentlistArrayJSON, _ := json.Marshal(torrentlistArray)
@@ -308,7 +375,8 @@ func main() {
 				}
 
 				TorrentLocalArray = readInTorrents(db)
-				RunningTorrentArray = createRunningTorrentArray(tclient, TorrentLocalArray, Config, db) //Updates the RunningTorrentArray with the current client data as well
+				RunningTorrentArray = createRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db) //Updates the RunningTorrentArray with the current client data as well
+				PreviousTorrentArray = RunningTorrentArray
 				var torrentlistArray = new(torrentList)
 				torrentlistArray.ClientDBstruct = RunningTorrentArray
 				torrentlistArray.Totaltorrents = len(RunningTorrentArray)

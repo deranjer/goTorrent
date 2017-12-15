@@ -13,19 +13,31 @@ const styles = theme => ({
     backgroundColor: theme.palette.primary[300],
     float: 'left',
     height: theme.spacing.unit,
+    whiteSpace: 'nowrap',
   },
+  progressText: {
+    display: 'inline-block',
+    fontSize: '1em',
+    textAlign: 'right',
+    verticalAlign: 'text-top',
+    fontSize: '12px',
+    fontWeight: 'bold',
+    margin: '5px',
+    whiteSpace: 'nowrap',
+  }
 });
 
 export const ProgressBarCellBase = ({ value, classes, style }) => (
   <TableCell
     className={classes.progressBarCell}
     style={style}
+    
   >
     <div
       className={classes.progressBar}
       style={{ width: `${value}%` }}
-      title={`${value.toFixed(1)}%`}
-    />
+      title={`${value.toFixed(1)}%`}  
+    /><div className={classes.progressText}>{value}</div>
   </TableCell>
 );
 ProgressBarCellBase.propTypes = {

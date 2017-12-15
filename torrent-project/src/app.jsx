@@ -13,7 +13,7 @@ import {Provider} from 'react-redux';
 import reducer from './store/reducer';
 //Menu and torrentlist imports
 import TopMenu from './topMenu';
-import BottomMenu from './bottomMenu';
+import BottomMenu from './BottomMenu/bottomMenu';
 import LeftMenu from './leftMenu';
 import TorrentList from './torrentlist';
 
@@ -47,9 +47,9 @@ class BasicLayout extends React.PureComponent {
     super(props);
 
     var layout =  [
-      {i: 'a', x: 0, y: 0, w: 6, h: 1, static: true},
+      {i: 'a', x: 0, y: 0, w: 6, h: 1},
       {i: 'b', x: 0, y: 1, w: 1, h: 5},
-      {i: 'c', x: 1, y: 1, w: 5, h: 5, minW: 5, minH: 5, static: true},
+      {i: 'c', x: 1, y: 1, w: 5, h: 3, minW: 5, minH: 3},
       {i: 'd', x: 1, y: 2, w: 5, h: 2, minW: 5, minH: 1}
     ];
     this.state = { layout };

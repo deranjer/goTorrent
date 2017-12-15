@@ -1,3 +1,4 @@
 export const SORTLIST = 'SORTLIST';
 export const CHANGE_SELECTION = 'CHANGE_SELECTION';
+export const CHANGE_FILTER = 'CHANGE_FILTER';
 

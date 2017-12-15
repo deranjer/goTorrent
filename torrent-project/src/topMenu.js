@@ -25,6 +25,7 @@ import AddShoppingCartIcon from 'material-ui-icons/AddShoppingCart';
 
 //Redux
 import {connect} from 'react-redux';
+import * as actionTypes from './store/actions'
 
 
 const styles = theme => ({
@@ -63,9 +64,11 @@ const styles = theme => ({
 class IconButtons extends React.Component {
   constructor(props){
     super(props);
-    let buttonState = "default"
-    console.log("buttonState", buttonState)
-    switch(buttonState){
+    //let buttonState = "default"
+
+    console.log("selection", this.props.selection)
+    
+    switch("downloading"){
       case "paused":
         startTorrentState: "primary"
         pauseTorrentState: "disabled"
@@ -96,7 +99,6 @@ class IconButtons extends React.Component {
     console.log("Here...", selectedRowProps)
   }
  */
- 
 
   render() {
     const { classes } = this.props;
@@ -105,7 +107,7 @@ class IconButtons extends React.Component {
         <AddTorrentFilePopup />
         <AddTorrentLinkPopup />
         <div className={classes.verticalDivider}></div>
-        <IconButton color={this.props.startTorrentState} data-tip="Start Torrent" className={classes.button} aria-label="Start Torrent">
+        <IconButton color={this.props.startTorrentState} data-tip={this.props.selection} className={classes.button} aria-label="Start Torrent">
           <ReactTooltip place="top" type="light" effect="float" />
           <StartTorrentIcon />
         </IconButton>
@@ -140,11 +142,17 @@ IconButtons.propTypes = {
 };
 
 
-const mapStateToProps = state => {
+const mapStateToProps = (state) => {
   return {
-      buttonState: state.selection
+    selection: state.selection
   };
 }
 
+const mapDispatchToProps = dispatch => {
+  return {
+    changeSelection: (selection) => dispatch({type: actionTypes.CHANGE_SELECTION, selection: selection})
+  }
+}
 
-export default withStyles(styles)(connect(mapStateToProps)(IconButtons))
+
+export default withStyles(styles)(connect(mapStateToProps, mapDispatchToProps)(IconButtons))

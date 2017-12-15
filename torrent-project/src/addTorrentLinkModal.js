@@ -24,6 +24,7 @@ const button = {
 
 const inlineStyle = {
   display: 'inline-block',
+  backdrop: 'static',
 }
 
 export default class addTorrentPopup extends React.Component {

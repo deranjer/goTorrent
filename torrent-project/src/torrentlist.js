@@ -4,7 +4,7 @@ import styles from '../node_modules/react-bootstrap-table/dist/react-bootstrap-t
 import {BootstrapTable, TableHeaderColumn} from 'react-bootstrap-table';
 
 import {
-    SortingState, LocalSorting, PagingState, VirtualTableLayout, SelectionState, 
+    SortingState, LocalSorting, PagingState, VirtualTableLayout, SelectionState, FilteringState, LocalFiltering,
 } from '@devexpress/dx-react-grid';
 
 import {
@@ -51,10 +51,8 @@ ws.onmessage = function (evt) //When we recieve a message from the websocket
             // torrentHash.innerHTML = "Hash: " + clientUpdate.data[0].TorrentHashString;
             torrents = []; //clearing out the torrent array to make room for new (so that it does keep adding)
             for(var i = 0; i < clientUpdate.total; i++){
-                //console.log("TorrentName: ", clientUpdate.data[i].TorrentName)
-                console.log("PercentDone: ", clientUpdate.data[i].PercentDone)
                 torrents.push({
-                    TorrentHashString: clientUpdate.data[i].TorrentHashString,
+                    TorrentHashString: clientUpdate.data[i].TorrentHash,
                     TorrentName: clientUpdate.data[i].TorrentName,
                     DownloadedSize: clientUpdate.data[i].DownloadedSize,
                     Size: clientUpdate.data[i].Size,
@@ -66,7 +64,7 @@ ws.onmessage = function (evt) //When we recieve a message from the websocket
                     Status: clientUpdate.data[i].Status,
                     BytesCompleted: clientUpdate.data[i].BytesCompleted,
                     ActivePeers: clientUpdate.data[i].ActivePeers,
-                    TotalPeers: clientUpdate.data[i].TotalPeers,
+                    ETA: clientUpdate.data[i].ETA,
                 })
                 
             }
@@ -88,12 +86,12 @@ function sendEvent(message)
     console.log('Sending message... ', message)
 }
 
-
 class TorrentListTable extends React.Component {
     
     constructor(props) {
         super(props);
         this.state = {
+            columnName: "Status",
             torrentList: torrents, 
             columns: [
                 { name: 'TorrentName', title: 'Torrent Name' },
@@ -104,14 +102,13 @@ class TorrentListTable extends React.Component {
                 { name: 'DownloadSpeed', title: 'DL Speed'},
                 { name: 'UploadSpeed', title: 'UL Speed'},
                 { name: 'ActivePeers', title: 'Active Peers' },
-                { name: 'TotalPeers', title: 'Total Peers' },
                 { name: 'ETA', title: 'ETA'},
                 { name: 'Ratio', title: 'Ratio'},
                 { name: 'Availability', title: 'Availability'},
                 { name: 'TorrentHashString', title: 'Torrent Hash' }
             ],
-            columnOrder: ['TorrentName', 'DownloadedSize', 'Size', 'PercentDone', 'Status', 'DownloadSpeed', 'UploadSpeed','ActivePeers', 'TotalPeers', 'ETA', 'Ratio', 'Availability', 'TorrentHashString'],
-            columnWidths: {TorrentName: 250, DownloadedSize: 175, Size: 175, PercentDone: 175, Status: 250, DownloadSpeed: 100, UploadSpeed: 100, ActivePeers: 100, TotalPeers: 100, ETA: 175, Ratio: 175, Availability: 175, TorrentHashString: 250,}
+            columnOrder: ['TorrentName', 'DownloadedSize', 'Size', 'PercentDone', 'Status', 'DownloadSpeed', 'UploadSpeed','ActivePeers', 'ETA', 'Ratio', 'Availability', 'TorrentHashString'],
+            columnWidths: {TorrentName: 250, DownloadedSize: 100, Size: 100, PercentDone: 175, Status: 150, DownloadSpeed: 100, UploadSpeed: 100, ActivePeers: 100, ETA: 100, Ratio: 75, Availability: 75, TorrentHashString: 250,}
 
         };
  
@@ -134,6 +131,12 @@ class TorrentListTable extends React.Component {
     clearInterval(this.timerID);
     } 
 
+    componentWillReceiveProps (nextProps){
+        if (this.props.filter != nextProps.filter){
+            this.filterHandler(nextProps.filter)
+        }
+    }
+
     tick() {
         ws.send("clientUpdateRequest")//talking to the server to get the torrent list
         this.setState({torrentList: torrents});
@@ -142,12 +145,78 @@ class TorrentListTable extends React.Component {
         
     }
 
+    createSelectionold = (selection) => {
+        for (i = 0; i < selection.length; i++){
+            buttonState = selection[i]
+        }
+
+    
+    
+        switch("downloading"){
+        case "paused":
+            startTorrentState: "primary"
+            pauseTorrentState: "disabled"
+            stopTorrentState: "primary"
+            deleteTorrentState: "accent"
+    
+        case "stopped":
+            startTorrentState: "primary"
+            pauseTorrentState: "disabled"
+            stopTorrentState: "primary"
+            deleteTorrentState: "accent"
+    
+        case "downloading":
+            startTorrentState: "disabled"
+            pauseTorrentState: "primary"
+            stopTorrentState: "primary"
+            deleteTorrentState: "accent"
+    
+        default:
+            startTorrentState: "disabled"
+            pauseTorrentState: "disabled"
+            stopTorrentState: "disabled"
+            deleteTorrentState: "disabled" 
+        }
+
+    }
+
+    selectionHandler = (selection) => {
+        console.log("Selection", selection) //prints out row number
+        this.props.changeSelection(selection) //dispatch to redux
+       
+    }
+
+    filterHandler = (filter) => {
+        console.log("Changing FIlter", filter)
+        console.log("Filter Value", filter[0].value)
+        if (filter[0].value === 'Active') {
+            console.log("Active Filter")
+            values = ['Seeding', 'Downloading'].includes
+            this.props.filter == [{columnName: 'Status', value: values}]
+            return['Downloading', 'Seeding'].includes(row[filter.columnName]);
+        }
+    }
+
+    getCellValueFunc = (selection) => {
+        //console.log("Selection", selection)
+        console.log(selection["Status"])
+        if (selection[0] != undefined) {
+            console.log("Row", selection[0])
+            console.log("Column", "Status")
+            console.log("Data", selection[0]["Status"])
+        }
+
+    }
+
+
     render() {
         return (   
             <Grid rows={this.state.torrentList} columns={this.state.columns}>
                 <SortingState sorting={this.props.sorting} onSortingChange={this.props.changeSorting} />
                 <LocalSorting />
-                <SelectionState onSelectionChange={this.props.changeSelection} selection={this.props.selection}/>
+                <FilteringState filters={this.props.filter} />
+                <LocalFiltering />
+                <SelectionState onSelectionChange={this.props.changeSelection} selection={this.props.selection}/> 
                 <TableView  tableCellTemplate={({ row, column, style }) => {
                     if (column.name === 'PercentDone') {
                     return (
@@ -162,15 +231,13 @@ class TorrentListTable extends React.Component {
                 <TableSelection selectByRowClick highlightSelected />
                 <TableHeaderRow allowSorting allowResizing allowDragging />
             </Grid>
-
-
         );
     }
 }
 
 const mapStateToProps = state => {
     return {
-
+        filter: state.filter
     };
   }
 
