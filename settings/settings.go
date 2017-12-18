@@ -1,4 +1,4 @@
-package main
+package settings
 
 import (
 	"github.com/anacrolix/dht"

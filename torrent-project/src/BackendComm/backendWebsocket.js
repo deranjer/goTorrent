@@ -41,12 +41,12 @@ ws.onmessage = function (evt) { //When we recieve a message from the websocket
                     BytesCompleted: clientUpdate.data[i].BytesCompleted,
                     ActivePeers: clientUpdate.data[i].ActivePeers,
                     ETA: clientUpdate.data[i].ETA,
-                })
-                
-            }
-        
+                })    
+            } 
             var newTitle = '(' + clientUpdate.total + ')' + title; //updating the title
             document.title = newTitle;
+        } else if (clientUpdate) {
+            
         }
                                     
     }
