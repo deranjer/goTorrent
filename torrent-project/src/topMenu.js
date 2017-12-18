@@ -23,6 +23,9 @@ import DeleteIcon from 'material-ui-icons/Delete';
 import AddShoppingCartIcon from 'material-ui-icons/AddShoppingCart';
 //import PhotoCamera from 'material-ui-icons/PhotoCamera';
 
+import BackendSocket from './BackendComm/backendWebsocket';
+
+
 //Redux
 import {connect} from 'react-redux';
 import * as actionTypes from './store/actions'
@@ -64,41 +67,19 @@ const styles = theme => ({
 class IconButtons extends React.Component {
   constructor(props){
     super(props);
-    //let buttonState = "default"
-
-    console.log("selection", this.props.selection)
     
-    switch("downloading"){
-      case "paused":
-        startTorrentState: "primary"
-        pauseTorrentState: "disabled"
-        stopTorrentState: "primary"
-        deleteTorrentState: "accent"
+  }
+ 
+  buttonHandler = (buttonState) => {
+    console.log("BUTTONSTATE", buttonState)
+  }
 
-      case "stopped":
-        startTorrentState: "primary"
-        pauseTorrentState: "disabled"
-        stopTorrentState: "primary"
-        deleteTorrentState: "accent"
-
-      case "downloading":
-        startTorrentState: "disabled"
-        pauseTorrentState: "primary"
-        stopTorrentState: "primary"
-        deleteTorrentState: "accent"
-
-      default:
-        startTorrentState: "disabled"
-        pauseTorrentState: "disabled"
-        stopTorrentState: "disabled"
-        deleteTorrentState: "disabled" 
+  componentWillReceiveProps = (nextProps) => {  //if we get a new buttonstate force a button update
+    if (this.props.buttonState != nextProps.buttonState){
+      this.buttonHandler(nextProps.buttonState)
     }
+    console.log("B1State", this.props.buttonState[0].startButton)
   }
-  
-/*   onGlobalSelectRow = (selectedRowProps) => {
-    console.log("Here...", selectedRowProps)
-  }
- */
 
   render() {
     const { classes } = this.props;
@@ -107,19 +88,19 @@ class IconButtons extends React.Component {
         <AddTorrentFilePopup />
         <AddTorrentLinkPopup />
         <div className={classes.verticalDivider}></div>
-        <IconButton color={this.props.startTorrentState} data-tip={this.props.selection} className={classes.button} aria-label="Start Torrent">
+        <IconButton color={this.props.buttonState[0].startButton} data-tip="Start Torrent" className={classes.button} aria-label="Start Torrent" onClick={this.startTorrent}>
           <ReactTooltip place="top" type="light" effect="float" />
           <StartTorrentIcon />
         </IconButton>
-        <IconButton color={this.props.pauseTorrentState} data-tip="Pause Torrent" className={classes.button} aria-label="Pause Torrent">
+        <IconButton color={this.props.buttonState[0].pauseButton} data-tip="Pause Torrent" className={classes.button} aria-label="Pause Torrent">
           <ReactTooltip place="top" type="light" effect="float" />
           <PauseTorrentIcon />
         </IconButton>
-        <IconButton color={this.props.stopTorrentState} data-tip="Stop Torrent" className={classes.button} aria-label="Stop Torrent">
+        <IconButton color={this.props.buttonState[0].stopButton} data-tip="Stop Torrent" className={classes.button} aria-label="Stop Torrent">
           <ReactTooltip place="top" type="light" effect="float" />
           <StopTorrentIcon />
         </IconButton>
-        <IconButton color={this.props.deleteTorrentState} data-tip="Delete Torrent" className={classes.button} aria-label="Delete Torrent">
+        <IconButton color={this.props.buttonState[0].deleteButton} data-tip="Delete Torrent" className={classes.button} aria-label="Delete Torrent">
           <ReactTooltip place="top" type="error" effect="float" />
           <DeleteTorrentIcon />
         </IconButton>
@@ -132,6 +113,8 @@ class IconButtons extends React.Component {
           <ReactTooltip place="top" type="light" effect="float" />
           <SettingsIcon />
         </IconButton>
+        <div className={classes.verticalDivider}></div>
+        <BackendSocket />
       </div>
     );
   }
@@ -142,9 +125,9 @@ IconButtons.propTypes = {
 };
 
 
-const mapStateToProps = (state) => {
+const mapStateToProps = state => {
   return {
-    selection: state.selection
+    buttonState: state.buttonState,
   };
 }
 

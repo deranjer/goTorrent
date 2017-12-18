@@ -1,0 +1,9 @@
+.button {
+    font-size: '60px';
+ }
+
+ .padding {
+   display: inline-block;
+   padding-top: '10px';
+   padding-left: '10px';
+ }

@@ -3,11 +3,13 @@ import * as actionTypes from './actions';
 
 
 const initialState = {
-    buttonState: "default",
+    buttonStateDefault: [{startButton: "default", pauseButton: "default", stopButton: "default", deleteButton: "default", fSeedButton: "default", fRecheckButton: "default"}],
+    buttonState: [{startButton: "default", pauseButton: "default", stopButton: "default", deleteButton: "default", fSeedButton: "default", fRecheckButton: "default"}],
     sorting: [],
     selection: [],
     filter: ["Status", ""],
-    columnName: "Status"
+    columnName: "Status",
+    torrentList: [],
 }
 
 const reducer = (state = initialState, action) => {
@@ -28,7 +30,20 @@ const reducer = (state = initialState, action) => {
             return {
                 ...state,
                 filter: action.filter
-            }
+            };
+
+        case actionTypes.TORRENT_LIST:
+            return {
+                ...state,
+                torrentList: action.torrentList
+            };
+
+        case actionTypes.SET_BUTTON_STATE:
+            return {
+                ...state,
+                buttonState: action.buttonState
+            }; 
+
 
         default:
             return state;

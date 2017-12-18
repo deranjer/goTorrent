@@ -1,4 +1,6 @@
 export const SORTLIST = 'SORTLIST';
 export const CHANGE_SELECTION = 'CHANGE_SELECTION';
 export const CHANGE_FILTER = 'CHANGE_FILTER';
+export const TORRENT_LIST = 'TORRENT_LIST';
+export const SET_BUTTON_STATE = 'BUTTON_STATE';
 

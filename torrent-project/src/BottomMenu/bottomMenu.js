@@ -4,7 +4,7 @@ import 'typeface-roboto';  // contains the font for material UI
 import { withStyles } from 'material-ui/styles';
 import AppBar from 'material-ui/AppBar';
 import Tabs, { Tab } from 'material-ui/Tabs';
-import generalTab from './Tabs/generalTab';
+import GeneralTab from './Tabs/generalTab';
 
 function TabContainer(props) {
     return <div style={{ padding: 8 * 3 }}>{props.children}</div>;
@@ -51,7 +51,7 @@ function TabContainer(props) {
               </Tabs>
             </AppBar>
           </div>
-          {value === 0 && <TabContainer><generalTab /></TabContainer>}
+          {value === 0 && <TabContainer><GeneralTab /></TabContainer>}
           {value === 1 && <TabContainer>Peers</TabContainer>}
           {value === 2 && <TabContainer>Files</TabContainer>}
           {value === 3 && <TabContainer>Speed</TabContainer>}

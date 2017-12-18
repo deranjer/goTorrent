@@ -395,6 +395,14 @@ func main() {
 
 				startTorrent(clientTorrent, torrentLocalStorage, db, Config.DataDir, "magnet", "") //starting the torrent and creating local DB entry
 
+			} else if string(msg) == "torrentFileListRequest" { //client requested a filelist update
+				fmt.Println("client Requested Filelist update")
+				err = conn.WriteMessage(msgType, []byte("fileListUpdate"))
+				if err != nil {
+					fmt.Println("Websocket Write err", err)
+					return
+				}
+
 			} else {
 				conn.Close()
 				fmt.Println(string(msg))
