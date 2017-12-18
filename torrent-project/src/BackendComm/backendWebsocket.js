@@ -17,7 +17,7 @@ let torrents= [];
 
 
 
-//websocket is started in kickwebsocket.js and is picked up here so "ws" is already defined
+//websocket is started in kickwebsocket.js and is picked up here so "ws" is already defined 22
 ws.onmessage = function (evt) { //When we recieve a message from the websocket
     if(evt.data == "clientUpdate") {
         console.log("Client Update Incoming...")

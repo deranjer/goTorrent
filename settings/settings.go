@@ -5,20 +5,20 @@ import (
 	"github.com/anacrolix/torrent"
 )
 
-type fullClientSettings struct {
-	version int
+type FullClientSettings struct {
+	Version int
 	torrent.Config
-	tFileUploadFolder string
+	TFileUploadFolder string
 }
 
-func fullClientSettingsNew() fullClientSettings {
+func FullClientSettingsNew() FullClientSettings {
 	//Config := fullClientSettings //generate a new struct
 
-	var Config fullClientSettings
+	var Config FullClientSettings
 
-	Config.version = 1.0
+	Config.Version = 1.0
 	Config.DataDir = "downloads" //the full OR relative path of the default download directory for torrents
-	Config.tFileUploadFolder = "uploadedTorrents"
+	Config.TFileUploadFolder = "uploadedTorrents"
 	Config.Seed = true
 
 	Config.DHTConfig = dht.ServerConfig{

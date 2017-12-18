@@ -1,4 +1,4 @@
-package main
+package storage
 
 import (
 	"fmt"
@@ -7,7 +7,8 @@ import (
 	"github.com/boltdb/bolt"
 )
 
-type TorrentLocal struct { //local storage of the torrents for readd on server restart
+//TorrentLocal is local storage of the torrents for readd on server restart
+type TorrentLocal struct {
 	Hash            string
 	DateAdded       string
 	StoragePath     string
@@ -17,7 +18,8 @@ type TorrentLocal struct { //local storage of the torrents for readd on server r
 	TorrentFileName string
 }
 
-func readInTorrents(torrentStorage *bolt.DB) (torrentLocalArray []*TorrentLocal) {
+//ReadInTorrents is called to read in ALL local stored torrents in the boltdb database (called on server restart)
+func ReadInTorrents(torrentStorage *bolt.DB) (torrentLocalArray []*TorrentLocal) { //test
 
 	torrentLocalArray = []*TorrentLocal{}
 
@@ -85,7 +87,8 @@ func readInTorrents(torrentStorage *bolt.DB) (torrentLocalArray []*TorrentLocal)
 	return torrentLocalArray //all done, return the entire Array to add to the torrent client
 }
 
-func addTorrentLocalStorage(torrentStorage *bolt.DB, local *TorrentLocal) {
+//AddTorrentLocalStorage is called when adding a new torrent via any method, requires the boltdb pointer and the torrentlocal struct
+func AddTorrentLocalStorage(torrentStorage *bolt.DB, local *TorrentLocal) {
 	println("Adding Local storage information")
 
 	torrentStorage.Update(func(tx *bolt.Tx) error {
@@ -121,7 +124,8 @@ func addTorrentLocalStorage(torrentStorage *bolt.DB, local *TorrentLocal) {
 	})
 }
 
-func delTorrentLocalStorage(torrentStorage *bolt.DB, local *TorrentLocal) { //deleting a torrent by hash
+//DelTorrentLocalStorage is called to delete a torrent when we fail (for whatever reason to load the information for it).  Deleted by HASH matching.
+func DelTorrentLocalStorage(torrentStorage *bolt.DB, local *TorrentLocal) {
 	println("Deleting torrent", local.TorrentFileName)
 
 	torrentStorage.Update(func(tx *bolt.Tx) error {
