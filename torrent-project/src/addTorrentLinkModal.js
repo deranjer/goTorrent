@@ -16,6 +16,8 @@ import Icon from 'material-ui/Icon';
 import IconButton from 'material-ui/IconButton';
 
 
+
+
 const button = {
   fontSize: '60px',
   paddingRight: '20px',
@@ -28,6 +30,8 @@ const inlineStyle = {
 }
 
 export default class addTorrentPopup extends React.Component {
+
+
 
   state = {
     open: false,
@@ -43,9 +47,13 @@ export default class addTorrentPopup extends React.Component {
 
   handleSubmit = () => {
       this.setState({ open: false });
-      let magnetLinkSubmit = this.state.textValue;
-      console.log("Sending magnet link: ", magnetLinkSubmit);
-      ws.send(magnetLinkSubmit);
+      //let magnetLinkSubmit = this.state.textValue;
+      let magnetLinkMessage = {
+        messageType: "magnetLinkSubmit",
+        Payload: { MagnetLink: this.state.textValue}
+      }
+      console.log("Sending magnet link: ", magnetLinkMessage);
+      ws.send(JSON.stringify(magnetLinkMessage));
   }
 
   setTextValue = (event) => {

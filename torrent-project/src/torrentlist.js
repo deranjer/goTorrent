@@ -95,12 +95,9 @@ class TorrentListTable extends React.Component {
         this.props.changeSelection(selection) //dispatch selection to redux
 
         if (selection.length === 0) { //if selection is empty buttons will be default
-            console.log("No Selection")
             this.props.setButtonState(this.props.buttonStateDefault) //if no selection dispatch that to redux
         } else { // if we have selection continue on with logic to determine button state
-        
             const selectedRows = [] //array of all the selected Rows
-
             selection.forEach(element => {   
                 selectedRows.push(this.props.torrentList[element])   //pushing the selected rows out of torrentlist
             });

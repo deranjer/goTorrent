@@ -14,43 +14,56 @@ var title = document.title; //Set the number of active torrents in the title
 let torrents= []; 
 
 
-
+var torrentListRequest = {
+    messageType: "torrentListRequest"
+}
 
 
 //websocket is started in kickwebsocket.js and is picked up here so "ws" is already defined 22
 ws.onmessage = function (evt) { //When we recieve a message from the websocket
-    if(evt.data == "clientUpdate") {
-        console.log("Client Update Incoming...")
-    } else {  // recieving data
+    var serverMessage = JSON.parse(evt.data)
+    if (serverMessage.MessageType == "torrentList"){
         console.log("Recieved Client Update...")
-        var clientUpdate = JSON.parse(evt.data);
-        if (clientUpdate.total) { // if it has a total field it is a torrentlist update
-            torrents = []; //clearing out the torrent array to make room for new (so that it does keep adding)
-            for(var i = 0; i < clientUpdate.total; i++){
-                torrents.push({
-                    TorrentHashString: clientUpdate.data[i].TorrentHash,
-                    TorrentName: clientUpdate.data[i].TorrentName,
-                    DownloadedSize: clientUpdate.data[i].DownloadedSize,
-                    Size: clientUpdate.data[i].Size,
-                    DownloadSpeed: clientUpdate.data[i].DownloadSpeed,
-                    UploadSpeed: clientUpdate.data[i].UploadSpeed,
-                    PercentDone: clientUpdate.data[i].PercentDone,
-                    StoragePath: clientUpdate.data[i].StoragePath,
-                    DateAdded: clientUpdate.data[i].DateAdded,
-                    Status: clientUpdate.data[i].Status,
-                    BytesCompleted: clientUpdate.data[i].BytesCompleted,
-                    ActivePeers: clientUpdate.data[i].ActivePeers,
-                    ETA: clientUpdate.data[i].ETA,
-                })    
-            } 
-            var newTitle = '(' + clientUpdate.total + ')' + title; //updating the title
-            document.title = newTitle;
-        } else if (clientUpdate) {
+        //var serverMessage = JSON.parse(evt.data);
+        
+        torrents = []; //clearing out the torrent array to make room for new (so that it does keep adding)
+        for(var i = 0; i < serverMessage.total; i++){
+            torrents.push({
+                TorrentHashString: serverMessage.data[i].TorrentHash,
+                TorrentName: serverMessage.data[i].TorrentName,
+                DownloadedSize: serverMessage.data[i].DownloadedSize,
+                Size: serverMessage.data[i].Size,
+                DownloadSpeed: serverMessage.data[i].DownloadSpeed,
+                UploadSpeed: serverMessage.data[i].UploadSpeed,
+                PercentDone: serverMessage.data[i].PercentDone,
+                StoragePath: serverMessage.data[i].StoragePath,
+                DateAdded: serverMessage.data[i].DateAdded,
+                Status: serverMessage.data[i].Status,
+                BytesCompleted: serverMessage.data[i].BytesCompleted,
+                ActivePeers: serverMessage.data[i].ActivePeers,
+                ETA: serverMessage.data[i].ETA,
+            })    
+        } 
+        var newTitle = '(' + serverMessage.total + ')' + title; //updating the title
+        document.title = newTitle;
             
+    } else if (serverMessage.MessageType == "fileList"){
+        console.log("Recieved FileListUpdate", serverMessage.fileList)
+        fileList = [];
+        for (var i = 0; i < serverMessage.total; i++){
+            fileList.push({
+                FileList: serverMessage.fileList[i]
+
+
+            })
         }
-                                    
+
+
+
     }
+                                    
 }
+
 
 
 ws.onclose = function() {
@@ -76,19 +89,15 @@ class BackendSocket extends React.Component {
           2000
         );    
  
-    }
+    } 
 
     componentWillUnmount() {
         clearInterval(this.timerID);
     } 
 
     tick() {
-        ws.send("clientUpdateRequest")//talking to the server to get the torrent list
-        this.props.newTorrentList(torrents)
-        
-        //console.log("STATE:", this.state.torrentList)
-        //console.log("Torrents", torrents);
-        
+        ws.send(JSON.stringify(torrentListRequest))//talking to the server to get the torrent list
+        this.props.newTorrentList(torrents)      
     }
 
     render() {

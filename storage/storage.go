@@ -16,6 +16,7 @@ type TorrentLocal struct {
 	TorrentStatus   string
 	TorrentType     string //magnet or .torrent file
 	TorrentFileName string
+	Label           string //for labeling torrent files
 }
 
 //ReadInTorrents is called to read in ALL local stored torrents in the boltdb database (called on server restart)
@@ -55,7 +56,7 @@ func ReadInTorrents(torrentStorage *bolt.DB) (torrentLocalArray []*TorrentLocal)
 			}
 			TorrentStatus = b.Get([]byte("TorrentStatus"))
 			if TorrentStatus == nil {
-				fmt.Println("Torrent Status not found in local storage")
+				//fmt.Println("Torrent Status not found in local storage")
 				TorrentStatus = []byte("")
 			}
 			TorrentType = b.Get([]byte("TorrentType"))
@@ -77,7 +78,7 @@ func ReadInTorrents(torrentStorage *bolt.DB) (torrentLocalArray []*TorrentLocal)
 			torrentLocal.TorrentType = string(TorrentType)
 			torrentLocal.TorrentFileName = string(TorrentFileName)
 
-			fmt.Println("Torrentlocal list: ", torrentLocal)
+			//fmt.Println("Torrentlocal list: ", torrentLocal)
 			torrentLocalArray = append(torrentLocalArray, torrentLocal) //dumping it into the array
 			return nil
 		})
@@ -136,4 +137,64 @@ func DelTorrentLocalStorage(torrentStorage *bolt.DB, local *TorrentLocal) {
 		return nil
 	})
 
+}
+
+//FetchTorrentFromStorage grabs the localtorrent info from the bolt database for usage found my torrenthash
+func FetchTorrentFromStorage(torrentStorage *bolt.DB, selectedHash []byte) TorrentLocal {
+	singleTorrentInfo := TorrentLocal{}
+	torrentStorage.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(selectedHash)
+		var Dateadded []byte
+		var StoragePath []byte
+		var Hash []byte
+		var TorrentName []byte
+		var TorrentStatus []byte
+		var TorrentType []byte
+		var TorrentFileName []byte
+		Dateadded = b.Get([]byte("Date"))
+		if Dateadded == nil {
+			fmt.Println("Date added error!")
+			Dateadded = []byte(time.Now().Format("Jan _2 2006"))
+		}
+		StoragePath = b.Get([]byte("StoragePath"))
+		if StoragePath == nil {
+			fmt.Println("StoragePath error!")
+			StoragePath = []byte("downloads")
+		}
+		Hash = b.Get([]byte("InfoHash"))
+		if Hash == nil {
+			fmt.Println("Hash error!")
+		}
+		TorrentName = b.Get([]byte("TorrentName"))
+		if TorrentName == nil {
+			fmt.Println("Torrent Name not found")
+			TorrentName = []byte("Not Found!")
+		}
+		TorrentStatus = b.Get([]byte("TorrentStatus"))
+		if TorrentStatus == nil {
+			//fmt.Println("Torrent Status not found in local storage")
+			TorrentStatus = []byte("")
+		}
+		TorrentType = b.Get([]byte("TorrentType"))
+		if TorrentType == nil {
+			fmt.Println("Torrent Type not found in local storage")
+			TorrentStatus = []byte("")
+		}
+		TorrentFileName = b.Get([]byte("TorrentFileName"))
+		if TorrentFileName == nil {
+			fmt.Println("Torrent File Name not found in local storage")
+			TorrentFileName = []byte("")
+		}
+
+		singleTorrentInfo.DateAdded = string(Dateadded)
+		singleTorrentInfo.StoragePath = string(StoragePath)
+		singleTorrentInfo.Hash = string(Hash) //Converting the byte slice back into the full hash
+		singleTorrentInfo.TorrentName = string(TorrentName)
+		singleTorrentInfo.TorrentStatus = string(TorrentStatus)
+		singleTorrentInfo.TorrentType = string(TorrentType)
+		singleTorrentInfo.TorrentFileName = string(TorrentFileName)
+
+		return nil
+	})
+	return singleTorrentInfo
 }

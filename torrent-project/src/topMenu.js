@@ -21,7 +21,6 @@ import ReactTooltip from 'react-tooltip'
 
 import DeleteIcon from 'material-ui-icons/Delete';
 import AddShoppingCartIcon from 'material-ui-icons/AddShoppingCart';
-//import PhotoCamera from 'material-ui-icons/PhotoCamera';
 
 import BackendSocket from './BackendComm/backendWebsocket';
 
@@ -63,11 +62,21 @@ const styles = theme => ({
 
 
 
-
 class IconButtons extends React.Component {
   constructor(props){
     super(props);
     
+  }
+
+  startTorrentState = {
+    messageType: "startTorrents",
+    Payload: this.props.selection,
+  }
+  
+
+  startTorrent = (selection) => {
+    console.log("Starting Torrents", selection)
+    ws.send()
   }
  
   buttonHandler = (buttonState) => {
@@ -128,12 +137,13 @@ IconButtons.propTypes = {
 const mapStateToProps = state => {
   return {
     buttonState: state.buttonState,
+    selection: state.selection,
   };
 }
 
 const mapDispatchToProps = dispatch => {
   return {
-    changeSelection: (selection) => dispatch({type: actionTypes.CHANGE_SELECTION, selection: selection})
+    //changeSelection: (selection) => dispatch({type: actionTypes.CHANGE_SELECTION, selection: selection})
   }
 }
 
