@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/anacrolix/torrent"
@@ -13,7 +12,7 @@ import (
 //Message contains the JSON messages from the client, we first unmarshal to get the messagetype, then each module unmarshalls the actual message once we know the type
 type Message struct {
 	MessageType string
-	Payload     json.RawMessage
+	Payload     []string
 }
 
 //GenericPayload is for any request to the server that only requires the TorrentHashString for matching (which is a lot of requests)
@@ -49,9 +48,9 @@ type TorrentFileList struct {
 
 //PeerFileList returns a slice of peers
 type PeerFileList struct {
-	MessageType string
-	TotalPeers  int
-	PeerList    []torrent.Peer
+	MessageType string         `json:"MessageType"`
+	TotalPeers  int            `json:"TotalPeers"`
+	PeerList    []torrent.Peer `json:"PeerList"`
 }
 
 //ClientDB struct contains the struct that is used to compose the torrentlist
@@ -69,14 +68,15 @@ type ClientDB struct {
 	TorrentHashString string `json:"TorrentHashString"`
 	PercentDone       string `json:"PercentDone"`
 	TorrentHash       metainfo.Hash
-	StoragePath       string `json:"StorageLocation"`
+	StoragePath       string `json:"StoragePath"`
 	DateAdded         string
 	KnownSwarm        []torrent.Peer
 	Status            string `json:"Status"`
 	BytesCompleted    int64
 	UpdatedAt         time.Time
+	UploadRatio       string
 	AddedAt           string
 	ETA               string `json:"ETA"`
 	Label             string
-	SourceLocation    string
+	SourceType        string `json:"SourceType"`
 }

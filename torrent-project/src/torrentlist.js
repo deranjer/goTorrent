@@ -77,7 +77,17 @@ class TorrentListTable extends React.Component {
     }
 
 
-    determineButtonState = (selectedRows) => {
+    determineSelectionHashes = (selectedRows) => {
+        console.log("CurrentSelectionHashes", this.props.selectionHashes)
+        let selectionHashes = [] //rebuilding our selection hashes from our currently selected rows
+        selectedRows.forEach(element => {
+            selectionHashes.push(element.TorrentHashString) //push the selection hash to the temp array
+        })
+        this.props.sendSelectionHashes(selectionHashes) //push the result to redux
+    }
+
+
+    determineButtonState = (selectedRows) => { //TODO run a filter to corrently determing button status... currently broken
         selectedRows.forEach(element => {
             if (element.Status === "Downloading" || "Awaiting Peers" || "Seeding") {
                 let buttonState = [{startButton: "default", pauseButton: "primary", stopButton: "primary", deleteButton: "accent", fSeedButton: "default", fRecheckButton: "primary"}]
@@ -92,16 +102,19 @@ class TorrentListTable extends React.Component {
     }
 
     changeSelection = (selection) => {
-        this.props.changeSelection(selection) //dispatch selection to redux
+        this.props.changeSelection(selection) //dispatch selection to redux, also clear out anything tied to the old selection (peerlists, filelists, etc)
 
-        if (selection.length === 0) { //if selection is empty buttons will be default
+        if (selection.length === 0) { //if selection is empty buttons will be default and selectionHashes will be blanked out and pushed to redux
             this.props.setButtonState(this.props.buttonStateDefault) //if no selection dispatch that to redux
+            //let selectionHashes = []
+            //this.props.sendSelectionHashes(selectionHashes) //clearning out selection hashes since we have nothing selected
         } else { // if we have selection continue on with logic to determine button state
             const selectedRows = [] //array of all the selected Rows
             selection.forEach(element => {   
                 selectedRows.push(this.props.torrentList[element])   //pushing the selected rows out of torrentlist
             });
             this.determineButtonState(selectedRows) //running a filter on the rows to determing buttonState
+            this.determineSelectionHashes(selectedRows) //pulling the torrent hashes for the selcted rows
         } 
        
     }
@@ -150,6 +163,7 @@ const mapStateToProps = state => {
         torrentList: state.torrentList,
         buttonState: state.buttonState,
         buttonStateDefault: state.buttonStateDefault, //all default
+        selectionHashes: state.selectionHashes,
     };
   }
 
@@ -157,7 +171,8 @@ const mapDispatchToProps = dispatch => {
     return {
         changeSorting: (sorting) => dispatch({type: actionTypes.SORTLIST, sorting }),
         changeSelection: (selection) => dispatch({type: actionTypes.CHANGE_SELECTION, selection}),
-        setButtonState: (buttonState) => dispatch({type: actionTypes.SET_BUTTON_STATE, buttonState})
+        setButtonState: (buttonState) => dispatch({type: actionTypes.SET_BUTTON_STATE, buttonState}),
+        sendSelectionHashes: (selectionHashes) => dispatch({type: actionTypes.SELECTION_HASHES, selectionHashes}),
     }
 }
 

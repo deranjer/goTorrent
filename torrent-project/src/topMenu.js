@@ -68,15 +68,15 @@ class IconButtons extends React.Component {
     
   }
 
-  startTorrentState = {
-    messageType: "startTorrents",
-    Payload: this.props.selection,
-  }
-  
 
-  startTorrent = (selection) => {
+  startTorrent = () => {
     console.log("Starting Torrents", selection)
-    ws.send()
+    let startTorrentHashes = {
+      MessageType: "startTorrents",
+      Payload: this.props.selectionHashes,    
+    }
+    //console.log("Peers tab information requested", peerListHashes)
+    ws.send(JSON.stringify(startTorrentHashes))
   }
  
   buttonHandler = (buttonState) => {
@@ -138,6 +138,7 @@ const mapStateToProps = state => {
   return {
     buttonState: state.buttonState,
     selection: state.selection,
+    selectionHashes: state.selectionHashes,
   };
 }
 

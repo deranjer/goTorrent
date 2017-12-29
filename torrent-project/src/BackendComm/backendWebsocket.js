@@ -1,65 +1,94 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 
-import {connect} from 'react-redux';
-import * as actionTypes from '../store/actions';
-
 import ReactTooltip from 'react-tooltip'
-
 import BackendIcon from 'material-ui-icons/InfoOutline';
 
+import {connect} from 'react-redux';
+import * as actionTypes from '../store/actions';
+import Select from 'material-ui/Select/Select';
 
 
 var title = document.title; //Set the number of active torrents in the title
 let torrents= []; 
-
+let peerList = [];
 
 var torrentListRequest = {
     messageType: "torrentListRequest"
 }
 
 
+
+
 //websocket is started in kickwebsocket.js and is picked up here so "ws" is already defined 22
 ws.onmessage = function (evt) { //When we recieve a message from the websocket
     var serverMessage = JSON.parse(evt.data)
-    if (serverMessage.MessageType == "torrentList"){
-        console.log("Recieved Client Update...")
-        //var serverMessage = JSON.parse(evt.data);
-        
-        torrents = []; //clearing out the torrent array to make room for new (so that it does keep adding)
-        for(var i = 0; i < serverMessage.total; i++){
-            torrents.push({
-                TorrentHashString: serverMessage.data[i].TorrentHash,
-                TorrentName: serverMessage.data[i].TorrentName,
-                DownloadedSize: serverMessage.data[i].DownloadedSize,
-                Size: serverMessage.data[i].Size,
-                DownloadSpeed: serverMessage.data[i].DownloadSpeed,
-                UploadSpeed: serverMessage.data[i].UploadSpeed,
-                PercentDone: serverMessage.data[i].PercentDone,
-                StoragePath: serverMessage.data[i].StoragePath,
-                DateAdded: serverMessage.data[i].DateAdded,
-                Status: serverMessage.data[i].Status,
-                BytesCompleted: serverMessage.data[i].BytesCompleted,
-                ActivePeers: serverMessage.data[i].ActivePeers,
-                ETA: serverMessage.data[i].ETA,
-            })    
-        } 
-        var newTitle = '(' + serverMessage.total + ')' + title; //updating the title
-        document.title = newTitle;
+    //console.log("message", serverMessage.MessageType)
+    switch (serverMessage.MessageType) {
+
+        case "torrentList":
+            //console.log("Recieved Client Update...", serverMessage)
+            //var serverMessage = JSON.parse(evt.data);
             
-    } else if (serverMessage.MessageType == "fileList"){
-        console.log("Recieved FileListUpdate", serverMessage.fileList)
-        fileList = [];
-        for (var i = 0; i < serverMessage.total; i++){
-            fileList.push({
-                FileList: serverMessage.fileList[i]
+            torrents = []; //clearing out the torrent array to make room for new (so that it does keep adding)
+            for(var i = 0; i < serverMessage.total; i++){
+                torrents.push({
+                    TorrentHashString: serverMessage.data[i].TorrentHashString,
+                    TorrentName: serverMessage.data[i].TorrentName,
+                    DownloadedSize: serverMessage.data[i].DownloadedSize,
+                    Size: serverMessage.data[i].Size,
+                    DownloadSpeed: serverMessage.data[i].DownloadSpeed,
+                    UploadSpeed: serverMessage.data[i].UploadSpeed,
+                    PercentDone: serverMessage.data[i].PercentDone,
+                    StoragePath: serverMessage.data[i].StoragePath,
+                    DateAdded: serverMessage.data[i].DateAdded,
+                    Status: serverMessage.data[i].Status,
+                    BytesCompleted: serverMessage.data[i].BytesCompleted,
+                    ActivePeers: serverMessage.data[i].ActivePeers,
+                    ETA: serverMessage.data[i].ETA,
+                    Ratio: serverMessage.data[i].Ratio,
+                })    
+            } 
+            var newTitle = '(' + serverMessage.total + ')' + title; //updating the title
+            document.title = newTitle;
+            break;
+        
+        case "torrentPeerList":
+            console.log("Full EVENT", evt.data)
+            peerList = []; //clearing out the peerlist array to make room for new (so that it does keep adding)
+            
+            for(var i = 0; i < serverMessage.TotalPeers; i++){
+                peerList.push({
+                    PeerID: serverMessage.PeerList[i].Id.toString(),
+                    IP: serverMessage.PeerList[i].IP,
+                    Port: serverMessage.PeerList[i].Port,
+                    Source: serverMessage.PeerList[i].Source,
+                    SupportsEncryption: serverMessage.PeerList[i].SupportsEncryption.toString(),
+                })
+            }
+            console.log("Peerlist", peerList)
+            break    
+
+        case "torrentFileList":
+            console.log("Recieved FileListUpdate", serverMessage.fileList)
+            fileList = [];
+            for (var i = 0; i < serverMessage.total; i++){
+                fileList.push({
+                    fileList: serverMessage.fileList[i]
 
 
-            })
-        }
+                })
+            }
+        
+            break
 
+        case "speedTab":
+            console.log("Speedtab data requested")
+            break;
 
-
+        case "loggerData":
+            console.log("Logger data requested")
+            break;
     }
                                     
 }
@@ -82,7 +111,45 @@ var buttonStyle ={
 
 class BackendSocket extends React.Component {
     
+
+
+    selectionHandler = (selectionHashes, selectedTab) => {
+        switch (selectedTab) {
+            case 0:
+                console.log("general tab information requested")
+                break;
+            case 1:
+                let peerListHashes = {
+                    MessageType: "torrentPeerListRequest",
+                    Payload: selectionHashes,    
+                }
+                //console.log("Peers tab information requested", peerListHashes)
+                ws.send(JSON.stringify(peerListHashes))
+                break;
+            case 2:
+                console.log("Files tab information requested")
+                break;
+            case 3:
+                console.log("Speed tab information requested")
+                break;
+            case 4:
+                console.log("Logger tab information requested")
+                break;
+            default:
+                console.log("default tab")
+                break;
+        }      
+    }
     
+    testSelectionLength = (selection) => {
+        if (nextProps.selectionHashes.length > 1){
+            return true;
+        }
+        return false;
+    }
+
+
+
     componentDidMount() {
         this.timerID = setInterval(
           () => this.tick(),
@@ -95,10 +162,29 @@ class BackendSocket extends React.Component {
         clearInterval(this.timerID);
     } 
 
-    tick() {
+    tick() { // this tick is the main tick that updates ALL of the components that update on tick... which is a lot
         ws.send(JSON.stringify(torrentListRequest))//talking to the server to get the torrent list
-        this.props.newTorrentList(torrents)      
+        console.log("Torrentlist", torrents)
+        this.props.newTorrentList(torrents) //sending the list of torrents to torrentlist.js 
+        if (this.props.selectedTab === 1 && this.props.selectionHashes.length === 1){ //if we are on the peerlist tab dispatch a new peerlist
+            let peerListHashes = {
+                MessageType: "torrentPeerListRequest",
+                Payload: this.props.selectionHashes,    
+            }
+            ws.send(JSON.stringify(peerListHashes))
+            this.props.newPeerList(peerList)
+        }     
     }
+
+
+    componentWillReceiveProps (nextProps) {
+        console.log("Lenght", nextProps.selectionHashes.length, "value", nextProps.selectionHashes)
+        if (nextProps.selectionHashes.length === 1){ //if we have a selection pass it on for the tabs to verify
+            this.selectionHandler(nextProps.selectionHashes, nextProps.selectedTab)
+        }
+        
+    }
+
 
     render() {
         return (
@@ -116,6 +202,8 @@ class BackendSocket extends React.Component {
 
 const mapStateToProps = state => {
     return {
+        selectionHashes: state.selectionHashes,
+        selectedTab: state.selectedTab,
     };
   }
 
@@ -125,6 +213,7 @@ const mapStateToProps = state => {
 const mapDispatchToProps = dispatch => {
     return {
         newTorrentList: (torrentList) => dispatch({type: actionTypes.TORRENT_LIST, torrentList }),
+        newPeerList: (peerList) => dispatch({type: actionTypes.PEER_LIST, peerList})
     }
 }
 

@@ -7,9 +7,13 @@ const initialState = {
     buttonState: [{startButton: "default", pauseButton: "default", stopButton: "default", deleteButton: "default", fSeedButton: "default", fRecheckButton: "default"}],
     sorting: [],
     selection: [],
+    selectionHashes: [],
     filter: ["Status", ""],
     columnName: "Status",
     torrentList: [],
+    peerList: [],
+    torrentDetailInfo: [],
+    selectedTab: 0,
 }
 
 const reducer = (state = initialState, action) => {
@@ -19,10 +23,19 @@ const reducer = (state = initialState, action) => {
             console.log("Change Selection", action.selection)
             return {
                 ...state,
+                peerList: [], //changing selection will purge out all of the old data
+                selectionHashes: [],
                 selection: action.selection,
             };
 
-        case actionTypes.SORTLIST:
+        case actionTypes.SELECTION_HASHES:
+            console.log("Selection hashes REDUX", action.selectionHashes)
+            return {
+                ...state,
+                selectionHashes: action.selectionHashes,
+            };
+
+        case actionTypes.SORTLIST: //TODO do I even need this in redux?
             console.log("List Sort", action.sorting)
             return state;
 
@@ -35,15 +48,26 @@ const reducer = (state = initialState, action) => {
         case actionTypes.TORRENT_LIST:
             return {
                 ...state,
-                torrentList: action.torrentList
+                torrentList: action.torrentList,
             };
+        
+        case actionTypes.PEER_LIST:
+            return {
+                ...state,
+                peerList: action.peerList
+            }
 
         case actionTypes.SET_BUTTON_STATE:
             return {
                 ...state,
                 buttonState: action.buttonState
             }; 
-
+        
+        case actionTypes.SELECTED_TAB:
+            return {
+                ...state,
+                selectedTab: action.selectedTab
+            }
 
         default:
             return state;

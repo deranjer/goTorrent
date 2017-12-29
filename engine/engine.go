@@ -3,6 +3,7 @@ package engine //main file for all the calculations and data gathering needed fo
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/anacrolix/torrent"
@@ -11,7 +12,7 @@ import (
 	Storage "github.com/deranjer/goTorrent/storage"
 )
 
-func timeOutInfo(clientTorrent *torrent.Torrent, seconds time.Duration) (deleted bool) { //forcing a timeout of the torrent if it doesn't load
+func timeOutInfo(clientTorrent *torrent.Torrent, seconds time.Duration) (deleted bool) { //forcing a timeout of the torrent if it doesn't load from program restart
 	timeout := make(chan bool, 1) //creating a timeout channel for our gotinfo
 	go func() {
 		time.Sleep(seconds * time.Second)
@@ -19,7 +20,7 @@ func timeOutInfo(clientTorrent *torrent.Torrent, seconds time.Duration) (deleted
 	}()
 	select {
 	case <-clientTorrent.GotInfo(): //attempting to retrieve info for torrent
-		fmt.Println("Recieved torrent info for...", clientTorrent.Name())
+		//fmt.Println("Recieved torrent info for...", clientTorrent.Name())
 		clientTorrent.DownloadAll()
 		return false
 	case <-timeout: // getting info for torrent has timed out so purging the torrent
@@ -30,7 +31,7 @@ func timeOutInfo(clientTorrent *torrent.Torrent, seconds time.Duration) (deleted
 
 }
 
-//StartTorrent creates the storage.db entry and starts the torrent and adds to the running torrent array
+//StartTorrent creates the storage.db entry and starts A NEW TORRENT and adds to the running torrent array
 func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage *Storage.TorrentLocal, torrentDbStorage *bolt.DB, dataDir string, torrentFile string, torrentFileName string) {
 
 	timeOutInfo(clientTorrent, 45) //seeing if adding the torrrent times out (giving 45 seconds)
@@ -88,7 +89,7 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		if len(PreviousTorrentArray) > 0 { //if we actually have  a previous array
 			for _, previousElement := range PreviousTorrentArray {
 				TempHash := singleTorrent.InfoHash()
-				if previousElement.TorrentHashString == TempHash.AsString() { //matching previous to new
+				if previousElement.TorrentHashString == TempHash.String() { //matching previous to new
 					CalculateTorrentSpeed(singleTorrent, fullClientDB, previousElement)
 				}
 			}
@@ -103,6 +104,17 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		var TempHash metainfo.Hash
 		TempHash = singleTorrent.InfoHash()
 
+		singleTorrentStorageInfo := Storage.FetchTorrentFromStorage(db, []byte(TempHash.String())) //fetching all the info from the database
+		var torrentTypeTemp string
+		torrentTypeTemp = singleTorrentStorageInfo.TorrentType //either "file" or "magnet" maybe more in the future
+		if torrentTypeTemp == "file" {
+			fullClientDB.SourceType = "Torrent file"
+		} else {
+			fullClientDB.SourceType = "Magnet Link"
+		}
+
+		fullClientDB.StoragePath = singleTorrentStorageInfo.StoragePath
+
 		fullClientDB.DownloadedSize = dSize
 		fullClientDB.Size = tSize
 		PercentDone := fmt.Sprintf("%.2f", bytesCompletedMB/totalSizeMB)
@@ -111,12 +123,19 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		fullClientDB.DataBytesRead = fullStruct.ConnStats.DataBytesRead
 		fullClientDB.DataBytesWritten = fullStruct.ConnStats.DataBytesWritten
 		fullClientDB.ActivePeers = activePeersString + " / (" + totalPeersString + ")"
-		fullClientDB.TorrentHashString = TempHash.AsString()
+		fullClientDB.TorrentHashString = TempHash.String()
 		fullClientDB.StoragePath = element.StoragePath
 		fullClientDB.TorrentName = element.TorrentName
 		fullClientDB.DateAdded = element.DateAdded
 		fullClientDB.BytesCompleted = singleTorrent.BytesCompleted()
 		CalculateTorrentETA(singleTorrent, fullClientDB) //calculating the ETA for the torrent
+
+		fullClientDB.UploadRatio = CalculateUploadRatio(singleTorrent, fullClientDB, db) //calculate the upload ratio
+		tickUpdateStruct := Storage.TorrentLocal{}                                       //we are shoving the tick updates into a torrentlocal struct to pass to storage
+		tickUpdateStruct.UploadRatio = fullClientDB.UploadRatio
+		tickUpdateStruct.UploadedBytes = fullClientDB.DataBytesWritten
+		tickUpdateStruct.Hash = fullClientDB.TorrentHashString
+		Storage.UpdateStorageTick(db, tickUpdateStruct)
 		//fmt.Println("Download Speed: ", fullClientDB.DownloadSpeed)
 		//fmt.Println("Percent Done: ", fullClientDB.PercentDone)
 		//tclient.WriteStatus(os.Stdout)
@@ -125,7 +144,7 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		RunningTorrentArray = append(RunningTorrentArray, *fullClientDB)
 
 	}
-	fmt.Println("RunningTorrentArrayCreated...")
+	//fmt.Println("RunningTorrentArrayCreated...")
 	return RunningTorrentArray
 }
 
@@ -134,8 +153,8 @@ func CreateFileListArray(tclient *torrent.Client, selectedHash string) TorrentFi
 	runningTorrents := tclient.Torrents() //don't need running torrent array since we aren't adding or deleting from storage
 	TorrentFileListSelected := TorrentFileList{}
 	for _, singleTorrent := range runningTorrents {
-		tempHash := singleTorrent.InfoHash()
-		if tempHash.AsString() == selectedHash { // if our selection hash equals our torrent hash
+		tempHash := singleTorrent.InfoHash().String()
+		if tempHash == selectedHash { // if our selection hash equals our torrent hash
 			TorrentFileListSelected.FileList = singleTorrent.Files()
 			TorrentFileListSelected.MessageType = "torrentFileList"
 			TorrentFileListSelected.TotalFiles = len(singleTorrent.Files())
@@ -149,20 +168,18 @@ func CreateFileListArray(tclient *torrent.Client, selectedHash string) TorrentFi
 //CreatePeerListArray create a list of peers for the torrent and displays them
 func CreatePeerListArray(tclient *torrent.Client, selectedHash string) PeerFileList {
 	runningTorrents := tclient.Torrents()
-
+	fmt.Println("Hash String", selectedHash)
 	TorrentPeerList := PeerFileList{}
 	for _, singleTorrent := range runningTorrents {
-		tempHash := singleTorrent.InfoHash()
-		if tempHash.AsString() == selectedHash {
+		tempHash := singleTorrent.InfoHash().String()
+		if (strings.Compare(tempHash, selectedHash)) == 0 {
 			TorrentPeerList.MessageType = "torrentPeerList"
-			TorrentPeerList.TotalPeers = len(TorrentPeerList.PeerList)
 			TorrentPeerList.PeerList = singleTorrent.KnownSwarm()
+			TorrentPeerList.TotalPeers = len(TorrentPeerList.PeerList)
 			return TorrentPeerList
-			break //only looking for one result
 		}
 	}
 	return TorrentPeerList
-
 }
 
 //CreateTorrentDetailJSON creates the json response for a request for more torrent information
@@ -174,8 +191,8 @@ func CreateTorrentDetailJSON(tclient *torrent.Client, selectedHash string, torre
 
 	TorrentDetailStruct := ClientDB{}
 	for _, singleTorrent := range runningTorrents { //ranging through the running torrents to find the one we are looking for
-		tempHash := singleTorrent.InfoHash()
-		if tempHash.AsString() == selectedHash {
+		tempHash := singleTorrent.InfoHash().String()
+		if tempHash == selectedHash {
 			fmt.Println("CreateTorrentDetail", localTorrentInfo)
 			return TorrentDetailStruct
 			break //only looking for one result

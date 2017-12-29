@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/anacrolix/torrent"
+	"github.com/boltdb/bolt"
 )
 
 func secondsToMinutes(inSeconds int64) string {
@@ -46,7 +47,7 @@ func ConvertSizetoGB(t float32, d float32) (tDelta string, dDelta string) { //co
 	}
 }
 
-//CalculateTorrentSpeed is used to calculate the torrent upload and download speed over time
+//CalculateTorrentSpeed is used to calculate the torrent upload and download speed over time c is current clientdb, oc is last client db to calculate speed over time
 func CalculateTorrentSpeed(t *torrent.Torrent, c *ClientDB, oc ClientDB) {
 	now := time.Now()
 	bytes := t.BytesCompleted()
@@ -87,6 +88,16 @@ func CalculateTorrentETA(t *torrent.Torrent, c *ClientDB) {
 		str := secondsToMinutes(ETASeconds) //converting seconds to minutes + seconds
 		c.ETA = str
 	}
+}
+
+func CalculateUploadRatio(t *torrent.Torrent, c *ClientDB, db *bolt.DB) string {
+	if c.DataBytesWritten > 0 {
+		uploadRatioTemp := c.DataBytesRead / c.DataBytesWritten
+		uploadRatio := fmt.Sprintf("%.2f", uploadRatioTemp)
+		return uploadRatio
+	}
+	uploadRatio := fmt.Sprintf("%.2f", 0.00) //we haven't uploaded anything so no upload ratio
+	return uploadRatio
 }
 
 //CalculateTorrentStatus is used to determine what the STATUS column of the frontend will display ll2

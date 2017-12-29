@@ -1,12 +1,14 @@
 package storage
 
 import (
+	binary "encoding/binary"
 	"fmt"
 	"time"
 
 	"github.com/boltdb/bolt"
 )
 
+//TODO, this entire file need to be rewritten to encode and decode from the struct
 //TorrentLocal is local storage of the torrents for readd on server restart
 type TorrentLocal struct {
 	Hash            string
@@ -17,6 +19,9 @@ type TorrentLocal struct {
 	TorrentType     string //magnet or .torrent file
 	TorrentFileName string
 	Label           string //for labeling torrent files
+	UploadedBytes   int64
+	DownloadedBytes int64 //TODO not sure if needed since we should have the file which contains the bytes
+	UploadRatio     string
 }
 
 //ReadInTorrents is called to read in ALL local stored torrents in the boltdb database (called on server restart)
@@ -121,6 +126,10 @@ func AddTorrentLocalStorage(torrentStorage *bolt.DB, local *TorrentLocal) {
 		if err != nil {
 			return err
 		}
+		err = b.Put([]byte("UploadRatio"), []byte(local.UploadRatio))
+		if err != nil {
+			return err
+		}
 		return nil
 	})
 }
@@ -139,7 +148,26 @@ func DelTorrentLocalStorage(torrentStorage *bolt.DB, local *TorrentLocal) {
 
 }
 
-//FetchTorrentFromStorage grabs the localtorrent info from the bolt database for usage found my torrenthash
+//UpdateStorageTick updates the values in boltdb that should update on every tick (like uploadratio or uploadedbytes, not downloaded since we should have the actual file)
+func UpdateStorageTick(torrentStorage *bolt.DB, torrentLocal TorrentLocal) {
+	UploadedBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(UploadedBytes, uint64(torrentLocal.UploadedBytes)) //converting int64 into byte slice for storage
+	selectedHash := []byte(torrentLocal.Hash)
+	torrentStorage.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(selectedHash)
+		err := b.Put([]byte("UploadRatio"), []byte(torrentLocal.UploadRatio))
+		if err != nil {
+			return err
+		}
+		err = b.Put([]byte("UploadedBytes"), []byte(UploadedBytes))
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+//FetchTorrentFromStorage grabs the localtorrent info from the bolt database for usage found by torrenthash
 func FetchTorrentFromStorage(torrentStorage *bolt.DB, selectedHash []byte) TorrentLocal {
 	singleTorrentInfo := TorrentLocal{}
 	torrentStorage.View(func(tx *bolt.Tx) error {

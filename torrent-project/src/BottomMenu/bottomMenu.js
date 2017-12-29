@@ -5,6 +5,12 @@ import { withStyles } from 'material-ui/styles';
 import AppBar from 'material-ui/AppBar';
 import Tabs, { Tab } from 'material-ui/Tabs';
 import GeneralTab from './Tabs/generalTab';
+import PeerTab from './Tabs/peerTab';
+
+
+//Redux
+import {connect} from 'react-redux';
+import * as actionTypes from '../store/actions'
 
 function TabContainer(props) {
     return <div style={{ padding: 8 * 3 }}>{props.children}</div>;
@@ -26,23 +32,21 @@ function TabContainer(props) {
   });
   
   class BasicTabs extends React.Component {
-    state = {
-      value: 0,
-    };
+
   
     handleChange = (event, value) => {
-      this.setState({ value });
+      //this.setState({ value });
+      this.props.changeTab(value)
     };
   
     render() {
       const { classes } = this.props;
-      const { value } = this.state;
   
       return (
         <div className={classes.root}>
           <div className="DragHandle"> {/* making the appbar draggable */}
             <AppBar position="static">
-              <Tabs value={value} onChange={this.handleChange}>
+              <Tabs value={this.props.selectedTab} onChange={this.handleChange}>
                 <Tab label="General"/>
                 <Tab label="Peers"/>
                 <Tab label="Files"/>
@@ -51,11 +55,11 @@ function TabContainer(props) {
               </Tabs>
             </AppBar>
           </div>
-          {value === 0 && <TabContainer><GeneralTab /></TabContainer>}
-          {value === 1 && <TabContainer>Peers</TabContainer>}
-          {value === 2 && <TabContainer>Files</TabContainer>}
-          {value === 3 && <TabContainer>Speed</TabContainer>}
-          {value === 4 && <TabContainer>Logger</TabContainer>}
+          {this.props.selectedTab === 0 && <TabContainer><GeneralTab /></TabContainer>}
+          {this.props.selectedTab === 1 && <TabContainer><PeerTab /></TabContainer>}
+          {this.props.selectedTab === 2 && <TabContainer>Files</TabContainer>}
+          {this.props.selectedTab === 3 && <TabContainer>Speed</TabContainer>}
+          {this.props.selectedTab === 4 && <TabContainer>Logger</TabContainer>}
         </div>
       );
     }
@@ -65,4 +69,17 @@ function TabContainer(props) {
     classes: PropTypes.object.isRequired,
   };
   
-  export default withStyles(styles)(BasicTabs);
+  const mapStateToProps = state => {
+    return {
+        selectedTab: state.selectedTab,
+    };
+  }
+
+  const mapDispatchToProps = dispatch => {
+    return {
+        changeTab: (selectedTab) => dispatch({type: actionTypes.SELECTED_TAB, selectedTab }),      
+    }
+}
+
+
+  export default withStyles(styles)(connect(mapStateToProps, mapDispatchToProps)(BasicTabs));

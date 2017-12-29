@@ -48,9 +48,9 @@ class BasicLayout extends React.PureComponent {
 
     var layout =  [
       {i: 'a', x: 0, y: 0, w: 6, h: 1},
-      {i: 'b', x: 0, y: 1, w: 1, h: 5},
+      {i: 'b', x: 0, y: 1, w: 1, h: 7},
       {i: 'c', x: 1, y: 1, w: 5, h: 3, minW: 5, minH: 3},
-      {i: 'd', x: 1, y: 2, w: 5, h: 2, minW: 5, minH: 1}
+      {i: 'd', x: 1, y: 2, w: 5, h: 4, minW: 5, minH: 1}
     ];
     this.state = { layout };
   }

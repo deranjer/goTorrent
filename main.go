@@ -12,12 +12,11 @@ import (
 	"path/filepath"
 
 	"github.com/anacrolix/torrent"
-	"github.com/gorilla/mux"
-	"github.com/gorilla/websocket"
-
 	"github.com/boltdb/bolt"
 	Engine "github.com/deranjer/goTorrent/engine"
 	Storage "github.com/deranjer/goTorrent/storage"
+	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 )
 
 var (
@@ -129,7 +128,7 @@ func main() {
 				fmt.Println("Unable to read JSON client message", err)
 			}
 
-			fmt.Println("MessageType", msg.MessageType)
+			//fmt.Println("MessageFull", msg)
 			switch msg.MessageType { //first handling data requests
 
 			case "torrentListRequest":
@@ -141,6 +140,7 @@ func main() {
 				torrentlistArray.MessageType = "torrentList"
 				torrentlistArray.ClientDBstruct = RunningTorrentArray
 				torrentlistArray.Totaltorrents = len(RunningTorrentArray)
+				//fmt.Println("%+v\n", PreviousTorrentArray)
 				//fmt.Printf("%+v\n", torrentlistArray)
 				conn.WriteJSON(torrentlistArray)
 				break
@@ -148,23 +148,30 @@ func main() {
 
 			case "torrentFileListRequest": //client requested a filelist update
 				fmt.Println("client Requested Filelist update")
-				fileListRequest := Engine.GenericPayload{}
-				json.Unmarshal(msg.Payload, &fileListRequest) //unmarshal into the generic payload
-				FileListArray := Engine.CreateFileListArray(tclient, fileListRequest.TorrentHashString)
+				FileListArray := Engine.CreateFileListArray(tclient, msg.Payload[0])
 				conn.WriteJSON(FileListArray) //writing the JSON to the client
 				break
 
 			case "torrentDetailedInfo": //TODO Figure out how to get single torrent info correctly
 				fmt.Println("client requested detailed Torrent Info")
-				torrentDetailRequest := Engine.GenericPayload{}
-				json.Unmarshal(msg.Payload, &torrentDetailRequest)
-				torrentDetailArray := Engine.CreateTorrentDetailJSON(tclient, torrentDetailRequest.TorrentHashString, db)
+
+				torrentDetailArray := Engine.CreateTorrentDetailJSON(tclient, msg.Payload[0], db)
 				conn.WriteJSON(torrentDetailArray)
+				break
+
+			case "torrentPeerListRequest":
+				fmt.Println("client requested peer list")
+				torrentPeerList := Engine.CreatePeerListArray(tclient, msg.Payload[0])
+				//fmt.Printf("%+v\n", torrentPeerList)
+				//JSONTEST, _ := json.Marshal(torrentPeerList)
+				//fmt.Println(JSONTEST)
+
+				conn.WriteJSON(torrentPeerList)
 				break
 
 			case "magnetLinkSubmit": //if we detect a magnet link we will be adding a magnet torrent
 				magnetMessage := Engine.MagnetMessage{}                           //grabbing a magnetMessage struct from engine->clientstructs
-				json.Unmarshal(msg.Payload, &magnetMessage)                       //unmarshalling the "Payload" from Message into our magnetmessage struct
+				json.Unmarshal([]byte(msg.Payload[0]), &magnetMessage)            //unmarshalling the "Payload" from Message into our magnetmessage struct
 				clientTorrent, err := tclient.AddMagnet(magnetMessage.MagnetLink) //reading the payload into the torrent client
 				if err != nil {
 					fmt.Println("Magnet Error", err)
@@ -177,11 +184,10 @@ func main() {
 
 			case "stopTorrents":
 				TorrentListCommands := Engine.TorrentCommandMessage{}
-				json.Unmarshal(msg.Payload, &TorrentListCommands)
 				for _, singleTorrent := range runningTorrents {
 
 					for _, singleSelection := range TorrentListCommands.TorrentHashStrings {
-						if singleTorrent.InfoHash().AsString() == singleSelection {
+						if singleTorrent.InfoHash().String() == singleSelection {
 							fmt.Println("Matched for stopping torrents")
 							//singleTorrent.Drop()
 						}
@@ -190,12 +196,10 @@ func main() {
 				break
 
 			case "deleteTorrents":
-				TorrentListCommands := Engine.TorrentCommandMessage{}
-				json.Unmarshal(msg.Payload, &TorrentListCommands)
 				for _, singleTorrent := range runningTorrents {
 
-					for _, singleSelection := range TorrentListCommands.TorrentHashStrings {
-						if singleTorrent.InfoHash().AsString() == singleSelection {
+					for _, singleSelection := range msg.Payload {
+						if singleTorrent.InfoHash().String() == singleSelection {
 							fmt.Println("Matched for deleting torrents")
 							singleTorrent.Drop()
 						}
@@ -204,14 +208,12 @@ func main() {
 				break
 
 			case "startTorrents":
-				fmt.Println("Starting torrents")
-				TorrentListCommands := Engine.TorrentCommandMessage{}
-				json.Unmarshal(msg.Payload, &TorrentListCommands)
+				fmt.Println("Starting torrents", msg.Payload)
 				for _, singleTorrent := range runningTorrents {
 
-					for _, singleSelection := range TorrentListCommands.TorrentHashStrings {
-						if singleTorrent.InfoHash().AsString() == singleSelection {
-							fmt.Println("Matched for starting torrents")
+					for _, singleSelection := range msg.Payload {
+						if singleTorrent.InfoHash().String() == singleSelection {
+							fmt.Println("Matched for starting torrents", singleSelection)
 							singleTorrent.DownloadAll()
 						}
 					}
