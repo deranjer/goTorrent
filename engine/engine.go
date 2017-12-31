@@ -3,12 +3,13 @@ package engine //main file for all the calculations and data gathering needed fo
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
-	"github.com/boltdb/bolt"
+	"github.com/asdine/storm"
 	Storage "github.com/deranjer/goTorrent/storage"
 )
 
@@ -20,7 +21,7 @@ func timeOutInfo(clientTorrent *torrent.Torrent, seconds time.Duration) (deleted
 	}()
 	select {
 	case <-clientTorrent.GotInfo(): //attempting to retrieve info for torrent
-		//fmt.Println("Recieved torrent info for...", clientTorrent.Name())
+		fmt.Println("Recieved torrent info for...", clientTorrent.Name())
 		clientTorrent.DownloadAll()
 		return false
 	case <-timeout: // getting info for torrent has timed out so purging the torrent
@@ -32,7 +33,7 @@ func timeOutInfo(clientTorrent *torrent.Torrent, seconds time.Duration) (deleted
 }
 
 //StartTorrent creates the storage.db entry and starts A NEW TORRENT and adds to the running torrent array
-func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage *Storage.TorrentLocal, torrentDbStorage *bolt.DB, dataDir string, torrentFile string, torrentFileName string) {
+func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.TorrentLocal, torrentDbStorage *storm.DB, dataDir string, torrentFile string, torrentFileName string) {
 
 	timeOutInfo(clientTorrent, 45) //seeing if adding the torrrent times out (giving 45 seconds)
 	var TempHash metainfo.Hash
@@ -55,7 +56,7 @@ func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage *Storage.T
 }
 
 //CreateRunningTorrentArray creates the entire torrent list to pass to client
-func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Storage.TorrentLocal, PreviousTorrentArray []ClientDB, config FullClientSettings, db *bolt.DB) (RunningTorrentArray []ClientDB) {
+func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Storage.TorrentLocal, PreviousTorrentArray []ClientDB, config FullClientSettings, db *storm.DB) (RunningTorrentArray []ClientDB) {
 
 	for _, element := range TorrentLocalArray { //re-adding all the torrents we had stored from last shutdown or just added via file or magnet link
 
@@ -94,17 +95,12 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 				}
 			}
 		}
-		activePeersString := fmt.Sprintf("%v", fullStruct.ActivePeers) //converting to strings
+		activePeersString := strconv.Itoa(fullStruct.ActivePeers) //converting to strings
 		totalPeersString := fmt.Sprintf("%v", fullStruct.TotalPeers)
-		bytesCompletedMB := float32(singleTorrent.BytesCompleted() / 1024 / 1024)
-		totalSizeMB := float32(singleTorrent.Length() / 1024 / 1024)
-		//downloadSizeString := fmt.Sprintf("%d", bytesCompletedMB)
-
-		tSize, dSize := ConvertSizetoGB(totalSizeMB, bytesCompletedMB) //convert size to GB if needed
 		var TempHash metainfo.Hash
 		TempHash = singleTorrent.InfoHash()
 
-		singleTorrentStorageInfo := Storage.FetchTorrentFromStorage(db, []byte(TempHash.String())) //fetching all the info from the database
+		singleTorrentStorageInfo := Storage.FetchTorrentFromStorage(db, TempHash.String()) //fetching all the info from the database
 		var torrentTypeTemp string
 		torrentTypeTemp = singleTorrentStorageInfo.TorrentType //either "file" or "magnet" maybe more in the future
 		if torrentTypeTemp == "file" {
@@ -112,16 +108,19 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		} else {
 			fullClientDB.SourceType = "Magnet Link"
 		}
+		fullClientDB.StoragePath = singleTorrentStorageInfo.StoragePath //grabbed from database
 
-		fullClientDB.StoragePath = singleTorrentStorageInfo.StoragePath
+		totalSizeHumanized := HumanizeBytes(float32(singleTorrent.BytesCompleted())) //convert size to GB if needed
+		downloadedSizeHumanized := HumanizeBytes(float32(singleTorrent.Length()))
 
-		fullClientDB.DownloadedSize = dSize
-		fullClientDB.Size = tSize
-		PercentDone := fmt.Sprintf("%.2f", bytesCompletedMB/totalSizeMB)
+		//grabbed from torrent client
+		fullClientDB.DownloadedSize = downloadedSizeHumanized
+		fullClientDB.Size = totalSizeHumanized
+		PercentDone := fmt.Sprintf("%.2f", float32(singleTorrent.BytesCompleted())/float32(singleTorrent.Length()))
 		fullClientDB.TorrentHash = TempHash
 		fullClientDB.PercentDone = PercentDone
-		fullClientDB.DataBytesRead = fullStruct.ConnStats.DataBytesRead
-		fullClientDB.DataBytesWritten = fullStruct.ConnStats.DataBytesWritten
+		fullClientDB.DataBytesRead = fullStruct.ConnStats.DataBytesRead       //used for calculations not passed to client calculating up/down speed
+		fullClientDB.DataBytesWritten = fullStruct.ConnStats.DataBytesWritten //used for calculations not passed to client calculating up/down speed
 		fullClientDB.ActivePeers = activePeersString + " / (" + totalPeersString + ")"
 		fullClientDB.TorrentHashString = TempHash.String()
 		fullClientDB.StoragePath = element.StoragePath
@@ -130,21 +129,21 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		fullClientDB.BytesCompleted = singleTorrent.BytesCompleted()
 		CalculateTorrentETA(singleTorrent, fullClientDB) //calculating the ETA for the torrent
 
-		fullClientDB.UploadRatio = CalculateUploadRatio(singleTorrent, fullClientDB, db) //calculate the upload ratio
-		tickUpdateStruct := Storage.TorrentLocal{}                                       //we are shoving the tick updates into a torrentlocal struct to pass to storage
+		fullClientDB.TotalUploadedBytes = singleTorrentStorageInfo.UploadedBytes
+		fullClientDB.TotalUploadedSize = HumanizeBytes(float32(fullClientDB.TotalUploadedBytes))
+		fullClientDB.UploadRatio = CalculateUploadRatio(singleTorrent, fullClientDB) //calculate the upload ratio
+		tickUpdateStruct := Storage.TorrentLocal{}                                   //we are shoving the tick updates into a torrentlocal struct to pass to storage
 		tickUpdateStruct.UploadRatio = fullClientDB.UploadRatio
 		tickUpdateStruct.UploadedBytes = fullClientDB.DataBytesWritten
-		tickUpdateStruct.Hash = fullClientDB.TorrentHashString
+
+		tickUpdateStruct.Hash = fullClientDB.TorrentHashString //needed for index
+
 		Storage.UpdateStorageTick(db, tickUpdateStruct)
-		//fmt.Println("Download Speed: ", fullClientDB.DownloadSpeed)
-		//fmt.Println("Percent Done: ", fullClientDB.PercentDone)
-		//tclient.WriteStatus(os.Stdout)
 		CalculateTorrentStatus(singleTorrent, fullClientDB) //calculate the status of the torrent, ie downloading seeding etc
 
 		RunningTorrentArray = append(RunningTorrentArray, *fullClientDB)
 
 	}
-	//fmt.Println("RunningTorrentArrayCreated...")
 	return RunningTorrentArray
 }
 
@@ -152,12 +151,23 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 func CreateFileListArray(tclient *torrent.Client, selectedHash string) TorrentFileList {
 	runningTorrents := tclient.Torrents() //don't need running torrent array since we aren't adding or deleting from storage
 	TorrentFileListSelected := TorrentFileList{}
+	TorrentFileStruct := TorrentFile{}
 	for _, singleTorrent := range runningTorrents {
 		tempHash := singleTorrent.InfoHash().String()
 		if tempHash == selectedHash { // if our selection hash equals our torrent hash
-			TorrentFileListSelected.FileList = singleTorrent.Files()
+			torrentFilesRaw := singleTorrent.Files()
+			for _, singleFile := range torrentFilesRaw {
+				TorrentFileStruct.TorrentHashString = tempHash
+				TorrentFileStruct.FileName = singleFile.DisplayPath()
+				TorrentFileStruct.FilePath = singleFile.Path()
+				TorrentFileStruct.FilePercent = fmt.Sprintf("%.2f", float32(singleFile.Length())/float32(singleFile.Length())) //TODO figure out downloaded size of file
+				TorrentFileStruct.FilePriority = "Normal"                                                                      //TODO, figure out how to store this per file in storage and also tie a priority to a file
+				TorrentFileStruct.FileSize = HumanizeBytes(float32(singleFile.Length()))
+				TorrentFileListSelected.FileList = append(TorrentFileListSelected.FileList, TorrentFileStruct)
+			}
 			TorrentFileListSelected.MessageType = "torrentFileList"
 			TorrentFileListSelected.TotalFiles = len(singleTorrent.Files())
+			fmt.Println("filelist", TorrentFileListSelected)
 			return TorrentFileListSelected
 		}
 
@@ -183,9 +193,9 @@ func CreatePeerListArray(tclient *torrent.Client, selectedHash string) PeerFileL
 }
 
 //CreateTorrentDetailJSON creates the json response for a request for more torrent information
-func CreateTorrentDetailJSON(tclient *torrent.Client, selectedHash string, torrentStorage *bolt.DB) ClientDB {
+func CreateTorrentDetailJSON(tclient *torrent.Client, selectedHash string, torrentStorage *storm.DB) ClientDB {
 
-	localTorrentInfo := Storage.FetchTorrentFromStorage(torrentStorage, []byte(selectedHash))
+	localTorrentInfo := Storage.FetchTorrentFromStorage(torrentStorage, selectedHash)
 
 	runningTorrents := tclient.Torrents()
 

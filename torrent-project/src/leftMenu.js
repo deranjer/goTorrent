@@ -131,12 +131,12 @@ class SimpleList extends React.Component {
             </ListItemIcon>
             <ListItemText primary="Seeding Torrents" />
           </ListItem>
-          <ListItem className={this.state.activeTorrentsClass} button={true} onClick={ () => this.setFilter('Active', this.state.activeID)}>
+          {/* <ListItem className={this.state.activeTorrentsClass} button={true} onClick={ () => this.setFilter('Active', this.state.activeID)}>
             <ListItemIcon className={classes.icons}>
               <ActiveTorrentsIcon />
             </ListItemIcon>
             <ListItemText primary="Active Torrents" />
-          </ListItem>
+          </ListItem> */}
           <ListItem  className={this.state.completedTorrentsClass} button={true} onClick={ () => this.setFilter('Completed', this.state.completedID)}>
             <ListItemIcon className={classes.inactiveIcon}>
               <ActiveTorrentsIcon />

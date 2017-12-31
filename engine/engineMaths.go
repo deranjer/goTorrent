@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/anacrolix/torrent"
-	"github.com/boltdb/bolt"
 )
 
 func secondsToMinutes(inSeconds int64) string {
@@ -17,34 +16,22 @@ func secondsToMinutes(inSeconds int64) string {
 	return str
 }
 
-//ConvertSizetoGB changes the sizes
-func ConvertSizetoGB(t float32, d float32) (tDelta string, dDelta string) { //converting sizes to MB or GB as needed and adding string
-	if t > 1024 && d > 1024 {
-		t := fmt.Sprintf("%.2f", t/1024)
-		t = t + " GB"
-		d := fmt.Sprintf("%.2f", d/1024)
-		d = d + " GB"
-		return t, d
-	} else if d > 1024 || t > 1024 {
-		if d > 1024 {
-			d := fmt.Sprintf("%.2f", d/1024)
-			d = d + " GB"
-			t := fmt.Sprintf("%.2f", t)
-			t = t + " MB"
-			return t, d
-		}
-		d := fmt.Sprintf("%.2f", d)
-		d = d + " MB"
-		t := fmt.Sprintf("%.2f", t/1024)
-		t = t + " GB"
-		return t, d
-	} else {
-		d := fmt.Sprintf("%.2f", d)
-		t := fmt.Sprintf("%.2f", t)
-		t = t + " MB"
-		d = d + " MB"
-		return t, d
+//HumanizeBytes returns a nice humanized version of bytes in either GB or MB
+func HumanizeBytes(bytes float32) string {
+	if bytes < 1000000 { //if we have less than 1MB in bytes convert to KB
+		pBytes := fmt.Sprintf("%.2f", bytes/1024)
+		pBytes = pBytes + " KB"
+		return pBytes
 	}
+	bytes = bytes / 1024 / 1024 //Converting bytes to a useful measure
+	if bytes > 1024 {
+		pBytes := fmt.Sprintf("%.2f", bytes/1024)
+		pBytes = pBytes + " GB"
+		return pBytes
+	}
+	pBytes := fmt.Sprintf("%.2f", bytes) //If not too big or too small leave it as MB
+	pBytes = pBytes + " MB"
+	return pBytes
 }
 
 //CalculateTorrentSpeed is used to calculate the torrent upload and download speed over time c is current clientdb, oc is last client db to calculate speed over time
@@ -56,9 +43,6 @@ func CalculateTorrentSpeed(t *torrent.Torrent, c *ClientDB, oc ClientDB) {
 	db := float32(bytes - oc.BytesCompleted) //getting the delta bytes
 	rate := db * (float32(time.Second) / dt) // converting into seconds
 	dbU := float32(bytesUpload - oc.DataBytesWritten)
-	//fmt.Println("BytesWritten", bytesUpload)
-	//fmt.Println("WireBytes", t.Stats().DataBytesWritten)
-	//fmt.Println("ChunksWritten", t.Stats().ChunksWritten)
 	rateUpload := dbU * (float32(time.Second) / dt)
 	if rate >= 0 {
 		rate = rate / 1024 / 1024 //creating integer to calculate ETA
@@ -90,18 +74,18 @@ func CalculateTorrentETA(t *torrent.Torrent, c *ClientDB) {
 	}
 }
 
-func CalculateUploadRatio(t *torrent.Torrent, c *ClientDB, db *bolt.DB) string {
-	if c.DataBytesWritten > 0 {
-		uploadRatioTemp := c.DataBytesRead / c.DataBytesWritten
-		uploadRatio := fmt.Sprintf("%.2f", uploadRatioTemp)
+//CalculateUploadRatio calculates the download to upload ratio so you can see if you are being a good seeder
+func CalculateUploadRatio(t *torrent.Torrent, c *ClientDB) string {
+	if c.TotalUploadedBytes > 0 && t.BytesCompleted() > 0 { //If we have actually started uploading and downloading stuff start calculating our ratio
+		uploadRatio := fmt.Sprintf("%.2f", float64(c.TotalUploadedBytes)/float64(t.BytesCompleted()))
 		return uploadRatio
 	}
-	uploadRatio := fmt.Sprintf("%.2f", 0.00) //we haven't uploaded anything so no upload ratio
+	uploadRatio := "0.00" //we haven't uploaded anything so no upload ratio just pass a string directly
 	return uploadRatio
 }
 
 //CalculateTorrentStatus is used to determine what the STATUS column of the frontend will display ll2
-func CalculateTorrentStatus(t *torrent.Torrent, c *ClientDB) {
+func CalculateTorrentStatus(t *torrent.Torrent, c *ClientDB) { //TODO redo all of this to allow for stopped torrents
 	if t.Seeding() && t.Stats().ActivePeers > 0 && t.BytesMissing() == 0 {
 		c.Status = "Seeding"
 	} else if t.Stats().ActivePeers > 0 && t.BytesMissing() > 0 {

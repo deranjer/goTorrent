@@ -6,3 +6,4 @@ export const SET_BUTTON_STATE = 'BUTTON_STATE';
 export const SELECTION_HASHES = 'SELECTION_HASHES';
 export const SELECTED_TAB = 'SELECTED_TAB';
 export const PEER_LIST = 'PEER_LIST';
+export const FILE_LIST = 'FILE_LIST';

@@ -3,8 +3,8 @@ import * as actionTypes from './actions';
 
 
 const initialState = {
-    buttonStateDefault: [{startButton: "default", pauseButton: "default", stopButton: "default", deleteButton: "default", fSeedButton: "default", fRecheckButton: "default"}],
-    buttonState: [{startButton: "default", pauseButton: "default", stopButton: "default", deleteButton: "default", fSeedButton: "default", fRecheckButton: "default"}],
+    buttonStateDefault: [{startButton: "default", stopButton: "default", deleteButton: "default", fSeedButton: "default", fRecheckButton: "default"}],
+    buttonState: [{startButton: "default", stopButton: "default", deleteButton: "default", fSeedButton: "default", fRecheckButton: "default"}],
     sorting: [],
     selection: [],
     selectionHashes: [],
@@ -12,6 +12,7 @@ const initialState = {
     columnName: "Status",
     torrentList: [],
     peerList: [],
+    fileList: [],
     torrentDetailInfo: [],
     selectedTab: 0,
 }
@@ -55,6 +56,13 @@ const reducer = (state = initialState, action) => {
             return {
                 ...state,
                 peerList: action.peerList
+            }
+        
+        case actionTypes.FILE_LIST:
+        console.log("FILELIST REDUX......", action.fileList)
+            return {
+                ...state,
+                fileList: action.fileList
             }
 
         case actionTypes.SET_BUTTON_STATE:

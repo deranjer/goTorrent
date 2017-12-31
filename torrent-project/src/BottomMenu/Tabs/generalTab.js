@@ -64,7 +64,7 @@ class GeneralTab extends React.Component {
                     <Paper className={classes.paper}>Storage Path: <span className={classes.floatRight}>{this.state.selectedTorrent["StoragePath"]} </span> </Paper>
                     <Paper className={classes.paper}>Date Added: <span className={classes.floatRight}> {this.state.selectedTorrent["DateAdded"]} </span> </Paper>
                     <Paper className={classes.paper}>Source Type: <span className={classes.floatRight}> {this.state.selectedTorrent["SourceType"]} </span> </Paper>
-                    <Paper className={classes.paper}>Label: <span className={classes.floatRight}> {this.state.selectedTorrent["Status"]} </span> </Paper> 
+                    <Paper className={classes.paper}>Label: <span className={classes.floatRight}> None </span> </Paper> 
                     <Paper className={classes.paper}>Torrent Hash: <span className={classes.floatRight}> {this.state.selectedTorrent["TorrentHashString"]} </span> </Paper>
                     
                 </Grid>
@@ -72,10 +72,9 @@ class GeneralTab extends React.Component {
                     <Paper className={classes.paper}>Status: <span className={classes.floatRight}>{this.state.selectedTorrent["Status"]} </span> </Paper>
                     <Paper className={classes.paper}>Percent Done: <span className={classes.floatRight}>{this.state.selectedTorrent["PercentDone"]} </span> </Paper>
                     <Paper className={classes.paper}>Torrent DL Amount: <span className={classes.floatRight}>{this.state.selectedTorrent["DownloadedSize"]} </span> </Paper>
-                    <Paper className={classes.paper}>Total Upload Amount: <span className={classes.floatRight}>{this.state.selectedTorrent["Status"]} </span> </Paper>
-                    <Paper className={classes.paper}>Seeding Ratio: <span className={classes.floatRight}>{this.state.selectedTorrent["Status"]} </span> </Paper>
+                    <Paper className={classes.paper}>Total Upload Amount: <span className={classes.floatRight}>{this.state.selectedTorrent["TotalUploadedSize"]} </span> </Paper>
+                    <Paper className={classes.paper}>Seeding Ratio: <span className={classes.floatRight}>{this.state.selectedTorrent["Ratio"]} </span> </Paper>
                     <Paper className={classes.paper}>ETA: <span className={classes.floatRight}>{this.state.selectedTorrent["ETA"]} </span> </Paper>
-                    <Paper className={classes.paper}>Status: <span className={classes.floatRight}>{this.state.selectedTorrent["Status"]} </span> </Paper>
                     
                 </Grid>
                 <Grid item xs={12} sm={4}>

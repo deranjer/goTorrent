@@ -50,7 +50,7 @@ export default class addTorrentPopup extends React.Component {
       //let magnetLinkSubmit = this.state.textValue;
       let magnetLinkMessage = {
         messageType: "magnetLinkSubmit",
-        Payload: { MagnetLink: this.state.textValue}
+        Payload: [this.state.textValue]
       }
       console.log("Sending magnet link: ", magnetLinkMessage);
       ws.send(JSON.stringify(magnetLinkMessage));

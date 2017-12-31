@@ -12,6 +12,7 @@ import Select from 'material-ui/Select/Select';
 var title = document.title; //Set the number of active torrents in the title
 let torrents= []; 
 let peerList = [];
+let fileList = [];
 
 var torrentListRequest = {
     messageType: "torrentListRequest"
@@ -23,7 +24,7 @@ var torrentListRequest = {
 //websocket is started in kickwebsocket.js and is picked up here so "ws" is already defined 22
 ws.onmessage = function (evt) { //When we recieve a message from the websocket
     var serverMessage = JSON.parse(evt.data)
-    //console.log("message", serverMessage.MessageType)
+    console.log("message", serverMessage.MessageType)
     switch (serverMessage.MessageType) {
 
         case "torrentList":
@@ -42,11 +43,13 @@ ws.onmessage = function (evt) { //When we recieve a message from the websocket
                     PercentDone: serverMessage.data[i].PercentDone,
                     StoragePath: serverMessage.data[i].StoragePath,
                     DateAdded: serverMessage.data[i].DateAdded,
+                    SourceType: serverMessage.data[i].SourceType,
                     Status: serverMessage.data[i].Status,
                     BytesCompleted: serverMessage.data[i].BytesCompleted,
                     ActivePeers: serverMessage.data[i].ActivePeers,
                     ETA: serverMessage.data[i].ETA,
-                    Ratio: serverMessage.data[i].Ratio,
+                    TotalUploadedSize: serverMessage.data[i].TotalUploadedSize,
+                    Ratio: serverMessage.data[i].UploadRatio,
                 })    
             } 
             var newTitle = '(' + serverMessage.total + ')' + title; //updating the title
@@ -70,16 +73,18 @@ ws.onmessage = function (evt) { //When we recieve a message from the websocket
             break    
 
         case "torrentFileList":
-            console.log("Recieved FileListUpdate", serverMessage.fileList)
+            console.log("Recieved FileListUpdate", evt.data)
             fileList = [];
-            for (var i = 0; i < serverMessage.total; i++){
+            for (var i = 0; i < serverMessage.TotalFiles; i++){
                 fileList.push({
-                    fileList: serverMessage.fileList[i]
-
-
+                    FileName: serverMessage.FileList[i].FileName,
+                    FilePath: serverMessage.FileList[i].FilePath,
+                    FileSize: serverMessage.FileList[i].FileSize,
+                    FilePercent: serverMessage.FileList[i].FilePercent,
+                    FilePriority: serverMessage.FileList[i].FilePriority,
                 })
             }
-        
+            console.log("filelist", fileList)
             break
 
         case "speedTab":
@@ -123,11 +128,16 @@ class BackendSocket extends React.Component {
                     MessageType: "torrentPeerListRequest",
                     Payload: selectionHashes,    
                 }
-                //console.log("Peers tab information requested", peerListHashes)
+                console.log("Peers tab information requested", peerListHashes)
                 ws.send(JSON.stringify(peerListHashes))
                 break;
             case 2:
-                console.log("Files tab information requested")
+                let fileListHashes = {
+                    MessageType: "torrentFileListRequest",
+                    Payload: selectionHashes,
+                }
+                console.log("Files tab information requested", fileListHashes)
+                ws.send(JSON.stringify(fileListHashes))
                 break;
             case 3:
                 console.log("Speed tab information requested")
@@ -166,13 +176,28 @@ class BackendSocket extends React.Component {
         ws.send(JSON.stringify(torrentListRequest))//talking to the server to get the torrent list
         console.log("Torrentlist", torrents)
         this.props.newTorrentList(torrents) //sending the list of torrents to torrentlist.js 
-        if (this.props.selectedTab === 1 && this.props.selectionHashes.length === 1){ //if we are on the peerlist tab dispatch a new peerlist
-            let peerListHashes = {
-                MessageType: "torrentPeerListRequest",
-                Payload: this.props.selectionHashes,    
+        if (this.props.selectionHashes.length === 1){
+            switch(this.props.selectedTab){
+                case 1:
+                    let peerListHashes = {
+                        MessageType: "torrentPeerListRequest",
+                        Payload: this.props.selectionHashes,    
+                    }
+                    ws.send(JSON.stringify(peerListHashes))
+                    this.props.newPeerList(peerList)
+                    break;
+                case 2:
+                    let fileListHashes = {
+                        MessageType: "torrentFileListRequest",
+                        Payload: this.props.selectionHashes,
+                    }
+                    console.log("Files tab information requested", fileList)
+                    ws.send(JSON.stringify(fileListHashes))
+                    this.props.newFileList(fileList)
+                    break;
+
             }
-            ws.send(JSON.stringify(peerListHashes))
-            this.props.newPeerList(peerList)
+
         }     
     }
 
@@ -213,7 +238,8 @@ const mapStateToProps = state => {
 const mapDispatchToProps = dispatch => {
     return {
         newTorrentList: (torrentList) => dispatch({type: actionTypes.TORRENT_LIST, torrentList }),
-        newPeerList: (peerList) => dispatch({type: actionTypes.PEER_LIST, peerList})
+        newPeerList: (peerList) => dispatch({type: actionTypes.PEER_LIST, peerList}),
+        newFileList: (fileList) => dispatch({type: actionTypes.FILE_LIST, fileList}),
     }
 }
 

@@ -12,7 +12,8 @@ import (
 	"path/filepath"
 
 	"github.com/anacrolix/torrent"
-	"github.com/boltdb/bolt"
+	"github.com/asdine/storm"
+	//"github.com/boltdb/bolt"
 	Engine "github.com/deranjer/goTorrent/engine"
 	Storage "github.com/deranjer/goTorrent/storage"
 	"github.com/gorilla/mux"
@@ -43,18 +44,18 @@ func updateClient(torrentstats []Engine.ClientDB, conn *websocket.Conn) { //get 
 
 func main() {
 	//setting up the torrent client
-	Config := Engine.FullClientSettingsNew()         //grabbing from settings.go
-	os.Mkdir(Config.TFileUploadFolder, os.ModeDir)   //creating a directory to store uploaded torrent files
-	torrentLocalStorage := new(Storage.TorrentLocal) //creating a new struct that stores all of our local storage info
+	Config := Engine.FullClientSettingsNew()       //grabbing from settings.go
+	os.Mkdir(Config.TFileUploadFolder, os.ModeDir) //creating a directory to store uploaded torrent files
+	torrentLocalStorage := Storage.TorrentLocal{}  //creating a new struct that stores all of our local storage info
 
-	fmt.Printf("%+v\n", Config)
+	//fmt.Printf("%+v\n", Config)
 
 	tclient, err := torrent.NewClient(&Config.Config) //pulling out the torrent specific config to use
 	if err != nil {
 		log.Fatalf("error creating client: %s", err)
 	}
 
-	db, err := bolt.Open("storage.db", 0600, nil) //initializing the boltDB store that contains all the added torrents
+	db, err := storm.Open("storage.db") //initializing the boltDB store that contains all the added torrents
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -128,11 +129,11 @@ func main() {
 				fmt.Println("Unable to read JSON client message", err)
 			}
 
-			//fmt.Println("MessageFull", msg)
+			fmt.Println("MessageFull", msg)
 			switch msg.MessageType { //first handling data requests
 
 			case "torrentListRequest":
-				fmt.Println("client Requested TorrentList Update")
+				//fmt.Println("client Requested TorrentList Update")
 				TorrentLocalArray = Storage.ReadInTorrents(db)
 				RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db) //Updates the RunningTorrentArray with the current client data as well
 				PreviousTorrentArray = RunningTorrentArray
@@ -150,6 +151,7 @@ func main() {
 				fmt.Println("client Requested Filelist update")
 				FileListArray := Engine.CreateFileListArray(tclient, msg.Payload[0])
 				conn.WriteJSON(FileListArray) //writing the JSON to the client
+
 				break
 
 			case "torrentDetailedInfo": //TODO Figure out how to get single torrent info correctly
@@ -170,9 +172,7 @@ func main() {
 				break
 
 			case "magnetLinkSubmit": //if we detect a magnet link we will be adding a magnet torrent
-				magnetMessage := Engine.MagnetMessage{}                           //grabbing a magnetMessage struct from engine->clientstructs
-				json.Unmarshal([]byte(msg.Payload[0]), &magnetMessage)            //unmarshalling the "Payload" from Message into our magnetmessage struct
-				clientTorrent, err := tclient.AddMagnet(magnetMessage.MagnetLink) //reading the payload into the torrent client
+				clientTorrent, err := tclient.AddMagnet(msg.Payload[0]) //reading the payload into the torrent client
 				if err != nil {
 					fmt.Println("Magnet Error", err)
 				}
@@ -183,13 +183,13 @@ func main() {
 				break
 
 			case "stopTorrents":
-				TorrentListCommands := Engine.TorrentCommandMessage{}
+				TorrentListCommands := msg.Payload
 				for _, singleTorrent := range runningTorrents {
 
-					for _, singleSelection := range TorrentListCommands.TorrentHashStrings {
+					for _, singleSelection := range TorrentListCommands {
 						if singleTorrent.InfoHash().String() == singleSelection {
 							fmt.Println("Matched for stopping torrents")
-							//singleTorrent.Drop()
+							singleTorrent.SetMaxEstablishedConns(0) //Forcing the max amount of connections allowed to zero effectively stopping it
 						}
 					}
 				}
@@ -202,6 +202,7 @@ func main() {
 						if singleTorrent.InfoHash().String() == singleSelection {
 							fmt.Println("Matched for deleting torrents")
 							singleTorrent.Drop()
+							//Storage.DelTorrentLocalStorage(db)
 						}
 					}
 				}

@@ -10,7 +10,7 @@ import AddTorrentFilePopup from './addTorrentFileModal';
 
 
 import StartTorrentIcon from 'material-ui-icons/PlayArrow';
-import PauseTorrentIcon from 'material-ui-icons/Pause';
+//import PauseTorrentIcon from 'material-ui-icons/Pause';
 import StopTorrentIcon from 'material-ui-icons/Stop';
 import DeleteTorrentIcon from 'material-ui-icons/Delete';
 import RSSTorrentIcon from 'material-ui-icons/RssFeed';
@@ -70,7 +70,7 @@ class IconButtons extends React.Component {
 
 
   startTorrent = () => {
-    console.log("Starting Torrents", selection)
+    console.log("Starting Torrents", this.props.selectionHashes)
     let startTorrentHashes = {
       MessageType: "startTorrents",
       Payload: this.props.selectionHashes,    
@@ -79,16 +79,25 @@ class IconButtons extends React.Component {
     ws.send(JSON.stringify(startTorrentHashes))
   }
  
-  buttonHandler = (buttonState) => {
-    console.log("BUTTONSTATE", buttonState)
+  stopTorrent = () => {
+    let stopTorrentHashes = {
+      MessageType: "stopTorrents",
+      Payload: this.props.selectionHashes,    
+    }
+    console.log("Stopping Torrents", stopTorrentHashes)
+    ws.send(JSON.stringify(stopTorrentHashes))
   }
 
-  componentWillReceiveProps = (nextProps) => {  //if we get a new buttonstate force a button update
-    if (this.props.buttonState != nextProps.buttonState){
-      this.buttonHandler(nextProps.buttonState)
+  deleteTorrent = () => {
+    
+    let deleteTorrentHashes = {
+      MessageType: "deleteTorrents",
+      Payload: this.props.selectionHashes,    
     }
-    console.log("B1State", this.props.buttonState[0].startButton)
+    console.log("Deleting Torrents", deleteTorrentHashes)
+    ws.send(JSON.stringify(deleteTorrentHashes))
   }
+
 
   render() {
     const { classes } = this.props;
@@ -101,15 +110,15 @@ class IconButtons extends React.Component {
           <ReactTooltip place="top" type="light" effect="float" />
           <StartTorrentIcon />
         </IconButton>
-        <IconButton color={this.props.buttonState[0].pauseButton} data-tip="Pause Torrent" className={classes.button} aria-label="Pause Torrent">
+       {/*  <IconButton color={this.props.buttonState[0].pauseButton} data-tip="Pause Torrent" className={classes.button} aria-label="Pause Torrent">
           <ReactTooltip place="top" type="light" effect="float" />
           <PauseTorrentIcon />
-        </IconButton>
-        <IconButton color={this.props.buttonState[0].stopButton} data-tip="Stop Torrent" className={classes.button} aria-label="Stop Torrent">
+        </IconButton> */}
+        <IconButton color={this.props.buttonState[0].stopButton} data-tip="Stop Torrent" className={classes.button} onClick={this.stopTorrent} aria-label="Stop Torrent">
           <ReactTooltip place="top" type="light" effect="float" />
           <StopTorrentIcon />
         </IconButton>
-        <IconButton color={this.props.buttonState[0].deleteButton} data-tip="Delete Torrent" className={classes.button} aria-label="Delete Torrent">
+        <IconButton color={this.props.buttonState[0].deleteButton} data-tip="Delete Torrent" className={classes.button} onClick={this.deleteTorrent} aria-label="Delete Torrent">
           <ReactTooltip place="top" type="error" effect="float" />
           <DeleteTorrentIcon />
         </IconButton>

@@ -6,6 +6,7 @@ import AppBar from 'material-ui/AppBar';
 import Tabs, { Tab } from 'material-ui/Tabs';
 import GeneralTab from './Tabs/generalTab';
 import PeerTab from './Tabs/peerTab';
+import FileTab from './Tabs/fileTab';
 
 
 //Redux
@@ -57,7 +58,7 @@ function TabContainer(props) {
           </div>
           {this.props.selectedTab === 0 && <TabContainer><GeneralTab /></TabContainer>}
           {this.props.selectedTab === 1 && <TabContainer><PeerTab /></TabContainer>}
-          {this.props.selectedTab === 2 && <TabContainer>Files</TabContainer>}
+          {this.props.selectedTab === 2 && <TabContainer><FileTab /></TabContainer>}
           {this.props.selectedTab === 3 && <TabContainer>Speed</TabContainer>}
           {this.props.selectedTab === 4 && <TabContainer>Logger</TabContainer>}
         </div>
