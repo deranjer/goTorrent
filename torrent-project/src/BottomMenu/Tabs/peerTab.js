@@ -46,7 +46,7 @@ class PeerTab extends React.Component {
                 <SortingState sorting={this.state.sorting} onSortingChange={this.changeSorting} />
                 <LocalSorting />
                 <DragDropContext />
-                <TableView />
+                <VirtualTableView height={350}/>
                 <TableColumnResizing columnWidths={this.state.columnWidths} onColumnWidthsChange={this.changeColumnWidths}/>
                 <TableColumnReordering order={this.state.columnOrder} onOrderChange={this.changeColumnOrder} />
                 <TableHeaderRow allowSorting allowResizing allowDragging />

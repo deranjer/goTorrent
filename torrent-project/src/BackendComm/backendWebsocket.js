@@ -13,6 +13,7 @@ var title = document.title; //Set the number of active torrents in the title
 let torrents= []; 
 let peerList = [];
 let fileList = [];
+let RSSList = [];
 
 var torrentListRequest = {
     messageType: "torrentListRequest"
@@ -24,7 +25,7 @@ var torrentListRequest = {
 //websocket is started in kickwebsocket.js and is picked up here so "ws" is already defined 22
 ws.onmessage = function (evt) { //When we recieve a message from the websocket
     var serverMessage = JSON.parse(evt.data)
-    console.log("message", serverMessage.MessageType)
+    //console.log("message", serverMessage.MessageType)
     switch (serverMessage.MessageType) {
 
         case "torrentList":
@@ -50,6 +51,8 @@ ws.onmessage = function (evt) { //When we recieve a message from the websocket
                     ETA: serverMessage.data[i].ETA,
                     TotalUploadedSize: serverMessage.data[i].TotalUploadedSize,
                     Ratio: serverMessage.data[i].UploadRatio,
+                    FileNumber: serverMessage.data[i].NumberofFiles,
+                    PieceNumber: serverMessage.data[i].NumberofPieces,
                 })    
             } 
             var newTitle = '(' + serverMessage.total + ')' + title; //updating the title
@@ -57,7 +60,6 @@ ws.onmessage = function (evt) { //When we recieve a message from the websocket
             break;
         
         case "torrentPeerList":
-            console.log("Full EVENT", evt.data)
             peerList = []; //clearing out the peerlist array to make room for new (so that it does keep adding)
             
             for(var i = 0; i < serverMessage.TotalPeers; i++){
@@ -69,11 +71,9 @@ ws.onmessage = function (evt) { //When we recieve a message from the websocket
                     SupportsEncryption: serverMessage.PeerList[i].SupportsEncryption.toString(),
                 })
             }
-            console.log("Peerlist", peerList)
             break    
 
         case "torrentFileList":
-            console.log("Recieved FileListUpdate", evt.data)
             fileList = [];
             for (var i = 0; i < serverMessage.TotalFiles; i++){
                 fileList.push({
@@ -94,6 +94,20 @@ ws.onmessage = function (evt) { //When we recieve a message from the websocket
         case "loggerData":
             console.log("Logger data requested")
             break;
+    
+        case "rssListRequest":
+            console.log("RSSListRequest recieved", evt.data)
+            RSSList = [];
+            for (var i = 0; i < serverMessage.TotalRSSFeeds; i++){
+                RSSList.push({
+                    RSSURL: serverMessage.RSSFeeds[i]
+                })
+            }
+            console.log("RSSURLS", RSSList)
+            console.log("FIRSTURL", RSSList[0])
+            console.log("FULLURL", RSSList[0].RSSURL)
+            break;
+        
     }
                                     
 }
@@ -157,15 +171,12 @@ class BackendSocket extends React.Component {
         }
         return false;
     }
-
-
-
     componentDidMount() {
         this.timerID = setInterval(
           () => this.tick(),
           2000
         );    
- 
+      
     } 
 
     componentWillUnmount() {
@@ -174,7 +185,8 @@ class BackendSocket extends React.Component {
 
     tick() { // this tick is the main tick that updates ALL of the components that update on tick... which is a lot
         ws.send(JSON.stringify(torrentListRequest))//talking to the server to get the torrent list
-        console.log("Torrentlist", torrents)
+        //console.log("Torrentlist", torrents)
+        this.props.setButtonState(this.props.selection) //forcing an update to the buttons
         this.props.newTorrentList(torrents) //sending the list of torrents to torrentlist.js 
         if (this.props.selectionHashes.length === 1){
             switch(this.props.selectedTab){
@@ -191,7 +203,6 @@ class BackendSocket extends React.Component {
                         MessageType: "torrentFileListRequest",
                         Payload: this.props.selectionHashes,
                     }
-                    console.log("Files tab information requested", fileList)
                     ws.send(JSON.stringify(fileListHashes))
                     this.props.newFileList(fileList)
                     break;
@@ -229,6 +240,7 @@ const mapStateToProps = state => {
     return {
         selectionHashes: state.selectionHashes,
         selectedTab: state.selectedTab,
+        selection: state.selection,
     };
   }
 
@@ -240,6 +252,10 @@ const mapDispatchToProps = dispatch => {
         newTorrentList: (torrentList) => dispatch({type: actionTypes.TORRENT_LIST, torrentList }),
         newPeerList: (peerList) => dispatch({type: actionTypes.PEER_LIST, peerList}),
         newFileList: (fileList) => dispatch({type: actionTypes.FILE_LIST, fileList}),
+        setButtonState: (buttonState) => dispatch({type: actionTypes.SET_BUTTON_STATE, buttonState}),
+        newRSSFeedStore: (RSSList) => dispatch({type: actionTypes.NEW_RSS_FEED_STORE, RSSList}),
+        //changeSelection: (selection) => dispatch({type: actionTypes.CHANGE_SELECTION, selection}),//forcing an update to the buttons
+
     }
 }
 

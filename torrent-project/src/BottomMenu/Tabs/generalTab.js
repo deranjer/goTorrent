@@ -45,7 +45,7 @@ class GeneralTab extends React.Component {
                 }
             })
             //selectedTorrentTemp = this.props.torrentList.filter(torrent => torrent.TorrentHashString === this.props.selectionHashes)
-            console.log("SelectedTorrentTemp", selectedTorrentTemp)
+            //console.log("SelectedTorrentTemp", selectedTorrentTemp)
             this.setState({ selectedTorrent: selectedTorrentTemp });    
         } else {
             this.setState({ selectedTorrent: [] })
@@ -78,8 +78,8 @@ class GeneralTab extends React.Component {
                     
                 </Grid>
                 <Grid item xs={12} sm={4}>
-                    <Paper className={classes.paper}>Status: <span className={classes.floatRight}>{this.state.selectedTorrent["Status"]} </span> </Paper>
-                    <Paper className={classes.paper}>Torrent DL Amount: {this.state.selectedTorrent["DownloadedSize"]} </Paper>
+                    <Paper className={classes.paper}>Number of Files: <span className={classes.floatRight}>{this.state.selectedTorrent["FileNumber"]} </span> </Paper>
+                    <Paper className={classes.paper}>Number of Pieces: <span className={classes.floatRight}>{this.state.selectedTorrent["PieceNumber"]} </span> </Paper>
                 
                 
                 

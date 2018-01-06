@@ -15,7 +15,11 @@ const initialState = {
     fileList: [],
     torrentDetailInfo: [],
     selectedTab: 0,
+    RSSList: [],
 }
+
+
+
 
 const reducer = (state = initialState, action) => {
     switch(action.type){
@@ -25,9 +29,17 @@ const reducer = (state = initialState, action) => {
             return {
                 ...state,
                 peerList: [], //changing selection will purge out all of the old data
+                fileList: [],
                 selectionHashes: [],
                 selection: action.selection,
             };
+
+        case actionTypes.NEW_RSS_FEED_STORE:
+            console.log("New RSS Feed Store", action.RSSList)
+            return {
+                ...state,
+                RSSList: action.RSSList,
+            }
 
         case actionTypes.SELECTION_HASHES:
             console.log("Selection hashes REDUX", action.selectionHashes)
@@ -59,24 +71,72 @@ const reducer = (state = initialState, action) => {
             }
         
         case actionTypes.FILE_LIST:
-        console.log("FILELIST REDUX......", action.fileList)
             return {
                 ...state,
                 fileList: action.fileList
             }
 
-        case actionTypes.SET_BUTTON_STATE:
-            return {
-                ...state,
-                buttonState: action.buttonState
-            }; 
-        
         case actionTypes.SELECTED_TAB:
             return {
                 ...state,
                 selectedTab: action.selectedTab
             }
+ 
+        case actionTypes.SET_BUTTON_STATE:
+            if (action.buttonState.length === 0) { //if selection is empty buttons will be default and selectionHashes will be blanked out and pushed to redux
+                let buttonStateFinal = state.buttonStateDefault //if no selection dispatch that to redux
+                return {
+                    ...state,
+                    buttonState: buttonStateFinal
+                }; 
 
+            } else { // if we have selection continue on with logic to determine button state
+                const selectedRows = [] //array of all the selected Rows
+                action.buttonState.forEach(element => {   
+                    selectedRows.push(state.torrentList[element])   //pushing the selected rows out of torrentlist
+                });
+            
+            
+                let buttonStateTest = selectedRows.filter(element => { //TODO fix this bad mess... we literally just need to filter for stopped and go from there
+                    let result = []
+                    if (element.Status === "Downloading" || element.Status === "Awaiting Peers" || element.Status === "Seeding" || element.Status === "Completed"){
+                        result.push(element.Status)
+                        return result
+                    }
+                })
+                let buttonStateTest2 = selectedRows.filter(element => element.Status === "Stopped")
+            
+                if (buttonStateTest.length > 0 && buttonStateTest2.length === 0){
+
+                    let buttonStateFinal = [{startButton: "default", stopButton: "primary", deleteButton: "accent", fSeedButton: "default", fRecheckButton: "primary"}]
+                    return {
+                        ...state,
+                        buttonState: buttonStateFinal
+                    }; 
+
+                }
+                if (buttonStateTest.length === 0 && buttonStateTest2.length > 0){
+                    let buttonStateFinal = [{startButton: "primary", stopButton: "default", deleteButton: "accent", fSeedButton: "default", fRecheckButton: "primary"}]
+                    return {
+                        ...state,
+                        buttonState: buttonStateFinal
+                    }; 
+
+                }
+                if (buttonStateTest.length > 0 && buttonStateTest2.length > 0){
+                    let buttonStateFinal = [{startButton: "primary", stopButton: "primary", deleteButton: "accent", fSeedButton: "default", fRecheckButton: "primary"}]
+                    return {
+                        ...state,
+                        buttonState: buttonStateFinal
+                    }; 
+
+                }
+            }
+            return {
+                ...state,
+                buttonState: buttonStateFinal
+            }; 
+        
         default:
             return state;
     };
