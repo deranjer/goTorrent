@@ -14,6 +14,7 @@ let torrents= [];
 let peerList = [];
 let fileList = [];
 let RSSList = [];
+let RSSTorrentList = [];
 
 var torrentListRequest = {
     messageType: "torrentListRequest"
@@ -100,14 +101,25 @@ ws.onmessage = function (evt) { //When we recieve a message from the websocket
             RSSList = [];
             for (var i = 0; i < serverMessage.TotalRSSFeeds; i++){
                 RSSList.push({
-                    RSSURL: serverMessage.RSSFeeds[i]
+                    RSSURL: serverMessage.RSSFeeds[i].RSSFeedURL,
+                    RSSName: serverMessage.RSSFeeds[i].RSSName,
                 })
             }
             console.log("RSSURLS", RSSList)
-            console.log("FIRSTURL", RSSList[0])
-            console.log("FULLURL", RSSList[0].RSSURL)
+            console.log("FIRSTURL", RSSList[1])
+            console.log("FULLURL", RSSList[1].RSSURL)
             break;
-        
+
+        case "rssTorrentList":
+            //console.log("RSSTorrentList recieved", evt.data)
+            RSSTorrentList = [];
+            for (var i = 0; i < serverMessage.TotalTorrents; i++){
+                RSSTorrentList.push({
+                    TorrentName: serverMessage.Torrents[i].Title,
+                    TorrentLink: serverMessage.Torrents[i].Link,
+                    PublishDate: serverMessage.Torrents[i].PubDate,
+                })
+            }
     }
                                     
 }
@@ -175,15 +187,23 @@ class BackendSocket extends React.Component {
         this.timerID = setInterval(
           () => this.tick(),
           2000
-        );    
-      
+        ); 
+        
     } 
 
     componentWillUnmount() {
         clearInterval(this.timerID);
     } 
 
-    tick() { // this tick is the main tick that updates ALL of the components that update on tick... which is a lot
+    tick() { // this tick is the main tick that updates ALL of the components that update on tick... which is a lot 
+        if (this.props.RSSList != RSSList & this.props.RSSModalOpen == true) {
+            this.props.newRSSFeedStore(RSSList) //pushing the new RSSList to Redux
+        }
+        if (this.props.RSSTorrentList != RSSTorrentList & this.props.RSSModalOpen == true){
+            this.props.RSSTorrentList(RSSTorrentList) //pushing the new RSSTorrentList to Redux
+        }
+        
+        
         ws.send(JSON.stringify(torrentListRequest))//talking to the server to get the torrent list
         //console.log("Torrentlist", torrents)
         this.props.setButtonState(this.props.selection) //forcing an update to the buttons
@@ -218,7 +238,6 @@ class BackendSocket extends React.Component {
         if (nextProps.selectionHashes.length === 1){ //if we have a selection pass it on for the tabs to verify
             this.selectionHandler(nextProps.selectionHashes, nextProps.selectedTab)
         }
-        
     }
 
 
@@ -241,6 +260,8 @@ const mapStateToProps = state => {
         selectionHashes: state.selectionHashes,
         selectedTab: state.selectedTab,
         selection: state.selection,
+        RSSModalOpen: state.RSSModalOpen,
+        RSSTorrentList: state.RSSTorrentList,
     };
   }
 
@@ -254,6 +275,7 @@ const mapDispatchToProps = dispatch => {
         newFileList: (fileList) => dispatch({type: actionTypes.FILE_LIST, fileList}),
         setButtonState: (buttonState) => dispatch({type: actionTypes.SET_BUTTON_STATE, buttonState}),
         newRSSFeedStore: (RSSList) => dispatch({type: actionTypes.NEW_RSS_FEED_STORE, RSSList}),
+        RSSTorrentList: (RSSTorrentList) => dispatch({type: actionTypes.RSS_TORRENT_LIST, RSSTorrentList}),
         //changeSelection: (selection) => dispatch({type: actionTypes.CHANGE_SELECTION, selection}),//forcing an update to the buttons
 
     }

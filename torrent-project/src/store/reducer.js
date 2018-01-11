@@ -16,6 +16,8 @@ const initialState = {
     torrentDetailInfo: [],
     selectedTab: 0,
     RSSList: [],
+    RSSTorrentList: [],
+    RSSModalOpen: false,
 }
 
 
@@ -39,6 +41,13 @@ const reducer = (state = initialState, action) => {
             return {
                 ...state,
                 RSSList: action.RSSList,
+            }
+        
+        case actionTypes.RSS_TORRENT_LIST:
+            console.log("New RSS Torrent List IN REDUCER", action.RSSTorrentList)
+            return {
+                ...state,
+                RSSTorrentList: action.RSSTorrentList,
             }
 
         case actionTypes.SELECTION_HASHES:
@@ -80,6 +89,12 @@ const reducer = (state = initialState, action) => {
             return {
                 ...state,
                 selectedTab: action.selectedTab
+            }
+        
+        case actionTypes.RSS_MODAL_OPEN:
+            return {
+                ...state,
+                RSSModalOpen: action.RSSModalOpen
             }
  
         case actionTypes.SET_BUTTON_STATE:

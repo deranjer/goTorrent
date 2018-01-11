@@ -9,3 +9,5 @@ export const PEER_LIST = 'PEER_LIST';
 export const FILE_LIST = 'FILE_LIST';
 export const CHANGE_FILE_SELECTION = 'CHANGE_FILE_SELECTION';
 export const NEW_RSS_FEED_STORE = 'NEW_RSS_FEED_STORE';
+export const RSS_MODAL_OPEN = 'RSS_MODAL_OPEN';
+export const RSS_TORRENT_LIST = 'RSS_TORRENT_LIST';

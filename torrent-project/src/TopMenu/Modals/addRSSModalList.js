@@ -22,7 +22,8 @@ import Icon from 'material-ui/Icon';
 import IconButton from 'material-ui/IconButton';
 import RSSTorrentIcon from 'material-ui-icons/RssFeed';
 import AddRSSIcon from 'material-ui-icons/AddCircle';
-
+import DeleteIcon from 'material-ui-icons/Delete';
+import RSSTorrentList from './addRSSTorrentList';
 
 //Redux
 import {connect} from 'react-redux';
@@ -54,34 +55,77 @@ const inlineStyle = {
 
   state = {
     testRSSFeeds: [],
+    showList: false,
+    selectedIndex: 0,
   };
 
-  componentWillMount () {
-    console.log("SECONDARY MOUNT", this.props.RSSFeed)
+  componentDidMount () {
+    console.log("SECONDARY MOUNT", this.props.RSSList)
+    this.props.RSSModalOpen(true)
+  }
+
+  componentWillUnmount () {
+    this.props.RSSModalOpen(false)
   }
 
 
+  showRSSFiles = (key) => {
+    let RSSTorrentsRequest = {
+      messageType: "rssTorrentsRequest",
+      Payload: [this.props.RSSList[key].RSSURL]
+    }
+    ws.send(JSON.stringify(RSSTorrentsRequest))
 
-  showRSSFiles = (RSSFeed) => {
-    console.log("RSSFEED", RSSFeed)
+    this.setState({selectedIndex: key}) //setting our selected index for styling
+    console.log("RSSFEED", key, "sending message", JSON.stringify(RSSTorrentsRequest))
+
   }
 
-  //{this.props.RSSList.map(function(RSSFeed, i){ return (
-  //  <ListItem key={i}><ListItemText primary="FEED" /></ListItem>
-  //  )})}
+  getStyle = (index) => {
+    console.log("SettingStye", selectedIndex, index)
+    if (selectedIndex == index){
+      console.log("Returning activestyle")
+      style = "{{backgroundColor: '#80b3ff'}}"
+      return style
+    }
+    style = "{{backgroundColor: '#f44295'}}"
+    return style
+  }
+
+  deleteRSSFeed = (key) => {
+    let RSSURLDelete = {
+      messageType: "deleteRSSFeed",
+      Payload: [this.props.RSSList[key]]
+    }
+    console.log("Deleting THIS", this.props.RSSList[key])
+    //ws.send(JSON.stringify(RSSURLDelete));
+  }
 
   render() {
-    const { classes, onRequestClose, handleRequestClose, handleSubmit } = this.props;
+    //const { classes, onRequestClose, handleRequestClose, handleSubmit } = this.props;
+    if (this.props.RSSList.length > 0 && this.state.showList == false){
+      console.log("Setting list to show....")
+      this.setState({showList: true})
+    }
+
     return (
       <div style={inlineStyle}>
-            <List dense>
-            <ListItem  button={true} onClick={ () => this.showRSSFiles('RSSFEEDTEST')}>
-            <ListItemIcon >
-              <AddRSSIcon />
-            </ListItemIcon>
-            <ListItemText primary={this.props.RSSList[0].RSSURL} />
-          </ListItem>
-            </List>        
+        {this.state.showList == true && //if we have any rss torrent feeds then display them in list    }
+          <List dense>
+            {this.props.RSSList.map((RSSFeed, index) => { 
+              return (
+                <ListItem button={true} onClick={() => this.showRSSFiles(index)} key={index}>
+                  <ListItemText primary={RSSFeed.RSSName} />
+                  <ListItemSecondaryAction>
+                    <IconButton key={index} onClick={() => this.deleteRSSFeed(index)} aria-label="Delete">
+                      <DeleteIcon />
+                    </IconButton>
+                  </ListItemSecondaryAction>
+                </ListItem>
+              )})}
+          </List> 
+        }
+      <RSSTorrentList />
       </div>
     );
   }
@@ -94,5 +138,9 @@ const mapStateToProps = state => {
   };
 }
 
-
-export default connect(mapStateToProps)(RSSModalList)
+const mapDispatchToProps = dispatch => {
+  return {
+    RSSModalOpen: (RSSModalOpen) => dispatch({type: actionTypes.RSS_MODAL_OPEN, RSSModalOpen}), //sending modal state to backendwebsocket so we can update RSS lists
+  }
+}
+export default connect(mapStateToProps, mapDispatchToProps)(RSSModalList)

@@ -17,6 +17,19 @@ type Message struct {
 
 //Next are the messages the server sends to the client
 
+//RSSJSONList is a slice of gofeed.Feeds sent to the client
+type RSSJSONList struct {
+	MessageType   string
+	TotalRSSFeeds int
+	RSSFeeds      []RSSFeedsNames //strings of the full rss feed
+}
+
+//RSSFeedsNames stores all of the feeds by name and with URL
+type RSSFeedsNames struct {
+	RSSName    string
+	RSSFeedURL string
+}
+
 //TorrentList struct contains the torrent list that is sent to the client
 type TorrentList struct { //helps create the JSON structure that react expects to recieve
 	MessageType    string     `json:"MessageType"`
@@ -74,4 +87,6 @@ type ClientDB struct { //TODO maybe seperate out the internal bits into another 
 	DataBytesRead      int64          //Internal used for calculating dl speed
 	UpdatedAt          time.Time      //Internal used for calculating speeds of upload and download
 	TorrentHash        metainfo.Hash  //Used to create string for TorrentHashString... not sure why I have it... make that a TODO I guess
+	NumberofFiles      int
+	NumberofPieces     int
 }

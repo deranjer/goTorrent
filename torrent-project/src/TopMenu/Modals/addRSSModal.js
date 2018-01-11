@@ -56,12 +56,15 @@ const inlineStyle = {
     open: false,
   };
 
-  componentWillMount () {
+  componentDidMount () {
     let RSSRequest = {
       messageType: "rssFeedRequest",
     }
-    ws.send(JSON.stringify(RSSRequest)) //Immediatly request an update of the feed when you add a new URL
+    ws.send(JSON.stringify(RSSRequest)) //Immediatly request an update of the feed when you add a new URL    
+
   }
+
+
 
   handleClickOpen = () => {
     this.setState({ open: true });
@@ -104,7 +107,7 @@ const inlineStyle = {
           <ReactTooltip place="top" type="light" effect="float" />
           <RSSTorrentIcon />
         </IconButton>
-        <Dialog fullWidth open={this.state.open} onRequestClose={this.handleRequestClose}>
+        <Dialog fullScreen open={this.state.open} onRequestClose={this.handleRequestClose}>
           <DialogTitle>Manage RSS Feeds</DialogTitle>
           <DialogContent>
             <TextField
@@ -115,13 +118,13 @@ const inlineStyle = {
               label="Add New RSS URL"
               type="text"
               placeholder="Enter RSS URL Here.."
-              //onChange={this.setTextValue}
+              onChange={this.setTextValue}
             />
             <IconButton onClick={this.handleAddRSSFeed} color="primary" data-tip="Manage RSS Feeds" style={smallButton} aria-label="Add RSS Feeds">
               <ReactTooltip place="top" type="light" effect="float" />
               <AddRSSIcon />
             </IconButton>
-            {this.state.open === true &&
+            {this.state.open === true && //if the modal is open mount the list of torrents
               <RSSModalList />
             }
           </DialogContent>
