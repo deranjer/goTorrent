@@ -3,6 +3,8 @@ package engine
 import (
 	"fmt"
 
+	"github.com/sirupsen/logrus"
+
 	"golang.org/x/time/rate"
 
 	"github.com/anacrolix/dht"
@@ -11,18 +13,24 @@ import (
 	"github.com/spf13/viper"
 )
 
+//FullClientSettings contains all of the settings for our entire application
 type FullClientSettings struct {
+	LoggingLevel      logrus.Level
+	HTTPAddr          string
 	Version           int
 	TorrentConfig     torrent.Config
 	TFileUploadFolder string
 }
 
+//default is called if there is a parsing error
 func defaultConfig() FullClientSettings {
 	var Config FullClientSettings
 	Config.Version = 1.0
+	Config.LoggingLevel = 3                    //Warn level
 	Config.TorrentConfig.DataDir = "downloads" //the full OR relative path of the default download directory for torrents
 	Config.TFileUploadFolder = "uploadedTorrents"
 	Config.TorrentConfig.Seed = true
+	Config.HTTPAddr = ":8000"
 
 	Config.TorrentConfig.DHTConfig = dht.ServerConfig{
 		StartingNodes: dht.GlobalBootstrapAddrs,
@@ -39,6 +47,7 @@ func dhtServerSettings(dhtConfig dht.ServerConfig) dht.ServerConfig {
 	return dhtConfig
 }
 
+//FullClientSettingsNew creates a new set of setting from config.toml
 func FullClientSettingsNew() FullClientSettings {
 	viper.SetConfigName("config")
 	viper.AddConfigPath("./")
@@ -48,6 +57,14 @@ func FullClientSettingsNew() FullClientSettings {
 		FullClientSettings := defaultConfig()
 		return FullClientSettings
 	}
+
+	var httpAddr string
+
+	httpAddrIP := viper.GetString("serverConfig.ServerAddr")
+	httpAddrPort := viper.GetString("serverConfig.ServerPort")
+	httpAddr = httpAddrIP + httpAddrPort
+
+	fmt.Println("HttpAddr", httpAddr)
 
 	dataDir := viper.GetString("torrentClientConfig.DownloadDir")
 	listenAddr := viper.GetString("torrentClientConfig.ListenAddr")
@@ -60,6 +77,25 @@ func FullClientSettingsNew() FullClientSettings {
 	disableTCP := viper.GetBool("torrentClientConfig.DisableTCP")
 	disableIPv6 := viper.GetBool("torrentClientConfig.DisableIPv6")
 	debug := viper.GetBool("torrentClientConfig.Debug")
+	logLevelString := viper.GetString("serverConfig.LogLevel")
+	var logLevel logrus.Level
+	switch logLevelString { //Options = Debug 5, Info 4, Warn 3, Error 2, Fatal 1, Panic 0
+	case "Panic":
+		logLevel = 0
+	case "Fatal":
+		logLevel = 1
+	case "Error":
+		logLevel = 2
+	case "Warn":
+		logLevel = 3
+	case "Info":
+		logLevel = 4
+	case "Debug":
+		logLevel = 5
+	default:
+		logLevel = 3
+
+	}
 
 	dhtServerConfig := dht.ServerConfig{
 		StartingNodes: dht.GlobalBootstrapAddrs,
@@ -102,7 +138,7 @@ func FullClientSettingsNew() FullClientSettings {
 		EncryptionPolicy: encryptionPolicy,
 	}
 
-	Config := FullClientSettings{TorrentConfig: tConfig, TFileUploadFolder: "uploadedTorrents"}
+	Config := FullClientSettings{LoggingLevel: logLevel, HTTPAddr: httpAddr, TorrentConfig: tConfig, TFileUploadFolder: "uploadedTorrents"}
 
 	return Config
 

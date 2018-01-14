@@ -1,8 +1,9 @@
 
 [serverConfig]
 
-    ServerPort: 8000
-    ServerAddr: "" #blank will bind to localhost
+    ServerPort = ":8000" #leave format as is it expects a string with colon
+    ServerAddr = "" #blank will bind to default IP address, usually fine to leave be
+    LogLevel = "Debug" # Options = Debug, Info, Warn, Error, Fatal, Panic
 
 [torrentClientConfig]
     DownloadDir = "downloads"    #the full OR relative path of the default download directory for torrents

@@ -1,10 +1,13 @@
 package storage
 
 import (
-	"fmt"
+	"github.com/sirupsen/logrus"
 
 	"github.com/asdine/storm"
 )
+
+//Logger is the global Logger that is used in all packages
+var Logger *logrus.Logger
 
 //RSSFeedStore stores all of our RSS feeds in a slice of gofeed.Feed
 type RSSFeedStore struct {
@@ -57,18 +60,17 @@ func ReadInTorrents(torrentStorage *storm.DB) (torrentLocalArray []*TorrentLocal
 
 	err := torrentStorage.All(&torrentLocalArray) //unmarshalling the database into the []torrentlocal
 	if err != nil {
-		fmt.Println("Error reading database into torrentLocalArray", err)
+		Logger.WithFields(logrus.Fields{"database": torrentStorage, "error": err}).Error("Unable to read Database into torrentLocalArray!")
 	}
 	return torrentLocalArray //all done, return the entire Array to add to the torrent client
 }
 
 //AddTorrentLocalStorage is called when adding a new torrent via any method, requires the boltdb pointer and the torrentlocal struct
 func AddTorrentLocalStorage(torrentStorage *storm.DB, local TorrentLocal) {
-	println("Adding Local storage information")
-
+	Logger.WithFields(logrus.Fields{"database": torrentStorage, "Torrent": local}).Info("Adding new Torrent to database")
 	err := torrentStorage.Save(&local)
 	if err != nil {
-		fmt.Println("Error adding new Torrent to database", err)
+		Logger.WithFields(logrus.Fields{"database": torrentStorage, "error": err}).Error("Error adding new Torrent to database!")
 	}
 
 }
@@ -78,11 +80,11 @@ func DelTorrentLocalStorage(torrentStorage *storm.DB, selectedHash string) {
 	singleTorrentInfo := TorrentLocal{}
 	err := torrentStorage.One("Hash", selectedHash, &singleTorrentInfo) //finding the torrent by the hash passed in and storing it in a struct
 	if err != nil {
-		fmt.Println("Error finding torrent with hash ", selectedHash, " to delete", err)
+		Logger.WithFields(logrus.Fields{"selectedHash": selectedHash, "error": err}).Error("Error deleting torrent with hash!")
 	}
 	err = torrentStorage.DeleteStruct(&singleTorrentInfo) //deleting that struct from the database
 	if err != nil {
-		fmt.Println("Error deleting torrent ", singleTorrentInfo, " from database", err)
+		Logger.WithFields(logrus.Fields{"singleTorrent": singleTorrentInfo, "error": err}).Error("Error deleting torrent struct!")
 	}
 }
 
@@ -90,7 +92,7 @@ func DelTorrentLocalStorage(torrentStorage *storm.DB, selectedHash string) {
 func UpdateStorageTick(torrentStorage *storm.DB, torrentLocal TorrentLocal) {
 	err := torrentStorage.Update(&torrentLocal)
 	if err != nil {
-		fmt.Println("Error performing tick update to database", err)
+		Logger.WithFields(logrus.Fields{"UpdateContents": torrentLocal, "error": err}).Error("Error performing tick update to database!")
 	}
 }
 
@@ -99,7 +101,7 @@ func FetchTorrentFromStorage(torrentStorage *storm.DB, selectedHash string) Torr
 	singleTorrentInfo := TorrentLocal{}
 	err := torrentStorage.One("Hash", selectedHash, &singleTorrentInfo)
 	if err != nil {
-		fmt.Println("Failure selecting single torrent!", err)
+		Logger.WithFields(logrus.Fields{"selectedHash": selectedHash, "error": err}).Error("Error selecting torrent with hash!")
 	}
 
 	return singleTorrentInfo
@@ -110,12 +112,12 @@ func FetchRSSFeeds(db *storm.DB) RSSFeedStore {
 	RSSFeed := RSSFeedStore{}
 	err := db.One("ID", 1, &RSSFeed) //The ID of 1 should be unique since we will only have one entry
 	if err != nil {                  //If we fail to find it in the DB, create it, will happen at first run
-		fmt.Println("Failure retrieving RSS feeds, creating bucket for RSS feeds, expected behaviour if first run for RSS", err)
+		Logger.WithFields(logrus.Fields{"RSSFeedStore": RSSFeed, "error": err}).Error("Failure retrieving RSS feeds, creating bucket for RSS feeds, expected behaviour if first run for RSS")
 		RSSFeed := RSSFeedStore{}
 		RSSFeed.ID = 1
 		err = db.Save(&RSSFeed)
 		if err != nil {
-			fmt.Println("Fatal error trying to create RSSFeedStore in database")
+			Logger.WithFields(logrus.Fields{"RSSFeed": RSSFeed, "error": err}).Error("Error saving RSS feed to database!")
 		}
 		return RSSFeed
 	}
@@ -133,6 +135,7 @@ func FetchSpecificRSSFeed(db *storm.DB, RSSFeedURL string) SingleRSSFeed {
 			singleRSSFeedRet.Torrents = singleRSSFeed.Torrents
 		}
 	}
+	Logger.WithFields(logrus.Fields{"singleRSSFeed": singleRSSFeedRet}).Info("Returning single RSS feed")
 	return singleRSSFeedRet
 }
 
@@ -140,7 +143,7 @@ func FetchSpecificRSSFeed(db *storm.DB, RSSFeedURL string) SingleRSSFeed {
 func UpdateRSSFeeds(db *storm.DB, RSSFeed RSSFeedStore) {
 	err := db.Update(&RSSFeed)
 	if err != nil {
-		fmt.Println("Error performing RSS Update", err)
+		Logger.WithFields(logrus.Fields{"RSSFeed": RSSFeed}).Error("Unable to update database with rss feed!")
 	}
 }
 
@@ -150,11 +153,12 @@ func DeleteRSSFeed(db *storm.DB, RSSFeedURL string) {
 	newRSSFeedStore := RSSFeedStore{ID: RSSFeedStoreOld.ID} //creating new store
 	for _, RSSFeed := range RSSFeedStoreOld.RSSFeeds {      //recreating entire store and excluding that one RSS feed we don't want
 		if RSSFeed.URL != RSSFeedURL {
+			Logger.WithFields(logrus.Fields{"RSSFeedURL": RSSFeedURL}).Debug("Adding new RSS feed to list..")
 			newRSSFeedStore.RSSFeeds = append(newRSSFeedStore.RSSFeeds, RSSFeed)
 		}
 	}
 	err := db.Update(&newRSSFeedStore)
 	if err != nil {
-		fmt.Println("Error deleting RSS feed from db", err)
+		Logger.WithFields(logrus.Fields{"RSSFeedURL": RSSFeedURL, "error": err}).Error("Error deleting RSS feed from database")
 	}
 }

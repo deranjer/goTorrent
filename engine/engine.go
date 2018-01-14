@@ -13,17 +13,38 @@ import (
 	"github.com/asdine/storm"
 	Storage "github.com/deranjer/goTorrent/storage"
 	"github.com/mmcdole/gofeed"
+	"github.com/sirupsen/logrus"
 )
+
+func readTorrentFileFromDB(element *Storage.TorrentLocal, singleTorrent *torrent.Torrent, tclient *torrent.Client, db *storm.DB) {
+	tempFile, err := ioutil.TempFile("", "TorrentFileTemp")
+	if err != nil {
+		Logger.WithFields(logrus.Fields{"tempfile": tempFile, "err": err}).Error("Unable to create tempfile")
+	}
+	defer os.Remove(tempFile.Name())
+	if _, err := tempFile.Write(element.TorrentFile); err != nil { //writing out out the entire file back into the temp dir from boltdb
+		Logger.WithFields(logrus.Fields{"tempfile": tempFile, "err": err}).Error("Unable to write to tempfile")
+	}
+	if err := tempFile.Close(); err != nil { //close the tempfile so that we can add it back into the torrent client
+		Logger.WithFields(logrus.Fields{"tempfile": tempFile, "err": err}).Error("Unable to close tempfile")
+	}
+	singleTorrent, _ = tclient.AddTorrentFromFile(tempFile.Name())
+	if _, err := os.Stat(element.TorrentFileName); err == nil { //if we CAN find the torrent, add it
+		singleTorrent, _ = tclient.AddTorrentFromFile(element.TorrentFileName)
+	} else { //if we cant find the torrent delete it
+		Storage.DelTorrentLocalStorage(db, element.Hash)
+		Logger.WithFields(logrus.Fields{"tempfile": tempFile, "err": err}).Error("Unable to find Torrent, deleting..")
+	}
+}
 
 //RefreshSingleRSSFeed refreshing a single RSS feed to send to the client (so no updating database) mainly by updating the torrent list to display any changes
 func RefreshSingleRSSFeed(db *storm.DB, RSSFeed Storage.SingleRSSFeed) Storage.SingleRSSFeed { //Todo.. duplicate as cron job... any way to merge these to reduce duplication?
 	singleRSSFeed := Storage.SingleRSSFeed{URL: RSSFeed.URL, Name: RSSFeed.Name}
 	singleRSSTorrent := Storage.SingleRSSTorrent{}
-
 	fp := gofeed.NewParser()
 	feed, err := fp.ParseURL(RSSFeed.URL)
 	if err != nil {
-		fmt.Println("Unable to parse URL", RSSFeed.URL, err)
+		Logger.WithFields(logrus.Fields{"RSSFeedURL": RSSFeed.URL, "error": err}).Error("Unable to parse URL")
 	}
 	for _, RSSTorrent := range feed.Items {
 		singleRSSTorrent.Link = RSSTorrent.Link
@@ -41,13 +62,12 @@ func ForceRSSRefresh(db *storm.DB, RSSFeedStore Storage.RSSFeedStore) { //Todo..
 	singleRSSTorrent := Storage.SingleRSSTorrent{}
 	newFeedStore := Storage.RSSFeedStore{ID: RSSFeedStore.ID} //creating a new feed store just using old one to parse for new torrents
 	fp := gofeed.NewParser()
-	fmt.Println("Length of RSS feeds (should be ONE)", len(RSSFeedStore.RSSFeeds))
+	Logger.WithFields(logrus.Fields{"RSSFeedStoreLength": len(RSSFeedStore.RSSFeeds)}).Debug("Length of RSS feeds (should be ONE)")
 	for _, singleFeed := range RSSFeedStore.RSSFeeds {
 		feed, err := fp.ParseURL(singleFeed.URL)
 		if err != nil {
-			fmt.Println("Unable to parse URL", singleFeed.URL, err)
+			Logger.WithFields(logrus.Fields{"RSSFeedURL": singleFeed.URL, "error": err}).Error("Unable to parse URL")
 		}
-		fmt.Println("SingleFeed is: ", singleFeed)
 		for _, RSSTorrent := range feed.Items {
 			singleRSSTorrent.Link = RSSTorrent.Link
 			singleRSSTorrent.Title = RSSTorrent.Title
@@ -57,13 +77,12 @@ func ForceRSSRefresh(db *storm.DB, RSSFeedStore Storage.RSSFeedStore) { //Todo..
 		}
 		newFeedStore.RSSFeeds = append(newFeedStore.RSSFeeds, singleFeed)
 	}
-	fmt.Println("ABOUT TO WRITE TO DB", newFeedStore.RSSFeeds)
 	Storage.UpdateRSSFeeds(db, newFeedStore) //Calling this to fully update storage will all rss feeds
 }
 
 //timeOutInfo forcing a timeout of the torrent if it doesn't load from program restart
 func timeOutInfo(clientTorrent *torrent.Torrent, seconds time.Duration) (deleted bool) {
-	fmt.Println("Attempting to pull information for torrent... ", clientTorrent.Name())
+	Logger.WithFields(logrus.Fields{"torrentName": clientTorrent.Name()}).Info("Unable to close tempfile")
 	timeout := make(chan bool, 1) //creating a timeout channel for our gotinfo
 	go func() {
 		time.Sleep(seconds * time.Second)
@@ -71,11 +90,11 @@ func timeOutInfo(clientTorrent *torrent.Torrent, seconds time.Duration) (deleted
 	}()
 	select {
 	case <-clientTorrent.GotInfo(): //attempting to retrieve info for torrent
-		//fmt.Println("Recieved torrent info for...", clientTorrent.Name())
+		Logger.WithFields(logrus.Fields{"clientTorrentName": clientTorrent.Name()}).Debug("Recieved torrent info for torrent")
 		clientTorrent.DownloadAll()
 		return false
 	case <-timeout: // getting info for torrent has timed out so purging the torrent
-		fmt.Println("Dropping Torrent from information timeout...", clientTorrent.Name())
+		Logger.WithFields(logrus.Fields{"clientTorrentName": clientTorrent.Name()}).Error("Forced to drop torrent from timeout waiting for info")
 		clientTorrent.Drop()
 		return true
 	}
@@ -87,7 +106,6 @@ func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.To
 	timeOutInfo(clientTorrent, 45) //seeing if adding the torrrent times out (giving 45 seconds)
 	var TempHash metainfo.Hash
 	TempHash = clientTorrent.InfoHash()
-	fmt.Println(clientTorrent.Info().Source)
 	torrentLocalStorage.Hash = TempHash.String() // we will store the infohash to add it back later on client restart (if needed)
 	torrentLocalStorage.InfoBytes = clientTorrent.Metainfo().InfoBytes
 	torrentLocalStorage.DateAdded = time.Now().Format("Jan _2 2006")
@@ -99,7 +117,7 @@ func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.To
 		torrentLocalStorage.TorrentFileName = torrentFileName
 		torrentfile, err := ioutil.ReadFile(torrentFileName)
 		if err != nil {
-			fmt.Println("Unable to read the torrent file...")
+			Logger.WithFields(logrus.Fields{"torrentFile": torrentfile, "error": err}).Error("Unable to read the torrent file")
 		}
 		torrentLocalStorage.TorrentFile = torrentfile //storing the entire file in to database
 	}
@@ -114,59 +132,72 @@ func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.To
 
 	}
 	torrentLocalStorage.TorrentFilePriority = TorrentFilePriorityArray
-	fmt.Printf("%+v\n", torrentLocalStorage)
 	Storage.AddTorrentLocalStorage(torrentDbStorage, torrentLocalStorage) //writing all of the data to the database
 	clientTorrent.DownloadAll()                                           //starting the download
+}
+
+//CreateStartupTorrentArray creates the first torrentlocal array from the database
+func CreateStartupTorrentArray(tclient *torrent.Client, TorrentStartupArray []*Storage.TorrentLocal, db *storm.DB) {
+	for _, element := range TorrentStartupArray { //re-adding all the torrents we had stored from last shutdown or just added via file or magnet link
+
+		var singleTorrent *torrent.Torrent
+
+		if element.TorrentType == "file" { //if it is a file pull it from the uploaded torrent folder
+			readTorrentFileFromDB(element, singleTorrent, tclient, db)
+			continue
+		} else {
+			elementMagnet := "magnet:?xt=urn:btih:" + element.Hash //For magnet links just need to prepend the magnet part to the hash to readd
+			singleTorrent, _ = tclient.AddMagnet(elementMagnet)
+		}
+
+		var TempHash metainfo.Hash
+		TempHash = singleTorrent.InfoHash()
+
+		singleTorrentStorageInfo := Storage.FetchTorrentFromStorage(db, TempHash.String()) //pulling the single torrent info from storage ()
+
+		if len(singleTorrentStorageInfo.InfoBytes) == 0 { //TODO.. kind of a fringe scenario.. not sure if needed since the db should always have the infobytes
+			timeOut := timeOutInfo(singleTorrent, 45)
+			if timeOut == true { // if we did timeout then drop the torrent from the boltdb database
+				Storage.DelTorrentLocalStorage(db, element.Hash) //purging torrent from the local database
+				continue
+			}
+			singleTorrentStorageInfo.InfoBytes = singleTorrent.Metainfo().InfoBytes
+		}
+
+		singleTorrent.SetInfoBytes(singleTorrentStorageInfo.InfoBytes) //setting the infobytes back into the torrent
+	}
 }
 
 //CreateRunningTorrentArray creates the entire torrent list to pass to client
 func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Storage.TorrentLocal, PreviousTorrentArray []ClientDB, config FullClientSettings, db *storm.DB) (RunningTorrentArray []ClientDB) {
 
-	for _, element := range TorrentLocalArray { //re-adding all the torrents we had stored from last shutdown or just added via file or magnet link
+	for _, element := range TorrentLocalArray {
 
 		var singleTorrent *torrent.Torrent
 
 		if element.TorrentType == "file" { //if it is a file pull it from the uploaded torrent folder
-			//fmt.Println("Filename", element.TorrentFileName)
-			tempFile, err := ioutil.TempFile("", "TorrentFileTemp")
-			if err != nil {
-				fmt.Println("Unable to create a temp file for adding file torrent in", err)
-			}
-
-			defer os.Remove(tempFile.Name())
-
-			if _, err := tempFile.Write(element.TorrentFile); err != nil {
-				fmt.Println("Unable to write to the temp file...", err)
-			}
-			if err := tempFile.Close(); err != nil {
-				fmt.Println("Error closing Temp file", err)
-			}
-			singleTorrent, _ = tclient.AddTorrentFromFile(tempFile.Name())
-			if _, err := os.Stat(element.TorrentFileName); err == nil { //if we CAN find the torrent, add it
-				//fmt.Println("Adding file name...", element.TorrentFileName)
-				singleTorrent, _ = tclient.AddTorrentFromFile(element.TorrentFileName)
-
-			} else { //if we cant find the torrent delete it
-				fmt.Println("File Error", err)
-				Storage.DelTorrentLocalStorage(db, element.Hash)
-				continue
-			}
-
+			readTorrentFileFromDB(element, singleTorrent, tclient, db)
+			continue
 		} else {
 			elementMagnet := "magnet:?xt=urn:btih:" + element.Hash //For magnet links just need to prepend the magnet part to the hash to readd
 			singleTorrent, _ = tclient.AddMagnet(elementMagnet)
 		}
+
 		var TempHash metainfo.Hash
 		TempHash = singleTorrent.InfoHash()
 
-		singleTorrentStorageInfo := Storage.FetchTorrentFromStorage(db, TempHash.String())
-		singleTorrent.SetInfoBytes(singleTorrentStorageInfo.InfoBytes) //setting the infobytes back into the torrent
+		singleTorrentStorageInfo := Storage.FetchTorrentFromStorage(db, TempHash.String()) //pulling the single torrent info from storage ()
 
-		/* timeOut := timeOutInfo(singleTorrent, 45) //Shouldn't need this anymore as we pull in the infohash from the database
-		if timeOut == true { // if we did timeout then drop the torrent from the boltdb database
-			Storage.DelTorrentLocalStorage(db, element.Hash) //purging torrent from the local database
-			continue
-		} */
+		if len(singleTorrentStorageInfo.InfoBytes) == 0 { //TODO.. kind of a fringe scenario.. not sure if needed since the db should always have the infobytes
+			timeOut := timeOutInfo(singleTorrent, 45)
+			if timeOut == true { // if we did timeout then drop the torrent from the boltdb database
+				Storage.DelTorrentLocalStorage(db, element.Hash) //purging torrent from the local database
+				continue
+			}
+			singleTorrentStorageInfo.InfoBytes = singleTorrent.Metainfo().InfoBytes
+		}
+
+		singleTorrent.SetInfoBytes(singleTorrentStorageInfo.InfoBytes) //setting the infobytes back into the torrent
 
 		fullClientDB := new(ClientDB)
 		fullStruct := singleTorrent.Stats()
@@ -215,19 +246,22 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		fullClientDB.TotalUploadedBytes = singleTorrentStorageInfo.UploadedBytes
 		fullClientDB.TotalUploadedSize = HumanizeBytes(float32(fullClientDB.TotalUploadedBytes))
 		fullClientDB.UploadRatio = CalculateUploadRatio(singleTorrent, fullClientDB) //calculate the upload ratio
-		tickUpdateStruct := Storage.TorrentLocal{}                                   //we are shoving the tick updates into a torrentlocal struct to pass to storage
-		tickUpdateStruct.UploadRatio = fullClientDB.UploadRatio
-		tickUpdateStruct.UploadedBytes = fullClientDB.DataBytesWritten
 
-		tickUpdateStruct.Hash = fullClientDB.TorrentHashString //needed for index
-
-		Storage.UpdateStorageTick(db, tickUpdateStruct)
 		if singleTorrentStorageInfo.TorrentStatus != "Stopped" { //if the torrent is not stopped, try to discern the status of the torrent
+			singleTorrent.SetMaxEstablishedConns(80)
 			CalculateTorrentStatus(singleTorrent, fullClientDB) //calculate the status of the torrent, ie downloading seeding etc
 		} else {
 			fullClientDB.Status = "Stopped"
+			singleTorrent.SetMaxEstablishedConns(0) //since it was stopped forcing the connections to zero
 		}
 
+		tickUpdateStruct := Storage.TorrentLocal{} //we are shoving the tick updates into a torrentlocal struct to pass to storage
+		tickUpdateStruct.UploadRatio = fullClientDB.UploadRatio
+		tickUpdateStruct.UploadedBytes = fullClientDB.DataBytesWritten
+		tickUpdateStruct.TorrentStatus = fullClientDB.Status
+		tickUpdateStruct.Hash = fullClientDB.TorrentHashString //needed for index
+
+		Storage.UpdateStorageTick(db, tickUpdateStruct)
 		RunningTorrentArray = append(RunningTorrentArray, *fullClientDB)
 
 	}
@@ -243,7 +277,7 @@ func CreateFileListArray(tclient *torrent.Client, selectedHash string) TorrentFi
 		tempHash := singleTorrent.InfoHash().String()
 		if tempHash == selectedHash { // if our selection hash equals our torrent hash
 			torrentFilesRaw := singleTorrent.Files()
-			fmt.Println(torrentFilesRaw)
+			Logger.WithFields(logrus.Fields{"torrentFiles": torrentFilesRaw}).Debug("Unable to close tempfile")
 			for _, singleFile := range torrentFilesRaw {
 				TorrentFileStruct.TorrentHashString = tempHash
 				TorrentFileStruct.FileName = singleFile.DisplayPath()
@@ -262,7 +296,7 @@ func CreateFileListArray(tclient *torrent.Client, selectedHash string) TorrentFi
 			}
 			TorrentFileListSelected.MessageType = "torrentFileList"
 			TorrentFileListSelected.TotalFiles = len(singleTorrent.Files())
-			fmt.Println("filelist", TorrentFileListSelected)
+			Logger.WithFields(logrus.Fields{"selectedFiles": TorrentFileListSelected}).Debug("Selected Torrent Files")
 			return TorrentFileListSelected
 		}
 
@@ -273,7 +307,6 @@ func CreateFileListArray(tclient *torrent.Client, selectedHash string) TorrentFi
 //CreatePeerListArray create a list of peers for the torrent and displays them
 func CreatePeerListArray(tclient *torrent.Client, selectedHash string) PeerFileList {
 	runningTorrents := tclient.Torrents()
-	fmt.Println("Hash String", selectedHash)
 	TorrentPeerList := PeerFileList{}
 	for _, singleTorrent := range runningTorrents {
 		tempHash := singleTorrent.InfoHash().String()
@@ -298,7 +331,7 @@ func CreateTorrentDetailJSON(tclient *torrent.Client, selectedHash string, torre
 	for _, singleTorrent := range runningTorrents { //ranging through the running torrents to find the one we are looking for
 		tempHash := singleTorrent.InfoHash().String()
 		if tempHash == selectedHash {
-			fmt.Println("CreateTorrentDetail", localTorrentInfo)
+			Logger.WithFields(logrus.Fields{"torrentHash": tempHash, "detailedInfo": localTorrentInfo}).Info("Creating detailed torrent list")
 			return TorrentDetailStruct
 		}
 	}

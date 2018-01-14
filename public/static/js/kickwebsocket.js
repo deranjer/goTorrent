@@ -8,5 +8,5 @@ ws.onopen = function()
 {
    
    ws.send(JSON.stringify(kickStart)); //sending out the first ping
-   console.log("Kicking off websocket to server on 192.168.1.141.....", JSON.stringify(kickStart))
+   console.log("Kicking off websocket to server.....", JSON.stringify(kickStart))
 };
