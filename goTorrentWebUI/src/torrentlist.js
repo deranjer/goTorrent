@@ -58,10 +58,11 @@ class TorrentListTable extends React.Component {
                 { name: 'ActivePeers', title: 'Active Peers' },
                 { name: 'ETA', title: 'ETA'},
                 { name: 'Ratio', title: 'Ratio'},
+                { name: 'DateAdded', title: 'Date Added'},
                 { name: 'Availability', title: 'Availability'},
             ],
-            columnOrder: ['TorrentName', 'DownloadedSize', 'Size', 'PercentDone', 'Status', 'DownloadSpeed', 'UploadSpeed','ActivePeers', 'ETA', 'Ratio', 'Availability'],
-            columnWidths: {TorrentName: 250, DownloadedSize: 100, Size: 100, PercentDone: 175, Status: 150, DownloadSpeed: 100, UploadSpeed: 100, ActivePeers: 100, ETA: 100, Ratio: 75, Availability: 75},
+            columnOrder: ['TorrentName', 'DownloadedSize', 'Size', 'PercentDone', 'Status', 'DownloadSpeed', 'UploadSpeed','ActivePeers', 'ETA', 'Ratio', 'DateAdded', 'Availability'],
+            columnWidths: {TorrentName: 250, DownloadedSize: 100, Size: 100, PercentDone: 175, Status: 150, DownloadSpeed: 100, UploadSpeed: 100, ActivePeers: 100, ETA: 100, Ratio: 75, DateAdded: 100, Availability: 75},
             prevSelection: [], //just used to pull data from cell (temp Prevcell holder), real selection is in Redux
             pageSizes: [5, 10, 15, 0],
             currentPage: 0,

@@ -11,8 +11,10 @@ import (
 
 //Message contains the JSON messages from the client, we first unmarshal to get the messagetype, then each module unmarshalls the actual message once we know the type
 type Message struct {
-	MessageType string
-	Payload     []string
+	MessageType      string
+	MessageDetail    string `json:",omitempty"`
+	MessageDetailTwo string `json:",omitempty"`
+	Payload          []string
 }
 
 //Next are the messages the server sends to the client
@@ -89,4 +91,5 @@ type ClientDB struct { //TODO maybe seperate out the internal bits into another 
 	TorrentHash        metainfo.Hash  //Used to create string for TorrentHashString... not sure why I have it... make that a TODO I guess
 	NumberofFiles      int
 	NumberofPieces     int
+	MaxConnections     int //Used to stop the torrent by limiting the max allowed connections
 }

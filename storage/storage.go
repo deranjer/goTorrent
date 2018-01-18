@@ -1,6 +1,9 @@
 package storage
 
 import (
+	"os"
+	"path/filepath"
+
 	"github.com/sirupsen/logrus"
 
 	"github.com/asdine/storm"
@@ -41,6 +44,7 @@ type TorrentLocal struct {
 	InfoBytes           []byte
 	DateAdded           string
 	StoragePath         string
+	TorrentMoved        bool
 	TorrentName         string
 	TorrentStatus       string
 	MaxConnections      int
@@ -54,8 +58,13 @@ type TorrentLocal struct {
 	TorrentFilePriority []TorrentFilePriority
 }
 
-//ReadInTorrents is called to read in ALL local stored torrents in the boltdb database (called on server restart)
-func ReadInTorrents(torrentStorage *storm.DB) (torrentLocalArray []*TorrentLocal) {
+//TorrentHistoryList holds the entire history of downloaded torrents by hash TODO implement a way to read this and maybe grab the name for every torrent as well
+type TorrentHistoryList struct {
+	HashList []string
+}
+
+//FetchAllStoredTorrents is called to read in ALL local stored torrents in the boltdb database (called on server restart)
+func FetchAllStoredTorrents(torrentStorage *storm.DB) (torrentLocalArray []*TorrentLocal) {
 	torrentLocalArray = []*TorrentLocal{} //creating the array of the torrentlocal struct
 
 	err := torrentStorage.All(&torrentLocalArray) //unmarshalling the database into the []torrentlocal
@@ -81,6 +90,24 @@ func DelTorrentLocalStorage(torrentStorage *storm.DB, selectedHash string) {
 	err := torrentStorage.One("Hash", selectedHash, &singleTorrentInfo) //finding the torrent by the hash passed in and storing it in a struct
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"selectedHash": selectedHash, "error": err}).Error("Error deleting torrent with hash!")
+	}
+	err = torrentStorage.DeleteStruct(&singleTorrentInfo) //deleting that struct from the database
+	if err != nil {
+		Logger.WithFields(logrus.Fields{"singleTorrent": singleTorrentInfo, "error": err}).Error("Error deleting torrent struct!")
+	}
+}
+
+//DelTorrentLocalStorageAndFiles deletes the torrent from the database and also attempts to delete the torrent files from the disk as well.
+func DelTorrentLocalStorageAndFiles(torrentStorage *storm.DB, selectedHash string) {
+	singleTorrentInfo := TorrentLocal{}
+	err := torrentStorage.One("Hash", selectedHash, &singleTorrentInfo) //finding the torrent by the hash passed in and storing it in a struct
+	if err != nil {
+		Logger.WithFields(logrus.Fields{"selectedHash": selectedHash, "error": err}).Error("Error deleting torrent with hash!")
+	}
+	singleTorrentPath := filepath.Join(singleTorrentInfo.StoragePath, singleTorrentInfo.TorrentName)
+	err = os.RemoveAll(singleTorrentPath)
+	if err != nil {
+		Logger.WithFields(logrus.Fields{"filepath": singleTorrentPath, "error": err}).Error("Error deleting torrent data!")
 	}
 	err = torrentStorage.DeleteStruct(&singleTorrentInfo) //deleting that struct from the database
 	if err != nil {

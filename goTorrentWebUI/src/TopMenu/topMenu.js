@@ -8,12 +8,11 @@ import IconButton from 'material-ui/IconButton';
 import AddTorrentLinkPopup from './Modals/addTorrentLinkModal';
 import AddTorrentFilePopup from './Modals/addTorrentFileModal';
 import AddRSSModal from './Modals/RSSModal/addRSSModal';
-
+import DeleteTorrentModal from './Modals/deleteTorrentModal';
 
 import StartTorrentIcon from 'material-ui-icons/PlayArrow';
 //import PauseTorrentIcon from 'material-ui-icons/Pause';
 import StopTorrentIcon from 'material-ui-icons/Stop';
-import DeleteTorrentIcon from 'material-ui-icons/Delete';
 import RSSTorrentIcon from 'material-ui-icons/RssFeed';
 import SettingsIcon from 'material-ui-icons/Settings';
 
@@ -90,16 +89,7 @@ class IconButtons extends React.Component {
     this.props.setButtonState(this.props.selection) //TODO this currently just forces a button refresh, should be a better way to do this
   }
 
-  deleteTorrent = () => {
-    
-    let deleteTorrentHashes = {
-      MessageType: "deleteTorrents",
-      Payload: this.props.selectionHashes,    
-    }
-    console.log("Deleting Torrents", deleteTorrentHashes)
-    ws.send(JSON.stringify(deleteTorrentHashes))
-    this.props.setButtonState(this.props.selection) //TODO this currently just forces a button refresh, should be a better way to do this
-  }
+  
 
 
   render() {
@@ -121,10 +111,7 @@ class IconButtons extends React.Component {
           <ReactTooltip place="top" type="light" effect="float" />
           <StopTorrentIcon />
         </IconButton>
-        <IconButton color={this.props.buttonState[0].deleteButton} data-tip="Delete Torrent" className={classes.button} onClick={this.deleteTorrent} aria-label="Delete Torrent">
-          <ReactTooltip place="top" type="error" effect="float" />
-          <DeleteTorrentIcon />
-        </IconButton>
+        <DeleteTorrentModal />
         <div className={classes.verticalDivider}></div>
         <AddRSSModal />
         <IconButton color="primary" data-tip="Settings" className={classes.button} aria-label="Settings">
@@ -154,6 +141,7 @@ const mapStateToProps = state => {
 const mapDispatchToProps = dispatch => {
   return {
       setButtonState: (buttonState) => dispatch({type: actionTypes.SET_BUTTON_STATE, buttonState}),
+      changeSelection: (selection) => dispatch({type: actionTypes.CHANGE_SELECTION, selection}), //used to force a selection empty after deleting torrent
   }
 }
 

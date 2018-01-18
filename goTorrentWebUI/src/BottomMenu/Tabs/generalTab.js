@@ -75,6 +75,7 @@ class GeneralTab extends React.Component {
                     <Paper className={classes.paper}>Total Upload Amount: <span className={classes.floatRight}>{this.state.selectedTorrent["TotalUploadedSize"]} </span> </Paper>
                     <Paper className={classes.paper}>Seeding Ratio: <span className={classes.floatRight}>{this.state.selectedTorrent["Ratio"]} </span> </Paper>
                     <Paper className={classes.paper}>ETA: <span className={classes.floatRight}>{this.state.selectedTorrent["ETA"]} </span> </Paper>
+                    <Paper className={classes.paper}>Max Connections: <span className={classes.floatRight}>{this.state.selectedTorrent["MaxConnections"]} </span> </Paper>
                     
                 </Grid>
                 <Grid item xs={12} sm={4}>

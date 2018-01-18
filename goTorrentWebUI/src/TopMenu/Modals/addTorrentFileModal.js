@@ -6,15 +6,17 @@ import { withStyles } from 'material-ui/styles';
 import PropTypes from 'prop-types';
 import Dialog, {
   DialogContent,
+  DialogContentText,
   DialogTitle,
+  DialogActions,
 } from 'material-ui/Dialog';
 //import InsertLinkIcon from 'material-ui-icons/Link';
 import ReactTooltip from 'react-tooltip'
 //import Icon from 'material-ui/Icon';
 import AddIcon from 'material-ui-icons/AddBox';
 import IconButton from 'material-ui/IconButton';
-//import Dropzone from 'react-dropzone'; //the File drop acceptor
-//const request = require('superagent');
+
+import Upload from 'material-ui-upload/Upload';
 
 const button = {
   fontSize: '60px',
@@ -22,16 +24,27 @@ const button = {
   paddingLeft: '20px',
 }
 
+const uploadButton = {
+  fontSize: '35px',
+  paddingLeft: '0px',
+}
+
 const inlineStyle = {
   display: 'inline-block',
 }
 
+const input = {
+  display: 'none',
+}
 
 
 export default class addTorrentFilePopup extends React.Component {
 
   state = {
     open: false,
+    torrentFileName: "",
+    torrentFileValue: new File([""], "tempName"),
+    storageValue: "",
   };
 
   handleClickOpen = () => {
@@ -42,8 +55,35 @@ export default class addTorrentFilePopup extends React.Component {
     this.setState({ open: false });
   };
 
-  setTextValue = (event) => {
-    this.setState({textValue: event.target.value});
+  handleSubmit = () => {
+    this.setState({ open: false });
+    //let magnetLinkSubmit = this.state.textValue;
+    this.setState({torrentFileValue: event.target.value});
+    const reader = new FileReader()
+    let torrentFileBlob = Blob(this.state.torrentFileValue)
+    let base64file = reader.readAsDataURL(torrentFileBlob)
+    
+    let torrentFileMessage = {
+      messageType: "torrentFileSubmit",
+      messageDetail: this.state.torrentFileName,
+      messageDetailTwo: this.state.storageValue,
+      Payload: [base64file],
+    }
+    console.log("Sending magnet link: ", torrentFileMessage);
+    ws.send(JSON.stringify(torrentFileMessage));
+  }
+
+  onFileLoad = (event, file) => {
+    this.setState({torrentFileName: file.name})
+    this.setState({torrentFileValue: File(file, file.name)})
+
+    console.log(event.target.result, file.name);
+  }
+  
+
+
+  setStorageValue = (event) => {
+    this.setState({storageValue: event.target.value})
   }
 
   render() {
@@ -57,11 +97,20 @@ export default class addTorrentFilePopup extends React.Component {
         <Dialog open={this.state.open} onRequestClose={this.handleRequestClose} onEscapeKeyUp={this.handleRequestClose} maxWidth="md">
           <DialogTitle>Add Torrent File</DialogTitle>
           <DialogContent>
-            <form  encType="multipart/form-data" method="post" action="/uploadTorrent">
-               <input  name="fileTest" type="file" /><p />
-               <input type="submit" value="submit" />
-            </form>
+            <DialogContentText>
+                Upload Torrent Here and Add Storage Path
+            </DialogContentText>
+            <Upload label="Upload Torrent" fileTypeRegex={/.torrent/} onFileLoad={this.onFileLoad}/>
+            <TextField id="storagePath" type="text" label="Storage Path" placeholder="Empty will be default torrent storage path" fullWidth onChange={this.setStorageValue} />
           </DialogContent>
+          <DialogActions>
+            <Button onClick={this.handleRequestClose} color="primary">
+              Cancel
+            </Button>
+            <Button onClick={this.handleSubmit} color="primary">
+              Submit
+            </Button>
+          </DialogActions>
         </Dialog>
       </div>
     );

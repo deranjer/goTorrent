@@ -16,10 +16,14 @@ import (
 //FullClientSettings contains all of the settings for our entire application
 type FullClientSettings struct {
 	LoggingLevel      logrus.Level
+	LoggingOutput     string
 	HTTPAddr          string
 	Version           int
 	TorrentConfig     torrent.Config
 	TFileUploadFolder string
+	SeedRatioStop     float64
+	PushBulletToken   string
+	DefaultMoveFolder string
 }
 
 //default is called if there is a parsing error
@@ -31,6 +35,7 @@ func defaultConfig() FullClientSettings {
 	Config.TFileUploadFolder = "uploadedTorrents"
 	Config.TorrentConfig.Seed = true
 	Config.HTTPAddr = ":8000"
+	Config.SeedRatioStop = 1.50
 
 	Config.TorrentConfig.DHTConfig = dht.ServerConfig{
 		StartingNodes: dht.GlobalBootstrapAddrs,
@@ -40,10 +45,8 @@ func defaultConfig() FullClientSettings {
 }
 
 func dhtServerSettings(dhtConfig dht.ServerConfig) dht.ServerConfig {
-
 	viper.UnmarshalKey("DHTConfig", &dhtConfig)
-	fmt.Println("dhtconfig", dhtConfig)
-
+	Logger.WithFields(logrus.Fields{"dhtConfig": dhtConfig}).Info("Displaying DHT Config")
 	return dhtConfig
 }
 
@@ -62,9 +65,10 @@ func FullClientSettingsNew() FullClientSettings {
 
 	httpAddrIP := viper.GetString("serverConfig.ServerAddr")
 	httpAddrPort := viper.GetString("serverConfig.ServerPort")
+	seedRatioStop := viper.GetFloat64("serverConfig.SeedRatioStop")
 	httpAddr = httpAddrIP + httpAddrPort
-
-	fmt.Println("HttpAddr", httpAddr)
+	pushBulletToken := viper.GetString("serverConfig.notifications.PushBulletToken")
+	defaultMoveFolder := viper.GetString("serverConfig.DefaultMoveFolder")
 
 	dataDir := viper.GetString("torrentClientConfig.DownloadDir")
 	listenAddr := viper.GetString("torrentClientConfig.ListenAddr")
@@ -72,12 +76,14 @@ func FullClientSettingsNew() FullClientSettings {
 	noDHT := viper.GetBool("torrentClientConfig.NoDHT")
 	noUpload := viper.GetBool("torrentClientConfig.NoUpload")
 	seed := viper.GetBool("torrentClientConfig.Seed")
+
 	peerID := viper.GetString("torrentClientConfig.PeerID")
 	disableUTP := viper.GetBool("torrentClientConfig.DisableUTP")
 	disableTCP := viper.GetBool("torrentClientConfig.DisableTCP")
 	disableIPv6 := viper.GetBool("torrentClientConfig.DisableIPv6")
 	debug := viper.GetBool("torrentClientConfig.Debug")
 	logLevelString := viper.GetString("serverConfig.LogLevel")
+	logOutput := viper.GetString("serverConfig.LogOutput")
 	var logLevel logrus.Level
 	switch logLevelString { //Options = Debug 5, Info 4, Warn 3, Error 2, Fatal 1, Panic 0
 	case "Panic":
@@ -138,7 +144,16 @@ func FullClientSettingsNew() FullClientSettings {
 		EncryptionPolicy: encryptionPolicy,
 	}
 
-	Config := FullClientSettings{LoggingLevel: logLevel, HTTPAddr: httpAddr, TorrentConfig: tConfig, TFileUploadFolder: "uploadedTorrents"}
+	Config := FullClientSettings{
+		LoggingLevel:      logLevel,
+		LoggingOutput:     logOutput,
+		SeedRatioStop:     seedRatioStop,
+		HTTPAddr:          httpAddr,
+		TorrentConfig:     tConfig,
+		TFileUploadFolder: "uploadedTorrents",
+		PushBulletToken:   pushBulletToken,
+		DefaultMoveFolder: defaultMoveFolder,
+	}
 
 	return Config
 

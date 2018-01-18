@@ -41,7 +41,7 @@ func RefreshRSSCron(c *cron.Cron, db *storm.DB, tclient *torrent.Client, torrent
 					Logger.WithFields(logrus.Fields{"err": err, "Torrent": RSSTorrent.Title}).Warn("Unable to add torrent to torrent client!")
 					break //break out of the loop entirely for this message since we hit an error
 				}
-				StartTorrent(clientTorrent, torrentLocalStorage, db, dataDir, "magnet", "")
+				StartTorrent(clientTorrent, torrentLocalStorage, db, dataDir, "magnet", "", dataDir) //TODO let user specify torrent default storage location and let change on fly
 				singleFeed.Torrents = append(singleFeed.Torrents, singleRSSTorrent)
 
 			}

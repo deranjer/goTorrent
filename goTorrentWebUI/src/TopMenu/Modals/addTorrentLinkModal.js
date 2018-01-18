@@ -35,6 +35,9 @@ export default class addTorrentPopup extends React.Component {
 
   state = {
     open: false,
+    magnetLinkValue: "",
+    storageValue: "",
+
   };
 
   handleClickOpen = () => {
@@ -50,14 +53,19 @@ export default class addTorrentPopup extends React.Component {
       //let magnetLinkSubmit = this.state.textValue;
       let magnetLinkMessage = {
         messageType: "magnetLinkSubmit",
-        Payload: [this.state.textValue]
+        messageDetail: this.state.storageValue,
+        Payload: [this.state.magnetLinkValue]
       }
       console.log("Sending magnet link: ", magnetLinkMessage);
       ws.send(JSON.stringify(magnetLinkMessage));
   }
 
-  setTextValue = (event) => {
-    this.setState({textValue: event.target.value});
+  setMagnetLinkValue = (event) => {
+    this.setState({magnetLinkValue: event.target.value});
+  }
+
+  setStorageValue = (event) => {
+    this.setState({storageValue: event.target.value})
   }
 
   render() {
@@ -82,8 +90,9 @@ export default class addTorrentPopup extends React.Component {
               type="text"
               placeholder="Enter Magnet Link Here"
               fullWidth
-              onChange={this.setTextValue}
+              onChange={this.setMagnetLinkValue}
             />
+            <TextField id="storagePath" type="text" label="Storage Path" placeholder="Empty will be default torrent storage path" fullWidth onChange={this.setStorageValue} />
           </DialogContent>
           <DialogActions>
             <Button onClick={this.handleRequestClose} color="primary">

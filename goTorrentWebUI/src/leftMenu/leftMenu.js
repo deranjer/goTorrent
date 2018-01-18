@@ -11,7 +11,7 @@ import AllTorrentsIcon from 'material-ui-icons/AllInclusive'
 
 //react redux
 import {connect} from 'react-redux';
-import * as actionTypes from './store/actions';
+import * as actionTypes from '../store/actions';
 
 //TODO, clean up the goddamn variable names you are all over the place
 const styles = theme => ({

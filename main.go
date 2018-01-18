@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -52,9 +55,17 @@ func updateClient(torrentstats []Engine.ClientDB, conn *websocket.Conn) { //get 
 func main() {
 	Engine.Logger = Logger //Injecting the logger into all the packages
 	Storage.Logger = Logger
-	Config := Engine.FullClientSettingsNew()                                   //grabbing from settings.go
-	file, err := os.OpenFile("logs/server.log", os.O_CREATE|os.O_WRONLY, 0666) //creating the log file
-	Logger.Out = file                                                          //Setting our logger to output to the file
+	Config := Engine.FullClientSettingsNew() //grabbing from settings.go
+	if Config.LoggingOutput == "file" {
+		file, err := os.OpenFile("logs/server.log", os.O_CREATE|os.O_WRONLY, 0666) //creating the log file
+		if err != nil {
+			fmt.Println("Unable to create file for logging.... please check permissions.. forcing output to stdout")
+			Logger.Out = os.Stdout
+		}
+		Logger.Out = file //Setting our logger to output to the file
+	} else {
+		Logger.Out = os.Stdout
+	}
 	Logger.SetLevel(Config.LoggingLevel)
 
 	httpAddr := Config.HTTPAddr
@@ -80,7 +91,7 @@ func main() {
 	var RunningTorrentArray = []Engine.ClientDB{}     //this stores ALL of the torrents that are running, used for client update pushes combines Local Storage and Running tclient info
 	var PreviousTorrentArray = []Engine.ClientDB{}
 
-	TorrentLocalArray = Storage.ReadInTorrents(db) //pulling in all the already added torrents
+	TorrentLocalArray = Storage.FetchAllStoredTorrents(db) //pulling in all the already added torrents
 
 	if TorrentLocalArray != nil { //the first creation of the running torrent array //since we are adding all of them in we use a coroutine... just allows the web ui to load then it will load in the torrents
 		go func() { //TODO instead of running all torrent fetches in coroutine see if possible to run each single one in a routine so we don't wait for ALL of them to be verified
@@ -98,7 +109,14 @@ func main() {
 	http.Handle("/", router)
 	http.HandleFunc("/uploadTorrent", func(w http.ResponseWriter, r *http.Request) { //grabbing the uploaded Torrent File and adding it to the client TODO figure out websocket
 		defer http.Redirect(w, r, "/", 301) //forcing redirect to home page after file is processed
-		file, header, err := r.FormFile("fileTest")
+		err := r.ParseMultipartForm(32)
+		if err != nil {
+			fmt.Println("Error parsing forme", err)
+		}
+
+		storageFilePath := r.Form["storagePath"]
+		fmt.Println("Storage Path", storageFilePath)
+		file, header, err := r.FormFile("fileTorrent")
 		if err != nil {
 			Logger.WithFields(logrus.Fields{"error": err, "file": file}).Error("Error with fetching file or request issue")
 		}
@@ -115,12 +133,12 @@ func main() {
 			Logger.WithFields(logrus.Fields{"error": err, "file Name": fileName.Name()}).Error("Error adding Torrent from file")
 		} else {
 			Logger.WithFields(logrus.Fields{"file Name": fileName.Name()}).Info("Adding Torrent via file")
-			Engine.StartTorrent(clientTorrent, torrentLocalStorage, db, Config.TorrentConfig.DataDir, "file", fileName.Name()) // the starttorrent can take a LONG time on startup
+			Engine.StartTorrent(clientTorrent, torrentLocalStorage, db, Config.TorrentConfig.DataDir, "file", fileName.Name(), storageFilePath[0]) // the starttorrent can take a LONG time on startup
 		}
 
 	})
 	http.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) { //exposing the data to the
-		TorrentLocalArray = Storage.ReadInTorrents(db)
+		TorrentLocalArray = Storage.FetchAllStoredTorrents(db)
 		RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db) //Updates the RunningTorrentArray with the current client data as well
 		var torrentlistArray = new(Engine.TorrentList)
 		torrentlistArray.MessageType = "torrentList"          //setting the type of message
@@ -142,8 +160,8 @@ func main() {
 		for {
 			runningTorrents := tclient.Torrents() //getting running torrents here since multiple cases ask for the running torrents
 			msg := Engine.Message{}
-			readJSONError := conn.ReadJSON(&msg)
-			if readJSONError != nil {
+			err := conn.ReadJSON(&msg)
+			if err != nil {
 				Logger.WithFields(logrus.Fields{"error": err, "message": msg}).Error("Unable to read JSON client message")
 				break MessageLoop
 			}
@@ -153,7 +171,7 @@ func main() {
 
 			case "torrentListRequest":
 				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested TorrentList Update")
-				TorrentLocalArray = Storage.ReadInTorrents(db)                                                                       //Required to re-read th database since we write to the DB and this will pull the changes from it
+				TorrentLocalArray = Storage.FetchAllStoredTorrents(db)                                                               //Required to re-read th database since we write to the DB and this will pull the changes from it
 				RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db) //Updates the RunningTorrentArray with the current client data as well
 				PreviousTorrentArray = RunningTorrentArray
 				var torrentlistArray = new(Engine.TorrentList)
@@ -236,7 +254,7 @@ func main() {
 				conn.WriteJSON(TorrentRSSList)
 
 			case "magnetLinkSubmit": //if we detect a magnet link we will be adding a magnet torrent
-
+				storageValue := msg.MessageDetail
 				for _, magnetLink := range msg.Payload {
 					clientTorrent, err := tclient.AddMagnet(magnetLink) //reading the payload into the torrent client
 					if err != nil {
@@ -244,9 +262,26 @@ func main() {
 						break MessageLoop //break out of the loop entirely for this message since we hit an error
 					}
 					Logger.WithFields(logrus.Fields{"clientTorrent": clientTorrent, "magnetLink": magnetLink}).Info("Adding torrent to client!")
-					Engine.StartTorrent(clientTorrent, torrentLocalStorage, db, Config.TorrentConfig.DataDir, "magnet", "") //starting the torrent and creating local DB entry
+					Engine.StartTorrent(clientTorrent, torrentLocalStorage, db, Config.TorrentConfig.DataDir, "magnet", "", storageValue) //starting the torrent and creating local DB entry
 
 				}
+
+			case "torrentFileSubmit":
+				file, err := base64.StdEncoding.DecodeString(msg.Payload[0]) //decoding the base64 encoded file sent from client
+				if err != nil {
+					Logger.WithFields(logrus.Fields{"Error": err}).Info("Unable to decode base64 string to file")
+				}
+				desiredFileName := msg.MessageDetail
+				storageValue := msg.MessageDetailTwo
+				filePath := filepath.Join(Config.TFileUploadFolder, desiredFileName) //creating a full filepath to store the .torrent files
+
+				err = ioutil.WriteFile(filePath, file, 0644) //Dumping our recieved file into the filename
+				if err != nil {
+					Logger.WithFields(logrus.Fields{"filepath": filePath, "Error": err}).Error("Unable to write torrent data to file")
+				}
+				clientTorrent, err := tclient.AddTorrentFromFile(filePath)
+
+				Engine.StartTorrent(clientTorrent, torrentLocalStorage, db, Config.TorrentConfig.DataDir, "file", filePath, storageValue)
 
 			case "stopTorrents":
 				TorrentListCommands := msg.Payload
@@ -266,12 +301,20 @@ func main() {
 				}
 
 			case "deleteTorrents":
-				for _, singleTorrent := range runningTorrents {
+				withData := msg.MessageDetail //Checking if torrents should be deleted with data
 
+				Logger.WithFields(logrus.Fields{"deleteTorrentsPayload": msg.Payload, "torrentlist": msg.Payload, "deleteWithData?": withData}).Info("message for deleting torrents")
+				for _, singleTorrent := range runningTorrents {
 					for _, singleSelection := range msg.Payload {
 						if singleTorrent.InfoHash().String() == singleSelection {
 							Logger.WithFields(logrus.Fields{"selection": singleSelection}).Info("Matched for deleting torrents")
-							Storage.DelTorrentLocalStorage(db, singleTorrent.InfoHash().String())
+							if withData == "true" {
+								Logger.WithFields(logrus.Fields{"selection": singleSelection}).Info("Deleting torrent and data")
+								Storage.DelTorrentLocalStorageAndFiles(db, singleTorrent.InfoHash().String())
+							} else {
+								Logger.WithFields(logrus.Fields{"selection": singleSelection}).Info("Deleting just the torrent")
+								Storage.DelTorrentLocalStorage(db, singleTorrent.InfoHash().String())
+							}
 						}
 					}
 				}

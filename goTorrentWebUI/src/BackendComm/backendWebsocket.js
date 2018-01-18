@@ -52,8 +52,10 @@ ws.onmessage = function (evt) { //When we recieve a message from the websocket
                     ETA: serverMessage.data[i].ETA,
                     TotalUploadedSize: serverMessage.data[i].TotalUploadedSize,
                     Ratio: serverMessage.data[i].UploadRatio,
+                    DateAdded: serverMessage.data[i].DateAdded,
                     FileNumber: serverMessage.data[i].NumberofFiles,
                     PieceNumber: serverMessage.data[i].NumberofPieces,
+                    MaxConnections: serverMessage.data[i].MaxConnections,
                 })    
             } 
             var newTitle = '(' + serverMessage.total + ')' + title; //updating the title
