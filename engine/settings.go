@@ -67,7 +67,7 @@ func FullClientSettingsNew() FullClientSettings {
 	httpAddrPort := viper.GetString("serverConfig.ServerPort")
 	seedRatioStop := viper.GetFloat64("serverConfig.SeedRatioStop")
 	httpAddr = httpAddrIP + httpAddrPort
-	pushBulletToken := viper.GetString("serverConfig.notifications.PushBulletToken")
+	pushBulletToken := viper.GetString("notifications.PushBulletToken")
 	defaultMoveFolder := viper.GetString("serverConfig.DefaultMoveFolder")
 
 	dataDir := viper.GetString("torrentClientConfig.DownloadDir")
@@ -116,9 +116,6 @@ func FullClientSettingsNew() FullClientSettings {
 
 	downloadRateLimiter := new(rate.Limiter)
 	viper.UnmarshalKey("DownloadRateLimiter", &downloadRateLimiter)
-
-	rreferNoEncryption := viper.GetBool("EncryptionPolicy.PreferNoEncryption")
-	fmt.Println("Encryption", rreferNoEncryption)
 
 	encryptionPolicy := torrent.EncryptionPolicy{
 		DisableEncryption:  viper.GetBool("EncryptionPolicy.DisableEncryption"),

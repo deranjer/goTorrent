@@ -4,9 +4,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/asdine/storm"
+	"github.com/sirupsen/logrus"
 )
 
 //Logger is the global Logger that is used in all packages
@@ -14,7 +13,7 @@ var Logger *logrus.Logger
 
 //RSSFeedStore stores all of our RSS feeds in a slice of gofeed.Feed
 type RSSFeedStore struct {
-	ID       int             `storm:"id,unique"` //storm requires unique ID to save although there will only be one of these
+	ID       int             `storm:"id,unique"` //storm requires unique ID (will be 1) to save although there will only be one of these
 	RSSFeeds []SingleRSSFeed //slice of string containing URL's in string form for gofeed to parse
 }
 
@@ -40,7 +39,7 @@ type TorrentFilePriority struct {
 
 //TorrentLocal is local storage of the torrents for readd on server restart, marshalled into the database using Storm
 type TorrentLocal struct {
-	Hash                string `storm:"id,unique"` //Hash should be unique for every torrent... if not we are re-adding an already added torrent \\TODO check for re-add of same torrent
+	Hash                string `storm:"id,unique"` //Hash should be unique for every torrent... if not we are re-adding an already added torrent
 	InfoBytes           []byte
 	DateAdded           string
 	StoragePath         string
@@ -60,6 +59,7 @@ type TorrentLocal struct {
 
 //TorrentHistoryList holds the entire history of downloaded torrents by hash TODO implement a way to read this and maybe grab the name for every torrent as well
 type TorrentHistoryList struct {
+	ID       int `storm:"id,unique"` //storm requires unique ID (will be 2) to save although there will only be one of these
 	HashList []string
 }
 
@@ -76,7 +76,7 @@ func FetchAllStoredTorrents(torrentStorage *storm.DB) (torrentLocalArray []*Torr
 
 //AddTorrentLocalStorage is called when adding a new torrent via any method, requires the boltdb pointer and the torrentlocal struct
 func AddTorrentLocalStorage(torrentStorage *storm.DB, local TorrentLocal) {
-	Logger.WithFields(logrus.Fields{"database": torrentStorage, "Torrent": local}).Info("Adding new Torrent to database")
+	Logger.WithFields(logrus.Fields{"database": torrentStorage, "Torrent": local.TorrentName, "File(if file)": local.TorrentFileName}).Info("Adding new Torrent to database")
 	err := torrentStorage.Save(&local)
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"database": torrentStorage, "error": err}).Error("Error adding new Torrent to database!")
@@ -98,20 +98,24 @@ func DelTorrentLocalStorage(torrentStorage *storm.DB, selectedHash string) {
 }
 
 //DelTorrentLocalStorageAndFiles deletes the torrent from the database and also attempts to delete the torrent files from the disk as well.
-func DelTorrentLocalStorageAndFiles(torrentStorage *storm.DB, selectedHash string) {
+func DelTorrentLocalStorageAndFiles(torrentStorage *storm.DB, selectedHash string, fileDownloadPath string) {
 	singleTorrentInfo := TorrentLocal{}
 	err := torrentStorage.One("Hash", selectedHash, &singleTorrentInfo) //finding the torrent by the hash passed in and storing it in a struct
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"selectedHash": selectedHash, "error": err}).Error("Error deleting torrent with hash!")
 	}
-	singleTorrentPath := filepath.Join(singleTorrentInfo.StoragePath, singleTorrentInfo.TorrentName)
+	singleTorrentPath := filepath.Join(fileDownloadPath, singleTorrentInfo.TorrentName)
 	err = os.RemoveAll(singleTorrentPath)
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"filepath": singleTorrentPath, "error": err}).Error("Error deleting torrent data!")
+	} else {
+		Logger.WithFields(logrus.Fields{"filepath": singleTorrentPath}).Info("Deleting Torrent Data..")
 	}
 	err = torrentStorage.DeleteStruct(&singleTorrentInfo) //deleting that struct from the database
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"singleTorrent": singleTorrentInfo, "error": err}).Error("Error deleting torrent struct!")
+	} else {
+		Logger.WithFields(logrus.Fields{"singleTorrent": singleTorrentInfo.TorrentName}).Error("Deleted Torrent Struct")
 	}
 }
 
@@ -132,6 +136,33 @@ func FetchTorrentFromStorage(torrentStorage *storm.DB, selectedHash string) Torr
 	}
 
 	return singleTorrentInfo
+}
+
+//FetchHashHistory fetches the infohash of all torrents added into the client.  The cron job checks this so as not to add torrents from RSS that were already added before
+func FetchHashHistory(db *storm.DB) TorrentHistoryList {
+	torrentHistory := TorrentHistoryList{}
+	err := db.One("ID", 2, &torrentHistory)
+	if err != nil {
+		Logger.WithFields(logrus.Fields{"TorrentHistoryList": torrentHistory, "error": err}).Error("Failure retrieving torrent history list, creating bucket for history list, expected behaviour if first run for history list")
+		torrentHistory := TorrentHistoryList{}
+		torrentHistory.ID = 2
+		err = db.Save(&torrentHistory)
+		if err != nil {
+			Logger.WithFields(logrus.Fields{"RSSFeed": torrentHistory, "error": err}).Error("Error saving torrent History to database!")
+		}
+		return torrentHistory
+	}
+	return torrentHistory
+}
+
+//StoreHashHistory adds the infohash of all torrents added into the client.  The cron job checks this so as not to add torrents from RSS that were already added before
+func StoreHashHistory(db *storm.DB, torrentHash string) {
+	torrentHistory := FetchHashHistory(db)
+	torrentHistory.HashList = append(torrentHistory.HashList, torrentHash)
+	err := db.Update(torrentHistory)
+	if err != nil {
+		Logger.WithFields(logrus.Fields{"HashList": torrentHistory}).Error("Unable to update torrent history database with torrent hash!")
+	}
 }
 
 //FetchRSSFeeds fetches the RSS feed from db, which was setup when initializing database on first startup

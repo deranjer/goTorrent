@@ -22,6 +22,7 @@ func InitializeCronEngine() *cron.Cron {
 //RefreshRSSCron refreshes all of the RSS feeds on an hourly basis
 func RefreshRSSCron(c *cron.Cron, db *storm.DB, tclient *torrent.Client, torrentLocalStorage Storage.TorrentLocal, dataDir string) {
 	c.AddFunc("@hourly", func() {
+		torrentHashHistory := Storage.FetchHashHistory(db)
 		RSSFeedStore := Storage.FetchRSSFeeds(db)
 		singleRSSTorrent := Storage.SingleRSSTorrent{}
 		newFeedStore := Storage.RSSFeedStore{ID: RSSFeedStore.ID} //creating a new feed store just using old one to parse for new torrents
@@ -36,6 +37,12 @@ func RefreshRSSCron(c *cron.Cron, db *storm.DB, tclient *torrent.Client, torrent
 				singleRSSTorrent.Link = RSSTorrent.Link
 				singleRSSTorrent.Title = RSSTorrent.Title
 				singleRSSTorrent.PubDate = RSSTorrent.Published
+				for _, hash := range torrentHashHistory.HashList {
+					linkHash := singleRSSTorrent.Link[20:60] //cutting the infohash out of the link
+					if linkHash == hash {
+						Logger.WithFields(logrus.Fields{"Torrent": RSSTorrent.Title}).Warn("Torrent already added for this RSS item, skipping torrent")
+					}
+				}
 				clientTorrent, err := tclient.AddMagnet(RSSTorrent.Link)
 				if err != nil {
 					Logger.WithFields(logrus.Fields{"err": err, "Torrent": RSSTorrent.Title}).Warn("Unable to add torrent to torrent client!")

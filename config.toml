@@ -3,16 +3,16 @@
 
     ServerPort = ":8000" #leave format as is it expects a string with colon
     ServerAddr = "" #blank will bind to default IP address, usually fine to leave be
-    LogLevel = "Info" # Options = Debug, Info, Warn, Error, Fatal, Panic
-    LogOutput = "stdout" #Options = file, stdout #file will print it to logs/server.log
+    LogLevel = "Debug" # Options = Debug, Info, Warn, Error, Fatal, Panic
+    LogOutput = "file" #Options = file, stdout #file will print it to logs/server.log
 
     SeedRatioStop = 1.50 #automatically stops the torrent after it reaches this seeding ratio
-    DefaultMoveFolder = "downloads" #default path that a finished torrent is symlinked to after completion.  Torrents added via RSS will default here
+    DefaultMoveFolder = "downloaded" #default path that a finished torrent is symlinked to after completion.  Torrents added via RSS will default here
 
 
-    [notifications]
+[notifications]
 
-        PushBulletToken = "o.QW6G7F6FUOKXCUKmw948fBceCUn0msFi" #add your pushbullet api token here to notify of torrent completion to pushbullet
+    PushBulletToken = "o.QW6G7F6FUOKXCUKmw948fBceCUn0msFi" #add your pushbullet api token here to notify of torrent completion to pushbullet
 
 
 [EncryptionPolicy]
@@ -23,9 +23,12 @@
 
 
 [torrentClientConfig]
-    DownloadDir = "downloads"    #the full OR relative path where the torrent server stores in-progress torrents
+    DownloadDir = "downloading"    #the full OR relative path where the torrent server stores in-progress torrents
 
     Seed = true #boolean #seed after download
+    
+    # Never send chunks to peers.
+    NoUpload = false #boolean
 
     #The address to listen for new uTP and TCP bittorrent protocolconnections. DHT shares a UDP socket with uTP unless configured otherwise.
     ListenAddr = "" #Leave Blank for default, syntax "HOST:PORT"
@@ -37,9 +40,6 @@
 
     # Don't create a DHT.
     NoDHT = false #boolean
-
-    # Never send chunks to peers.
-    NoUpload = false #boolean
 
     # Events are data bytes sent in pieces. The burst must be large enough to fit a whole chunk.
     UploadRateLimiter = "" #*rate.Limiter

@@ -1,4 +1,6 @@
 downloads/
+downloading/
+uploadedTorrents/
 storage.db.lock
 storage.db
 .torrent.bolt.db.lock
@@ -11,3 +13,4 @@ output.json
 .idea/vcs.xml
 *.torrent
 boltbrowser.win64.exe
+logs/server.log
