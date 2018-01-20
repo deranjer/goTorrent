@@ -85,6 +85,7 @@ func readTorrentFileFromDB(element *Storage.TorrentLocal, tclient *torrent.Clien
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"tempfile": tempFile, "err": err}).Error("Unable to create tempfile")
 	}
+	defer tempFile.Close() //Todo.. if we remove this do we need to close it?
 	defer os.Remove(tempFile.Name())
 	if _, err := tempFile.Write(element.TorrentFile); err != nil { //writing out out the entire file back into the temp dir from boltdb
 		Logger.WithFields(logrus.Fields{"tempfile": tempFile, "err": err}).Error("Unable to write to tempfile")

@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"html/template"
 	"io/ioutil"
+
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+
+	_ "net/http/pprof"
 
 	"github.com/anacrolix/torrent"
 	"github.com/asdine/storm"
@@ -59,6 +62,7 @@ func main() {
 	if Config.LoggingOutput == "file" {
 		os.Remove("logs/server.log")                                               //cleanup the old log on every restart
 		file, err := os.OpenFile("logs/server.log", os.O_CREATE|os.O_WRONLY, 0666) //creating the log file
+		defer file.Close()                                                         //TODO.. since we write to this constantly how does close work?
 		if err != nil {
 			fmt.Println("Unable to create file for logging.... please check permissions.. forcing output to stdout")
 			Logger.Out = os.Stdout
@@ -95,9 +99,9 @@ func main() {
 	TorrentLocalArray = Storage.FetchAllStoredTorrents(db) //pulling in all the already added torrents
 
 	if TorrentLocalArray != nil { //the first creation of the running torrent array //since we are adding all of them in we use a coroutine... just allows the web ui to load then it will load in the torrents
-		go func() { //TODO instead of running all torrent fetches in coroutine see if possible to run each single one in a routine so we don't wait for ALL of them to be verified
-			RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db)
-		}()
+		//go func() { //TODO instead of running all torrent fetches in coroutine see if possible to run each single one in a routine so we don't wait for ALL of them to be verified
+		RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db)
+		//}()
 	} else {
 		Logger.Info("Database is empty, no torrents loaded")
 	}
@@ -122,7 +126,7 @@ func main() {
 	})
 	http.HandleFunc("/websocket", func(w http.ResponseWriter, r *http.Request) { //websocket is the main data pipe to the frontend
 		conn, err := upgrader.Upgrade(w, r, nil)
-
+		defer conn.Close() //defer closing the websocket until done.
 		if err != nil {
 			Logger.WithFields(logrus.Fields{"error": err}).Fatal("Unable to create websocket!")
 			return
