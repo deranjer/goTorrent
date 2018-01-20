@@ -76,7 +76,7 @@ func FetchAllStoredTorrents(torrentStorage *storm.DB) (torrentLocalArray []*Torr
 
 //AddTorrentLocalStorage is called when adding a new torrent via any method, requires the boltdb pointer and the torrentlocal struct
 func AddTorrentLocalStorage(torrentStorage *storm.DB, local TorrentLocal) {
-	Logger.WithFields(logrus.Fields{"database": torrentStorage, "Torrent": local.TorrentName, "File(if file)": local.TorrentFileName}).Info("Adding new Torrent to database")
+	Logger.WithFields(logrus.Fields{"Storage Path": local.StoragePath, "Torrent": local.TorrentName, "File(if file)": local.TorrentFileName}).Info("Adding new Torrent to database")
 	err := torrentStorage.Save(&local)
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"database": torrentStorage, "error": err}).Error("Error adding new Torrent to database!")
@@ -115,7 +115,7 @@ func DelTorrentLocalStorageAndFiles(torrentStorage *storm.DB, selectedHash strin
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"singleTorrent": singleTorrentInfo, "error": err}).Error("Error deleting torrent struct!")
 	} else {
-		Logger.WithFields(logrus.Fields{"singleTorrent": singleTorrentInfo.TorrentName}).Error("Deleted Torrent Struct")
+		Logger.WithFields(logrus.Fields{"singleTorrent": singleTorrentInfo.TorrentName}).Info("Deleted Torrent Struct")
 	}
 }
 

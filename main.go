@@ -68,7 +68,7 @@ func main() {
 			}
 		} else {
 			os.Remove("logs/server.log")                                               //cleanup the old log on every restart
-			file, err := os.OpenFile("logs/server.log", os.O_CREATE|os.O_WRONLY, 0666) //creating the log file
+			file, err := os.OpenFile("logs/server.log", os.O_CREATE|os.O_WRONLY, 0755) //creating the log file
 			defer file.Close()                                                         //TODO.. since we write to this constantly how does close work?
 			if err != nil {
 				fmt.Println("Unable to create file for logging.... please check permissions.. forcing output to stdout")
@@ -239,6 +239,9 @@ func main() {
 
 			case "magnetLinkSubmit": //if we detect a magnet link we will be adding a magnet torrent
 				storageValue := msg.MessageDetail
+				if storageValue == "" {
+					storageValue = Config.DefaultMoveFolder
+				}
 				for _, magnetLink := range msg.Payload {
 					clientTorrent, err := tclient.AddMagnet(magnetLink) //reading the payload into the torrent client
 					if err != nil {
@@ -400,5 +403,7 @@ func main() {
 	})
 	if err := http.ListenAndServe(httpAddr, nil); err != nil {
 		Logger.WithFields(logrus.Fields{"error": err}).Fatal("Unable to listen on the http Server!")
+	} else {
+		fmt.Println("Server started on:", httpAddr)
 	}
 }

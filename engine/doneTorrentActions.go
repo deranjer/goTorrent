@@ -17,7 +17,7 @@ import (
 
 //MoveAndLeaveSymlink takes the file from the default download dir and moves it to the user specified directory and then leaves a symlink behind.
 func MoveAndLeaveSymlink(config FullClientSettings, singleTorrent *torrent.Torrent, db *storm.DB) {
-	Logger.WithFields(logrus.Fields{"Torrent Name": singleTorrent.Name()}).Error("Move and Create symlink started for torrent")
+	Logger.WithFields(logrus.Fields{"Torrent Name": singleTorrent.Name()}).Info("Move and Create symlink started for torrent")
 	tStorage := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String())
 	oldFilePath := filepath.Join(config.TorrentConfig.DataDir, singleTorrent.Name())
 	newFilePath := filepath.Join(tStorage.StoragePath, singleTorrent.Name())
@@ -39,6 +39,7 @@ func MoveAndLeaveSymlink(config FullClientSettings, singleTorrent *torrent.Torre
 			if oldFileInfo.IsDir() {
 				os.Mkdir(newFilePath, 0755)
 				folderCopy.Copy(oldFilePath, newFilePath) //copy the folder to the new location
+				os.Chmod(newFilePath, 0777)
 				notifyUser(tStorage, config, singleTorrent, db)
 				return
 			}
@@ -68,6 +69,7 @@ func MoveAndLeaveSymlink(config FullClientSettings, singleTorrent *torrent.Torre
 			notifyUser(tStorage, config, singleTorrent, db)
 		} else {
 			folderCopy.Copy(oldFilePath, newFilePath)
+			os.Chmod(newFilePath, 0777) //changing permissions on the new file to be permissive
 			os.RemoveAll(oldFilePath)
 			err := os.Symlink(newFilePath, oldFilePath) //For all other OS's create a symlink
 			if err != nil {
@@ -82,6 +84,7 @@ func MoveAndLeaveSymlink(config FullClientSettings, singleTorrent *torrent.Torre
 }
 
 func notifyUser(tStorage Storage.TorrentLocal, config FullClientSettings, singleTorrent *torrent.Torrent, db *storm.DB) {
+	Logger.WithFields(logrus.Fields{"New File Path": tStorage.StoragePath, "Torrent Name": singleTorrent.Name()}).Info("Attempting to notify user..")
 	tStorage.TorrentMoved = true
 	Storage.AddTorrentLocalStorage(db, tStorage) //Updating the fact that we moved the torrent
 	if config.PushBulletToken != "" {
@@ -94,5 +97,7 @@ func notifyUser(tStorage Storage.TorrentLocal, config FullClientSettings, single
 			return
 		}
 		Logger.WithFields(logrus.Fields{"Torrent": singleTorrent.Name(), "New File Path": tStorage.StoragePath}).Info("Pushbullet note sent")
+	} else {
+		Logger.WithFields(logrus.Fields{"New File Path": tStorage.StoragePath, "Torrent Name": singleTorrent.Name()}).Info("No pushbullet API key set, not notifying")
 	}
 }

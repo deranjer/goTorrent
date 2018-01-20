@@ -61,7 +61,7 @@ func ForceRSSRefresh(db *storm.DB, RSSFeedStore Storage.RSSFeedStore) { //Todo..
 
 //timeOutInfo forcing a timeout of the torrent if it doesn't load from program restart
 func timeOutInfo(clientTorrent *torrent.Torrent, seconds time.Duration) (deleted bool) {
-	Logger.WithFields(logrus.Fields{"torrentName": clientTorrent.Name()}).Info("Attempting to download info for torrent")
+	Logger.WithFields(logrus.Fields{"Seconds to wait for info...": seconds}).Info("Attempting to download info for torrent")
 	timeout := make(chan bool, 1) //creating a timeout channel for our gotinfo
 	go func() {
 		time.Sleep(seconds * time.Second)
@@ -85,7 +85,7 @@ func readTorrentFileFromDB(element *Storage.TorrentLocal, tclient *torrent.Clien
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"tempfile": tempFile, "err": err}).Error("Unable to create tempfile")
 	}
-	defer tempFile.Close() //Todo.. if we remove this do we need to close it?
+	//defer tempFile.Close() //Todo.. if we remove this do we need to close it?
 	defer os.Remove(tempFile.Name())
 	if _, err := tempFile.Write(element.TorrentFile); err != nil { //writing out out the entire file back into the temp dir from boltdb
 		Logger.WithFields(logrus.Fields{"tempfile": tempFile, "err": err}).Error("Unable to write to tempfile")
@@ -132,6 +132,7 @@ func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.To
 		}
 		torrentLocalStorage.TorrentFile = torrentfile //storing the entire file in to database
 	}
+	Logger.WithFields(logrus.Fields{"Storage Path": torrentStoragePath, "Torrent Name": clientTorrent.Name()}).Error("Adding Torrent with following storage path")
 	torrentFiles := clientTorrent.Files() //storing all of the files in the database along with the priority
 	var TorrentFilePriorityArray = []Storage.TorrentFilePriority{}
 	for _, singleFile := range torrentFiles { //creating the database setup for the file array
