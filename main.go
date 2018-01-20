@@ -62,7 +62,7 @@ func main() {
 	if Config.LoggingOutput == "file" {
 		_, err := os.Stat("logs/server.log")
 		if os.IsNotExist(err) {
-			err := os.Mkdir("logs", 0644)
+			err := os.Mkdir("logs", 0755)
 			if err != nil {
 				fmt.Println("Unable to create 'log' folder for logging.... please check permissions.. forcing output to stdout")
 			}
@@ -82,7 +82,7 @@ func main() {
 	Logger.SetLevel(Config.LoggingLevel)
 
 	httpAddr := Config.HTTPAddr
-	os.Mkdir(Config.TFileUploadFolder, os.ModeDir) //creating a directory to store uploaded torrent files
+	os.Mkdir(Config.TFileUploadFolder, 0755) //creating a directory to store uploaded torrent files
 	Logger.WithFields(logrus.Fields{"Config": Config}).Info("Torrent Client Config has been generated...")
 
 	tclient, err := torrent.NewClient(&Config.TorrentConfig) //pulling out the torrent specific config to use
@@ -263,7 +263,7 @@ func main() {
 				}
 				filePath := filepath.Join(Config.TFileUploadFolder, FileName) //creating a full filepath to store the .torrent files
 
-				err = ioutil.WriteFile(filePath, file, 0644) //Dumping our recieved file into the filename
+				err = ioutil.WriteFile(filePath, file, 0755) //Dumping our recieved file into the filename
 				if err != nil {
 					Logger.WithFields(logrus.Fields{"filepath": filePath, "Error": err}).Error("Unable to write torrent data to file")
 				}

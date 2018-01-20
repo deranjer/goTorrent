@@ -23,7 +23,7 @@ func MoveAndLeaveSymlink(config FullClientSettings, singleTorrent *torrent.Torre
 	newFilePath := filepath.Join(tStorage.StoragePath, singleTorrent.Name())
 	_, err := os.Stat(tStorage.StoragePath)
 	if os.IsNotExist(err) {
-		err := os.MkdirAll(tStorage.StoragePath, 0644)
+		err := os.MkdirAll(tStorage.StoragePath, 0755)
 		if err != nil {
 			Logger.WithFields(logrus.Fields{"New File Path": newFilePath, "error": err}).Error("Cannot create new directory")
 		}
@@ -37,7 +37,7 @@ func MoveAndLeaveSymlink(config FullClientSettings, singleTorrent *torrent.Torre
 	if oldFilePath != newFilePath {
 		if runtime.GOOS == "windows" { //TODO the windows symlink is broken on windows 10 creator edition, so doing a copy for now until Go 1.11
 			if oldFileInfo.IsDir() {
-				os.Mkdir(newFilePath, 0644)
+				os.Mkdir(newFilePath, 0755)
 				folderCopy.Copy(oldFilePath, newFilePath) //copy the folder to the new location
 				notifyUser(tStorage, config, singleTorrent, db)
 				return
