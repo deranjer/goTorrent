@@ -3,7 +3,7 @@
 
     ServerPort = ":8000" #leave format as is it expects a string with colon
     ServerAddr = "" #blank will bind to default IP address, usually fine to leave be
-    LogLevel = "Debug" # Options = Debug, Info, Warn, Error, Fatal, Panic
+    LogLevel = "Warn" # Options = Debug, Info, Warn, Error, Fatal, Panic
     LogOutput = "file" #Options = file, stdout #file will print it to logs/server.log
 
     SeedRatioStop = 1.50 #automatically stops the torrent after it reaches this seeding ratio
@@ -12,7 +12,7 @@
 
 [notifications]
 
-    PushBulletToken = "o.QW6G7F6FUOKXCUKmw948fBceCUn0msFi" #add your pushbullet api token here to notify of torrent completion to pushbullet
+    PushBulletToken = "" #add your pushbullet api token here to notify of torrent completion to pushbullet
 
 
 [EncryptionPolicy]
