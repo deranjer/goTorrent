@@ -57,9 +57,7 @@ export default class addTorrentFilePopup extends React.Component {
   };
 
   handleSubmit = () => {
-    this.setState({ open: false });
-    //let magnetLinkSubmit = this.state.textValue;
-    console.log("File", this.state.torrentFileValue)
+    this.setState({open: false})
     const reader = new FileReader()
     let torrentFileBlob = new Blob(this.state.torrentFileValue)
     console.log("Blob", torrentFileBlob)
@@ -76,6 +74,7 @@ export default class addTorrentFilePopup extends React.Component {
       }
       console.log("Sending magnet link: ", torrentFileMessage);
       ws.send(JSON.stringify(torrentFileMessage));
+      this.setState({torrentFileName: "", storageValue: "", torrentFileValue: [], showDrop: true})
     }   
   }
 

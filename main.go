@@ -60,14 +60,22 @@ func main() {
 	Storage.Logger = Logger
 	Config := Engine.FullClientSettingsNew() //grabbing from settings.go
 	if Config.LoggingOutput == "file" {
-		os.Remove("logs/server.log")                                               //cleanup the old log on every restart
-		file, err := os.OpenFile("logs/server.log", os.O_CREATE|os.O_WRONLY, 0666) //creating the log file
-		defer file.Close()                                                         //TODO.. since we write to this constantly how does close work?
-		if err != nil {
-			fmt.Println("Unable to create file for logging.... please check permissions.. forcing output to stdout")
-			Logger.Out = os.Stdout
+		_, err := os.Stat("logs/server.log")
+		if os.IsNotExist(err) {
+			err := os.Mkdir("logs", 0644)
+			if err != nil {
+				fmt.Println("Unable to create 'log' folder for logging.... please check permissions.. forcing output to stdout")
+			}
+		} else {
+			os.Remove("logs/server.log")                                               //cleanup the old log on every restart
+			file, err := os.OpenFile("logs/server.log", os.O_CREATE|os.O_WRONLY, 0666) //creating the log file
+			defer file.Close()                                                         //TODO.. since we write to this constantly how does close work?
+			if err != nil {
+				fmt.Println("Unable to create file for logging.... please check permissions.. forcing output to stdout")
+				Logger.Out = os.Stdout
+			}
+			Logger.Out = file
 		}
-		Logger.Out = file //Setting our logger to output to the file
 	} else {
 		Logger.Out = os.Stdout
 	}

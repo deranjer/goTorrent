@@ -67,7 +67,9 @@ func MoveAndLeaveSymlink(config FullClientSettings, singleTorrent *torrent.Torre
 			Logger.WithFields(logrus.Fields{"Old File Path": oldFilePath, "New File Path": newFilePath, "bytesWritten": bytesWritten}).Info("Windows Torrent Copy Completed")
 			notifyUser(tStorage, config, singleTorrent, db)
 		} else {
-			err := os.Symlink(oldFilePath, newFilePath) //For all other OS's create a symlink
+			folderCopy.Copy(oldFilePath, newFilePath)
+			os.RemoveAll(oldFilePath)
+			err := os.Symlink(newFilePath, oldFilePath) //For all other OS's create a symlink
 			if err != nil {
 				Logger.WithFields(logrus.Fields{"Old File Path": oldFilePath, "New File Path": newFilePath, "error": err}).Error("Error creating symlink")
 				return

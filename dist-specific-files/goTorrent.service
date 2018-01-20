@@ -1,0 +1,13 @@
+[Unit]
+Description=goTorrent Server
+After=network.target
+
+[Service]
+type=simple
+User=goTorrent
+WorkingDirectory=/opt/goTorrent
+ExecStart=/opt/goTorrent/goTorrent
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target
