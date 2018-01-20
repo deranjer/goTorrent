@@ -2,15 +2,13 @@ package engine
 
 import (
 	"fmt"
-
-	"github.com/sirupsen/logrus"
-
-	"golang.org/x/time/rate"
+	"path/filepath"
 
 	"github.com/anacrolix/dht"
-
 	"github.com/anacrolix/torrent"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"golang.org/x/time/rate"
 )
 
 //FullClientSettings contains all of the settings for our entire application
@@ -31,7 +29,7 @@ func defaultConfig() FullClientSettings {
 	var Config FullClientSettings
 	Config.Version = 1.0
 	Config.LoggingLevel = 3                    //Warn level
-	Config.TorrentConfig.DataDir = "downloads" //the full OR relative path of the default download directory for torrents
+	Config.TorrentConfig.DataDir = "downloads" //the absolute or relative path of the default download directory for torrents
 	Config.TFileUploadFolder = "uploadedTorrents"
 	Config.TorrentConfig.Seed = true
 	Config.HTTPAddr = ":8000"
@@ -68,9 +66,18 @@ func FullClientSettingsNew() FullClientSettings {
 	seedRatioStop := viper.GetFloat64("serverConfig.SeedRatioStop")
 	httpAddr = httpAddrIP + httpAddrPort
 	pushBulletToken := viper.GetString("notifications.PushBulletToken")
-	defaultMoveFolder := viper.GetString("serverConfig.DefaultMoveFolder")
+	defaultMoveFolder := filepath.ToSlash(viper.GetString("serverConfig.DefaultMoveFolder")) //Converting the string literal into a filepath
+	defaultMoveFolderAbs, err := filepath.Abs(defaultMoveFolder)
+	if err != nil {
+		fmt.Println("Failed creating absolute path for defaultMoveFolder", err)
+	}
 
-	dataDir := viper.GetString("torrentClientConfig.DownloadDir")
+	dataDir := filepath.ToSlash(viper.GetString("torrentClientConfig.DownloadDir")) //Converting the string literal into a filepath
+	dataDirAbs, err := filepath.Abs(dataDir)                                        //Converting to an absolute file path
+	if err != nil {
+		fmt.Println("Failed creating absolute path for dataDir", err)
+	}
+
 	listenAddr := viper.GetString("torrentClientConfig.ListenAddr")
 	disablePex := viper.GetBool("torrentClientConfig.DisablePEX")
 	noDHT := viper.GetBool("torrentClientConfig.NoDHT")
@@ -124,7 +131,7 @@ func FullClientSettingsNew() FullClientSettings {
 	}
 
 	tConfig := torrent.Config{
-		DataDir:    dataDir,
+		DataDir:    dataDirAbs,
 		ListenAddr: listenAddr,
 		DisablePEX: disablePex,
 		NoDHT:      noDHT,
@@ -149,7 +156,7 @@ func FullClientSettingsNew() FullClientSettings {
 		TorrentConfig:     tConfig,
 		TFileUploadFolder: "uploadedTorrents",
 		PushBulletToken:   pushBulletToken,
-		DefaultMoveFolder: defaultMoveFolder,
+		DefaultMoveFolder: defaultMoveFolderAbs,
 	}
 
 	return Config

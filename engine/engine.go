@@ -107,7 +107,10 @@ func readTorrentFileFromDB(element *Storage.TorrentLocal, tclient *torrent.Clien
 
 //StartTorrent creates the storage.db entry and starts A NEW TORRENT and adds to the running torrent array
 func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.TorrentLocal, torrentDbStorage *storm.DB, dataDir string, torrentType string, torrentFileName string, torrentStoragePath string) {
-	timeOutInfo(clientTorrent, 45) //seeing if adding the torrrent times out (giving 45 seconds)
+	timedOut := timeOutInfo(clientTorrent, 45) //seeing if adding the torrrent times out (giving 45 seconds)
+	if timedOut {                              //if we fail to add the torrent return
+		return
+	}
 	var TempHash metainfo.Hash
 	TempHash = clientTorrent.InfoHash()
 	allStoredTorrents := Storage.FetchAllStoredTorrents(torrentDbStorage)
@@ -132,7 +135,7 @@ func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.To
 		}
 		torrentLocalStorage.TorrentFile = torrentfile //storing the entire file in to database
 	}
-	Logger.WithFields(logrus.Fields{"Storage Path": torrentStoragePath, "Torrent Name": clientTorrent.Name()}).Error("Adding Torrent with following storage path")
+	Logger.WithFields(logrus.Fields{"Storage Path": torrentStoragePath, "Torrent Name": clientTorrent.Name()}).Info("Adding Torrent with following storage path")
 	torrentFiles := clientTorrent.Files() //storing all of the files in the database along with the priority
 	var TorrentFilePriorityArray = []Storage.TorrentFilePriority{}
 	for _, singleFile := range torrentFiles { //creating the database setup for the file array

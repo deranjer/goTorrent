@@ -44,7 +44,7 @@ export default class addTorrentFilePopup extends React.Component {
     open: false,
     torrentFileName: "",
     torrentFileValue: [],
-    storageValue: "",
+    storageValue: ``, //raw string for possible windows filepath
     showDrop: true,
   };
 
@@ -74,7 +74,7 @@ export default class addTorrentFilePopup extends React.Component {
       }
       console.log("Sending magnet link: ", torrentFileMessage);
       ws.send(JSON.stringify(torrentFileMessage));
-      this.setState({torrentFileName: "", storageValue: "", torrentFileValue: [], showDrop: true})
+      this.setState({torrentFileName: "", storageValue: ``, torrentFileValue: [], showDrop: true})
     }   
   }
 

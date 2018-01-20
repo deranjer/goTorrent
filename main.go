@@ -60,21 +60,22 @@ func main() {
 	Storage.Logger = Logger
 	Config := Engine.FullClientSettingsNew() //grabbing from settings.go
 	if Config.LoggingOutput == "file" {
-		_, err := os.Stat("logs/server.log")
+		_, err := os.Stat("logs")
 		if os.IsNotExist(err) {
 			err := os.Mkdir("logs", 0755)
 			if err != nil {
-				fmt.Println("Unable to create 'log' folder for logging.... please check permissions.. forcing output to stdout")
-			}
-		} else {
-			os.Remove("logs/server.log")                                               //cleanup the old log on every restart
-			file, err := os.OpenFile("logs/server.log", os.O_CREATE|os.O_WRONLY, 0755) //creating the log file
-			defer file.Close()                                                         //TODO.. since we write to this constantly how does close work?
-			if err != nil {
-				fmt.Println("Unable to create file for logging.... please check permissions.. forcing output to stdout")
+				fmt.Println("Unable to create 'log' folder for logging.... please check permissions.. forcing output to stdout", err)
 				Logger.Out = os.Stdout
+			} else {
+				os.Remove("logs/server.log")                                               //cleanup the old log on every restart
+				file, err := os.OpenFile("logs/server.log", os.O_CREATE|os.O_WRONLY, 0755) //creating the log file
+				defer file.Close()                                                         //TODO.. since we write to this constantly how does close work?
+				if err != nil {
+					fmt.Println("Unable to create file for logging.... please check permissions.. forcing output to stdout")
+					Logger.Out = os.Stdout
+				}
+				Logger.Out = file
 			}
-			Logger.Out = file
 		}
 	} else {
 		Logger.Out = os.Stdout
@@ -107,9 +108,9 @@ func main() {
 	TorrentLocalArray = Storage.FetchAllStoredTorrents(db) //pulling in all the already added torrents
 
 	if TorrentLocalArray != nil { //the first creation of the running torrent array //since we are adding all of them in we use a coroutine... just allows the web ui to load then it will load in the torrents
-		//go func() { //TODO instead of running all torrent fetches in coroutine see if possible to run each single one in a routine so we don't wait for ALL of them to be verified
-		RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db)
-		//}()
+		go func() { //TODO instead of running all torrent fetches in coroutine see if possible to run each single one in a routine so we don't wait for ALL of them to be verified
+			RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db)
+		}()
 	} else {
 		Logger.Info("Database is empty, no torrents loaded")
 	}
@@ -240,7 +241,16 @@ func main() {
 			case "magnetLinkSubmit": //if we detect a magnet link we will be adding a magnet torrent
 				storageValue := msg.MessageDetail
 				if storageValue == "" {
-					storageValue = Config.DefaultMoveFolder
+					storageValue, err = filepath.Abs(filepath.ToSlash(Config.DefaultMoveFolder))
+					if err != nil {
+						Logger.WithFields(logrus.Fields{"err": err, "MagnetLink": Config.DefaultMoveFolder}).Error("Unable to add Storage Path")
+					}
+				} else {
+					storageValue, err = filepath.Abs(filepath.ToSlash(storageValue))
+					if err != nil {
+						Logger.WithFields(logrus.Fields{"err": err, "MagnetLink": storageValue}).Error("Unable to add Storage Path")
+						storageValue, _ = filepath.Abs(filepath.ToSlash(Config.DefaultMoveFolder))
+					}
 				}
 				for _, magnetLink := range msg.Payload {
 					clientTorrent, err := tclient.AddMagnet(magnetLink) //reading the payload into the torrent client
@@ -262,7 +272,16 @@ func main() {
 				FileName := msg.MessageDetail
 				storageValue := msg.MessageDetailTwo
 				if storageValue == "" {
-					storageValue = Config.DefaultMoveFolder
+					storageValue, err = filepath.Abs(filepath.ToSlash(Config.DefaultMoveFolder))
+					if err != nil {
+						Logger.WithFields(logrus.Fields{"err": err, "MagnetLink": Config.DefaultMoveFolder}).Error("Unable to add Storage Path")
+					}
+				} else {
+					storageValue, err = filepath.Abs(filepath.ToSlash(storageValue))
+					if err != nil {
+						Logger.WithFields(logrus.Fields{"err": err, "MagnetLink": storageValue}).Error("Unable to add Storage Path")
+						storageValue, _ = filepath.Abs(filepath.ToSlash(Config.DefaultMoveFolder))
+					}
 				}
 				filePath := filepath.Join(Config.TFileUploadFolder, FileName) //creating a full filepath to store the .torrent files
 

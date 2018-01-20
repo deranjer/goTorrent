@@ -4,10 +4,11 @@
     ServerPort = ":8000" #leave format as is it expects a string with colon
     ServerAddr = "" #blank will bind to default IP address, usually fine to leave be
     LogLevel = "Warn" # Options = Debug, Info, Warn, Error, Fatal, Panic
-    LogOutput = "file" #Options = file, stdout #file will print it to logs/server.log
+    LogOutput = "stdout" #Options = file, stdout #file will print it to logs/server.log
 
     SeedRatioStop = 1.50 #automatically stops the torrent after it reaches this seeding ratio
-    DefaultMoveFolder = "downloaded" #default path that a finished torrent is symlinked to after completion.  Torrents added via RSS will default here
+    #Relative or absolute path accepted, the server will convert any relative path to an absolute path.
+    DefaultMoveFolder = 'downloaded' #default path that a finished torrent is symlinked to after completion. Torrents added via RSS will default here
 
 
 [notifications]
@@ -23,14 +24,14 @@
 
 
 [torrentClientConfig]
-    DownloadDir = "downloading"    #the full OR relative path where the torrent server stores in-progress torrents
+    DownloadDir = 'downloading'    #the full OR relative path where the torrent server stores in-progress torrents
 
     Seed = true #boolean #seed after download
     
     # Never send chunks to peers.
     NoUpload = false #boolean
 
-    #The address to listen for new uTP and TCP bittorrent protocolconnections. DHT shares a UDP socket with uTP unless configured otherwise.
+    #The address to listen for new uTP and TCP bittorrent protocol connections. DHT shares a UDP socket with uTP unless configured otherwise.
     ListenAddr = "" #Leave Blank for default, syntax "HOST:PORT"
 
     #Don't announce to trackers. This only leaves DHT to discover peers.
@@ -88,7 +89,7 @@
     # Don't respond to queries from other nodes.
     Passive = false # boolean
 
-    # the default addressses are "router.utorrent.com:6881","router.bittorrent.com:6881","dht.transmissionbt.com:6881","dht.aelitis.com:6881",
+    # the default addresses are "router.utorrent.com:6881","router.bittorrent.com:6881","dht.transmissionbt.com:6881","dht.aelitis.com:6881",
     #https:#github.com/anacrolix/dht/blob/master/dht.go
     StartingNodes = "dht.GlobalBootstrapAddrs"
 
@@ -108,5 +109,5 @@
     #Called when a peer successfully announces to us.
     OnAnnouncePeer = "func(infoHash metainfo.Hash, peer Peer)"
 
-    #How long to wait before resending queries that haven't received a response. Defaults to a random value between 4.5 and 5.5s.
+    #How long to wait before re-sending queries that haven't received a response. Defaults to a random value between 4.5 and 5.5s.
     QueryResendDelay = "func() time.Duration"

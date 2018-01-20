@@ -36,7 +36,7 @@ export default class addTorrentPopup extends React.Component {
   state = {
     open: false,
     magnetLinkValue: "",
-    storageValue: "",
+    storageValue: ``,
 
   };
 
