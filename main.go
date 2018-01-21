@@ -304,12 +304,12 @@ func main() {
 					for _, singleSelection := range TorrentListCommands {
 						if singleTorrent.InfoHash().String() == singleSelection {
 							Logger.WithFields(logrus.Fields{"selection": singleSelection}).Info("Matched for stopping torrents")
-							tempTorrentLocal := Storage.TorrentLocal{}
-							tempTorrentLocal.Hash = singleTorrent.InfoHash().String() //required since this is the ID that stormdb requires
-							tempTorrentLocal.TorrentStatus = "Stopped"
+							oldTorrentInfo := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String())
+							oldTorrentInfo.TorrentStatus = "Stopped"
+							oldTorrentInfo.MaxConnections = 0
 							oldMax := singleTorrent.SetMaxEstablishedConns(0) //Forcing the max amount of connections allowed to zero effectively stopping it
 							Logger.WithFields(logrus.Fields{"oldMaxConnections": oldMax, "torrent": singleTorrent}).Info("Forcing connections to zero for torrent")
-							Storage.UpdateStorageTick(db, tempTorrentLocal) //Updating the torrent status
+							Storage.UpdateStorageTick(db, oldTorrentInfo) //Updating the torrent status
 						}
 					}
 				}
@@ -341,19 +341,13 @@ func main() {
 					for _, singleSelection := range msg.Payload {
 						if singleTorrent.InfoHash().String() == singleSelection {
 							Logger.WithFields(logrus.Fields{"infoHash": singleTorrent.InfoHash().String()}).Debug("Found matching torrent to start")
-							tempTorrentLocal := Storage.TorrentLocal{}
-							tempTorrentLocal.Hash = singleTorrent.InfoHash().String()                                //required since this is the ID that stormdb requires
-							tempTorrentLocal.TorrentStatus = "Running"                                               //Setting the status back to running
-							oldTorrentInfo := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String()) //Fetching the old max connections setting from the database
-							if oldTorrentInfo.MaxConnections == 0 {                                                  //if somehow the old max was set at zero change it to 80
-								oldTorrentInfo.MaxConnections = 80
-								Storage.UpdateStorageTick(db, oldTorrentInfo)
-							}
-
-							oldMax := singleTorrent.SetMaxEstablishedConns(oldTorrentInfo.MaxConnections) //Forcing the max amount of connections allowed to zero effectively stopping it
-							Logger.WithFields(logrus.Fields{"Previous Max Connections": oldMax}).Debug("Setting max connection from zero to")
-							singleTorrent.DownloadAll()                     //forcing a download all just in case TODO.. might reset priorities of file dl
-							Storage.UpdateStorageTick(db, tempTorrentLocal) //Updating the torrent status
+							oldTorrentInfo := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String())
+							oldTorrentInfo.TorrentStatus = "Running"
+							oldTorrentInfo.MaxConnections = 80
+							oldMax := singleTorrent.SetMaxEstablishedConns(80)
+							Logger.WithFields(logrus.Fields{"Previous Max Connections": oldMax, "Torrent": oldTorrentInfo.TorrentName}).Info("Setting max connection from zero to")
+							singleTorrent.DownloadAll()                   //forcing a download all just in case TODO.. might reset priorities of file dl
+							Storage.UpdateStorageTick(db, oldTorrentInfo) //Updating the torrent status
 						}
 					}
 				}

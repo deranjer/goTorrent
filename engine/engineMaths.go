@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/anacrolix/torrent"
+	"github.com/deranjer/goTorrent/storage"
 )
 
 func secondsToMinutes(inSeconds int64) string {
@@ -85,16 +86,25 @@ func CalculateUploadRatio(t *torrent.Torrent, c *ClientDB) string {
 }
 
 //CalculateTorrentStatus is used to determine what the STATUS column of the frontend will display ll2
-func CalculateTorrentStatus(t *torrent.Torrent, c *ClientDB) { //TODO redo all of this to allow for stopped torrents
-	if t.Seeding() && t.Stats().ActivePeers > 0 && t.BytesMissing() == 0 {
-		c.Status = "Seeding"
-	} else if t.Stats().ActivePeers > 0 && t.BytesMissing() > 0 {
-		c.Status = "Downloading"
-	} else if t.Stats().ActivePeers == 0 && t.BytesMissing() == 0 {
-		c.Status = "Completed"
-	} else if t.Stats().ActivePeers == 0 && t.BytesMissing() > 0 {
-		c.Status = "Awaiting Peers"
-	} else {
-		c.Status = "Unknown"
+func CalculateTorrentStatus(t *torrent.Torrent, c *ClientDB, config FullClientSettings, tFromStorage *storage.TorrentLocal) { //TODO redo all of this to allow for stopped torrents
+	if (tFromStorage.TorrentStatus == "Stopped") || (float64(c.TotalUploadedBytes)/float64(t.BytesCompleted()) >= config.SeedRatioStop) {
+		c.Status = "Stopped"
+		c.MaxConnections = 0
+		t.SetMaxEstablishedConns(0)
+	} else { //Only has 2 states in storage, stopped or running, so we know it should be running, and the websocket request handled updating the database with connections and status
+		c.MaxConnections = 80
+		t.SetMaxEstablishedConns(80) //TODO this should not be needed but apparently is needed
+		t.DownloadAll()              //ensure that we are setting the torrent to download
+		if t.Seeding() && t.Stats().ActivePeers > 0 && t.BytesMissing() == 0 {
+			c.Status = "Seeding"
+		} else if t.Stats().ActivePeers > 0 && t.BytesMissing() > 0 {
+			c.Status = "Downloading"
+		} else if t.Stats().ActivePeers == 0 && t.BytesMissing() == 0 {
+			c.Status = "Completed"
+		} else if t.Stats().ActivePeers == 0 && t.BytesMissing() > 0 {
+			c.Status = "Awaiting Peers"
+		} else {
+			c.Status = "Unknown"
+		}
 	}
 }

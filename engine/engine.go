@@ -157,6 +157,7 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 	for _, singleTorrentFromStorage := range TorrentLocalArray {
 		var singleTorrent *torrent.Torrent
 		var TempHash metainfo.Hash
+		tickUpdateStruct := Storage.TorrentLocal{} //we are shoving the tick updates into a torrentlocal struct to pass to storage happens at the end of the routine
 
 		fullClientDB := new(ClientDB)
 		//singleTorrentStorageInfo := Storage.FetchTorrentFromStorage(db, TempHash.String())  //pulling the single torrent info from storage ()
@@ -186,7 +187,7 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		TempHash = singleTorrent.InfoHash()
 
 		if (singleTorrent.BytesCompleted() == singleTorrent.Length()) && (singleTorrentFromStorage.TorrentMoved == false) { //if we are done downloading and havent moved torrent yet
-			MoveAndLeaveSymlink(config, singleTorrent, db)
+			MoveAndLeaveSymlink(config, singleTorrent, db) //can take some time to move file so running this in another thread TODO make this a goroutine and skip this block if the routine is still running
 		}
 
 		fullStruct := singleTorrent.Stats()
@@ -231,23 +232,8 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		fullClientDB.TotalUploadedSize = HumanizeBytes(float32(fullClientDB.TotalUploadedBytes))
 		fullClientDB.UploadRatio = CalculateUploadRatio(singleTorrent, fullClientDB) //calculate the upload ratio
 
-		if float64(fullClientDB.TotalUploadedBytes)/float64(singleTorrent.BytesCompleted()) >= config.SeedRatioStop { //if our upload ratio is over or eq our limit set in config
-			singleTorrent.SetMaxEstablishedConns(0) //forcing a stop
-			fullClientDB.Status = "Stopped"
-		}
+		CalculateTorrentStatus(singleTorrent, fullClientDB, config, singleTorrentFromStorage)
 
-		if singleTorrentFromStorage.TorrentStatus != "Stopped" { //if the torrent is not stopped, try to discern the status of the torrent
-			singleTorrent.SetMaxEstablishedConns(80)
-			fullClientDB.MaxConnections = 80
-			singleTorrent.DownloadAll()                         // forcing the client to download all pieces
-			CalculateTorrentStatus(singleTorrent, fullClientDB) //calculate the status of the torrent, ie downloading seeding etc
-		} else {
-			fullClientDB.Status = "Stopped"
-			fullClientDB.MaxConnections = 0
-			singleTorrent.SetMaxEstablishedConns(0) //since it was stopped forcing the connections to zero
-		}
-
-		tickUpdateStruct := Storage.TorrentLocal{} //we are shoving the tick updates into a torrentlocal struct to pass to storage
 		tickUpdateStruct.UploadRatio = fullClientDB.UploadRatio
 		tickUpdateStruct.UploadedBytes = fullClientDB.TotalUploadedBytes
 		tickUpdateStruct.TorrentStatus = fullClientDB.Status
