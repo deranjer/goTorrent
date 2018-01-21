@@ -161,7 +161,7 @@ Please see the linux instructions as they are similar, for running it as a servi
 # Special Thanks
 I viewed cloud-torrent source to construct my project:
 
-[Cloud-Torent:Cloud torrent is a a self-hosted remote torrent client, written in Go (golang).] (https://github.com/jpillora/cloud-torrent)
+[Cloud-Torent:Cloud torrent is a a self-hosted remote torrent client, written in Go (golang)](https://github.com/jpillora/cloud-torrent)
 
 [Anacrolix BitTorrent client package and utilities](https://github.com/anacrolix/torrent)
 
