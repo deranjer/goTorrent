@@ -1,10 +1,13 @@
 # goTorrent
+[![Gitter chat](https://badges.gitter.im/gitterHQ/gitter.png)](https://gitter.im/goTorrent-project/Lobby)  [![Go Report Card](https://goreportcard.com/badge/github.com/deranjer/goTorrent)](https://goreportcard.com/report/github.com/deranjer/goTorrent)
 
 goTorrent is a torrenting server built with Go (Golang) with websocket API that comes with a React web frontend.
 
 The current release is an alpha release which means there may be bugs, please open issues to help me improve this software!
 
+Image of the frontend UI
 
+![alt text](/documentation/images/frontend.png "Frontend UI")
 
 ## Supported Platforms:
 - Windows
@@ -42,6 +45,8 @@ The current release is an alpha release which means there may be bugs, please op
  
 - Late 2018
 
+ - [ ] Define the websocket API for users to write their own clients/extensions
+ 
  - [ ] React-native Android app (I don't own any Mac products so there will be no iPhone version)
 
 # Installation:
@@ -154,6 +159,9 @@ Please see the linux instructions as they are similar, for running it as a servi
 
 
 # Special Thanks
+I viewed cloud-torrent source to construct my project:
+[Cloud-Torent:Cloud torrent is a a self-hosted remote torrent client, written in Go (golang).] (https://github.com/jpillora/cloud-torrent)
+
 [Anacrolix BitTorrent client package and utilities](https://github.com/anacrolix/torrent)
 
 [goreleaser: Deliver Go binaries as fast and easily as possible](https://github.com/goreleaser/goreleaser)
