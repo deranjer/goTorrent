@@ -28,21 +28,21 @@ The current release is an alpha release which means there may be bugs, please op
 ## Roadmap
 - Early-Mid 2018
 
- - [] Unit testing completed for a large portion of the package
+ - [ ] Unit testing completed for a large portion of the package
  
- - [] Stability/bug fixing/Optimization rewrite of some of the core structures of the WebUI and base server
+ - [ ] Stability/bug fixing/Optimization rewrite of some of the core structures of the WebUI and base server
  
- - [] Put the "Move torrent after download" into own goroutine with checks so the WebUI doesn't freeze when moving torrent
+ - [ ] Put the "Move torrent after download" into own goroutine with checks so the WebUI doesn't freeze when moving torrent
  
- - [] Ability to set priority for individual files (just added to anacrolix/torrent so coming soon, already added to my UI)
+ - [ ] Ability to set priority for individual files (just added to anacrolix/torrent so coming soon, already added to my UI)
  
- - [] Ability to view TOML settings from WebUI (and perhaps change a few as well)
+ - [ ] Ability to view TOML settings from WebUI (and perhaps change a few as well)
  
- - [] Ability to modify storage path of torrent after it has been added
+ - [ ] Ability to modify storage path of torrent after it has been added
  
 - Late 2018
 
- - [] React-native Android app (I don't own any Mac products so there will be no iPhone version)
+ - [ ] React-native Android app (I don't own any Mac products so there will be no iPhone version)
 
 # Installation:
 
