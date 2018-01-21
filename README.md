@@ -137,9 +137,13 @@ If you are on a linux system that uses systemd, in the `dist-specific-files\Linu
 2. Copy the file to your systemd folder, i.e. `/etc/systemd/system`
 3. Enable the service `systemctl enable goTorrent.service`
 4. If using a new user, create that user and assign permissions:
+
     a. `useradd goTorrent`
+    
     b. `sudo chown -R goTorrent:goTorrent /opt/goTorrent`
+    
     c. If you want to test server: `su goTorrent` then run the executable
+    
 5. Set your `config.toml` file to the values you want.
 6. Start your server: `systemctl start goTorrent`
 7. Check for errors: `systemctl status goTorrent`.  You can also check `logs\server.log`.
