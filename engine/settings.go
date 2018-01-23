@@ -13,15 +13,16 @@ import (
 
 //FullClientSettings contains all of the settings for our entire application
 type FullClientSettings struct {
-	LoggingLevel      logrus.Level
-	LoggingOutput     string
-	HTTPAddr          string
-	Version           int
-	TorrentConfig     torrent.Config
-	TFileUploadFolder string
-	SeedRatioStop     float64
-	PushBulletToken   string
-	DefaultMoveFolder string
+	LoggingLevel       logrus.Level
+	LoggingOutput      string
+	HTTPAddr           string
+	Version            int
+	TorrentConfig      torrent.Config
+	TFileUploadFolder  string
+	SeedRatioStop      float64
+	PushBulletToken    string
+	DefaultMoveFolder  string
+	TorrentWatchFolder string
 }
 
 //default is called if there is a parsing error
@@ -70,6 +71,11 @@ func FullClientSettingsNew() FullClientSettings {
 	defaultMoveFolderAbs, err := filepath.Abs(defaultMoveFolder)
 	if err != nil {
 		fmt.Println("Failed creating absolute path for defaultMoveFolder", err)
+	}
+	torrentWatchFolder := filepath.ToSlash(viper.GetString("serverConfig.TorrentWatchFolder"))
+	torrentWatchFolderAbs, err := filepath.Abs(torrentWatchFolder)
+	if err != nil {
+		fmt.Println("Failed creating absolute path for torrentWatchFolderAbs", err)
 	}
 
 	dataDir := filepath.ToSlash(viper.GetString("torrentClientConfig.DownloadDir")) //Converting the string literal into a filepath
@@ -149,14 +155,15 @@ func FullClientSettingsNew() FullClientSettings {
 	}
 
 	Config := FullClientSettings{
-		LoggingLevel:      logLevel,
-		LoggingOutput:     logOutput,
-		SeedRatioStop:     seedRatioStop,
-		HTTPAddr:          httpAddr,
-		TorrentConfig:     tConfig,
-		TFileUploadFolder: "uploadedTorrents",
-		PushBulletToken:   pushBulletToken,
-		DefaultMoveFolder: defaultMoveFolderAbs,
+		LoggingLevel:       logLevel,
+		LoggingOutput:      logOutput,
+		SeedRatioStop:      seedRatioStop,
+		HTTPAddr:           httpAddr,
+		TorrentConfig:      tConfig,
+		TFileUploadFolder:  "uploadedTorrents",
+		PushBulletToken:    pushBulletToken,
+		DefaultMoveFolder:  defaultMoveFolderAbs,
+		TorrentWatchFolder: torrentWatchFolderAbs,
 	}
 
 	return Config

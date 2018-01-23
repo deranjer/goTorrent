@@ -65,6 +65,8 @@ const styles = theme => ({
 class IconButtons extends React.Component {
   constructor(props){
     super(props);
+
+    this.state = { serverMessage: ["info", "A props message"]}
     
   }
 
@@ -89,13 +91,11 @@ class IconButtons extends React.Component {
     this.props.setButtonState(this.props.selection) //TODO this currently just forces a button refresh, should be a better way to do this
   }
 
-  
-
 
   render() {
     const { classes } = this.props;
     return (
-      <div className={classes.padding}>
+    <div className={classes.padding}>
         <AddTorrentFilePopup />
         <AddTorrentLinkPopup />
         <div className={classes.verticalDivider}></div>

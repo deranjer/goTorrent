@@ -9,12 +9,15 @@ import * as actionTypes from '../store/actions';
 import Select from 'material-ui/Select/Select';
 
 
+
+
 var title = document.title; //Set the number of active torrents in the title
 let torrents= []; 
 let peerList = [];
 let fileList = [];
 let RSSList = [];
 let RSSTorrentList = [];
+let serverMessage = [];
 
 var torrentListRequest = {
     messageType: "torrentListRequest"
@@ -122,6 +125,10 @@ ws.onmessage = function (evt) { //When we recieve a message from the websocket
                     PublishDate: serverMessage.Torrents[i].PubDate,
                 })
             }
+        case "serverPushMessage":
+            console.log("Server push notification receieved", evt.data)
+            serverMessage = [serverMessage.Type, serverMessage.body];
+            this.props.newServerMessage(serverMessage)
     }
                                     
 }
@@ -278,6 +285,7 @@ const mapDispatchToProps = dispatch => {
         setButtonState: (buttonState) => dispatch({type: actionTypes.SET_BUTTON_STATE, buttonState}),
         newRSSFeedStore: (RSSList) => dispatch({type: actionTypes.NEW_RSS_FEED_STORE, RSSList}),
         RSSTorrentList: (RSSTorrentList) => dispatch({type: actionTypes.RSS_TORRENT_LIST, RSSTorrentList}),
+        newServerMessage: (serverMessage) => dispatch({type: actionTypes.SERVER_MESSAGE, serverMessage}),
         //changeSelection: (selection) => dispatch({type: actionTypes.CHANGE_SELECTION, selection}),//forcing an update to the buttons
 
     }

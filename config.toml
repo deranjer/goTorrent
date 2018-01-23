@@ -9,6 +9,7 @@
     SeedRatioStop = 1.50 #automatically stops the torrent after it reaches this seeding ratio
     #Relative or absolute path accepted, the server will convert any relative path to an absolute path.
     DefaultMoveFolder = 'downloaded' #default path that a finished torrent is symlinked to after completion. Torrents added via RSS will default here
+    TorrentWatchFolder = 'torrentUpload' #folder path that is watched for .torrent files and adds them automatically every 5 minutes
 
 
 [notifications]

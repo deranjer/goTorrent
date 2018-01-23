@@ -9,6 +9,8 @@ import PeerTab from './Tabs/peerTab';
 import FileTab from './Tabs/fileTab';
 
 
+
+
 //Redux
 import {connect} from 'react-redux';
 import * as actionTypes from '../store/actions'
@@ -34,7 +36,7 @@ function TabContainer(props) {
   
   class BasicTabs extends React.Component {
 
-  
+   
     handleChange = (event, value) => {
       //this.setState({ value });
       this.props.changeTab(value)
@@ -44,6 +46,7 @@ function TabContainer(props) {
       const { classes } = this.props;
   
       return (
+        
         <div className={classes.root}>
           <div className="DragHandle"> {/* making the appbar draggable */}
             <AppBar position="static">

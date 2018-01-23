@@ -83,7 +83,8 @@ func main() {
 	Logger.SetLevel(Config.LoggingLevel)
 
 	httpAddr := Config.HTTPAddr
-	os.Mkdir(Config.TFileUploadFolder, 0755) //creating a directory to store uploaded torrent files
+	os.Mkdir(Config.TFileUploadFolder, 0755)  //creating a directory to store uploaded torrent files
+	os.Mkdir(Config.TorrentWatchFolder, 0755) //creating a directory to watch for added .torrent files
 	Logger.WithFields(logrus.Fields{"Config": Config}).Info("Torrent Client Config has been generated...")
 
 	tclient, err := torrent.NewClient(&Config.TorrentConfig) //pulling out the torrent specific config to use
@@ -115,7 +116,8 @@ func main() {
 		Logger.Info("Database is empty, no torrents loaded")
 	}
 
-	Engine.RefreshRSSCron(cronEngine, db, tclient, torrentLocalStorage, Config.TorrentConfig.DataDir) // Refresing the RSS feeds on an hourly basis to add torrents that show up in the RSS feed
+	Engine.CheckTorrentWatchFolder(cronEngine, db, tclient, torrentLocalStorage, Config)
+	Engine.RefreshRSSCron(cronEngine, db, tclient, torrentLocalStorage, Config) // Refresing the RSS feeds on an hourly basis to add torrents that show up in the RSS feed
 
 	router := mux.NewRouter()         //setting up the handler for the web backend
 	router.HandleFunc("/", serveHome) //Serving the main page for our SPA
@@ -264,8 +266,9 @@ func main() {
 				}
 
 			case "torrentFileSubmit":
-				base64file := strings.TrimPrefix(msg.Payload[0], "data:;base64,") //trimming off the unneeded bits from the front of the json //TODO maybe do this in client?
-				file, err := base64.StdEncoding.DecodeString(base64file)          //decoding the base64 encoded file sent from client
+				//base64file := strings.TrimPrefix(msg.Payload[0], "data:;base64,") //trimming off the unneeded bits from the front of the json //TODO maybe do this in client?
+				base64file := strings.Split(msg.Payload[0], ",")            //Mozilla and Chrome have different payloads, but both start the file after the comma
+				file, err := base64.StdEncoding.DecodeString(base64file[1]) //grabbing the second half of the string after the split
 				if err != nil {
 					Logger.WithFields(logrus.Fields{"Error": err, "file": file}).Info("Unable to decode base64 string to file")
 				}

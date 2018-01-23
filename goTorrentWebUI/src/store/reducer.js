@@ -18,6 +18,7 @@ const initialState = {
     RSSList: [],
     RSSTorrentList: [],
     RSSModalOpen: false,
+    serverMessage: [],
 }
 
 
@@ -96,6 +97,13 @@ const reducer = (state = initialState, action) => {
             return {
                 ...state,
                 RSSModalOpen: action.RSSModalOpen
+            }
+
+        case actionTypes.SERVER_MESSAGE:
+            console.log("New server push message", action.serverMessage)
+            return {
+                ...state,
+                serverMessage: action.serverMessage
             }
  
         case actionTypes.SET_BUTTON_STATE:

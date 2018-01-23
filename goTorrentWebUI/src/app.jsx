@@ -16,6 +16,10 @@ import TopMenu from './TopMenu/topMenu';
 import BottomMenu from './BottomMenu/bottomMenu';
 import LeftMenu from './leftMenu/leftMenu';
 import TorrentList from './torrentlist';
+//Notification Element
+import Notifications from './notifications';
+
+
 
 const reduxStore = createStore(reducer);
 
@@ -60,16 +64,17 @@ class BasicLayout extends React.PureComponent {
   }
 
   render() {
-    return (
+    return [
+      <Notifications />,
       <ReactGridLayout layout={this.state.layout} onLayoutChange={this.onLayoutChange}
           {...this.props}>
-        <div key="a" style={background} className="DragHandle"><TopMenu /></div>
-        <div key="b" style={background} className="DragHandle"><LeftMenu /></div>
-        <div key="c" style={background} className="DragHandle"><TorrentList /></div>
-        <div key="d"><BottomMenu /></div>
+          <div key="a" style={background} className="DragHandle"><TopMenu /></div>
+          <div key="b" style={background} className="DragHandle"><LeftMenu /></div>
+          <div key="c" style={background} className="DragHandle"><TorrentList /></div>
+          <div key="d"><BottomMenu /></div>
       </ReactGridLayout> //returning our 4 grids
 
-    );
+    ];
   }
 };
 
