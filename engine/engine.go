@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -12,9 +13,21 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/asdine/storm"
 	Storage "github.com/deranjer/goTorrent/storage"
+	"github.com/gorilla/websocket"
 	"github.com/mmcdole/gofeed"
 	"github.com/sirupsen/logrus"
 )
+
+//Logger is the injected variable for global logger
+var Logger *logrus.Logger
+
+//Conn is the injected variable for the websocket connection
+var Conn *websocket.Conn
+
+//CreateServerPushMessage Pushes a message from the server to the client
+func CreateServerPushMessage(message ServerPushMessage, conn *websocket.Conn) {
+	conn.WriteJSON(message)
+}
 
 //RefreshSingleRSSFeed refreshing a single RSS feed to send to the client (so no updating database) mainly by updating the torrent list to display any changes
 func RefreshSingleRSSFeed(db *storm.DB, RSSFeed Storage.SingleRSSFeed) Storage.SingleRSSFeed { //Todo.. duplicate as cron job... any way to merge these to reduce duplication?
@@ -24,6 +37,7 @@ func RefreshSingleRSSFeed(db *storm.DB, RSSFeed Storage.SingleRSSFeed) Storage.S
 	feed, err := fp.ParseURL(RSSFeed.URL)
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"RSSFeedURL": RSSFeed.URL, "error": err}).Error("Unable to parse URL")
+		CreateServerPushMessage(ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Unable to add Storage Path"}, Conn)
 	}
 	for _, RSSTorrent := range feed.Items {
 		singleRSSTorrent.Link = RSSTorrent.Link
@@ -45,7 +59,8 @@ func ForceRSSRefresh(db *storm.DB, RSSFeedStore Storage.RSSFeedStore) { //Todo..
 	for _, singleFeed := range RSSFeedStore.RSSFeeds {
 		feed, err := fp.ParseURL(singleFeed.URL)
 		if err != nil {
-			Logger.WithFields(logrus.Fields{"RSSFeedURL": singleFeed.URL, "error": err}).Error("Unable to parse URL")
+			Logger.WithFields(logrus.Fields{"RSSFeedURL": singleFeed.URL, "error": err}).Error("Unable to parse RSS URL")
+			CreateServerPushMessage(ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Unable to parse RSS URL"}, Conn)
 		}
 		for _, RSSTorrent := range feed.Items {
 			singleRSSTorrent.Link = RSSTorrent.Link
@@ -74,6 +89,7 @@ func timeOutInfo(clientTorrent *torrent.Torrent, seconds time.Duration) (deleted
 		return false
 	case <-timeout: // getting info for torrent has timed out so purging the torrent
 		Logger.WithFields(logrus.Fields{"clientTorrentName": clientTorrent.Name()}).Error("Forced to drop torrent from timeout waiting for info")
+		CreateServerPushMessage(ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Timout waiting for torrent info... dropping"}, Conn)
 		clientTorrent.Drop()
 		return true
 	}
@@ -100,6 +116,7 @@ func readTorrentFileFromDB(element *Storage.TorrentLocal, tclient *torrent.Clien
 	singleTorrent, err = tclient.AddTorrentFromFile(element.TorrentFileName)
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"tempfile": element.TorrentFileName, "err": err}).Error("Unable to add Torrent from file!")
+		CreateServerPushMessage(ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Unable to add Torrent from file!"}, Conn)
 
 	}
 	return singleTorrent
@@ -149,6 +166,7 @@ func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.To
 	torrentLocalStorage.TorrentFilePriority = TorrentFilePriorityArray
 	Storage.AddTorrentLocalStorage(torrentDbStorage, torrentLocalStorage) //writing all of the data to the database
 	clientTorrent.DownloadAll()                                           //starting the download
+	CreateServerPushMessage(ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "success", Payload: "Torrent added!"}, Conn)
 }
 
 //CreateRunningTorrentArray creates the entire torrent list to pass to client
@@ -247,8 +265,9 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 }
 
 //CreateFileListArray creates a file list for a single torrent that is selected and sent to the server
-func CreateFileListArray(tclient *torrent.Client, selectedHash string) TorrentFileList {
+func CreateFileListArray(tclient *torrent.Client, selectedHash string, db *storm.DB) TorrentFileList {
 	runningTorrents := tclient.Torrents() //don't need running torrent array since we aren't adding or deleting from storage
+	torrentFileListStorage := Storage.FetchTorrentFromStorage(db, selectedHash)
 	TorrentFileListSelected := TorrentFileList{}
 	TorrentFileStruct := TorrentFile{}
 	for _, singleTorrent := range runningTorrents {
@@ -259,7 +278,11 @@ func CreateFileListArray(tclient *torrent.Client, selectedHash string) TorrentFi
 			for _, singleFile := range torrentFilesRaw {
 				TorrentFileStruct.TorrentHashString = tempHash
 				TorrentFileStruct.FileName = singleFile.DisplayPath()
-				TorrentFileStruct.FilePath = singleFile.Path()
+				absFilePath, err := filepath.Abs(singleFile.Path())
+				if err != nil {
+					Logger.WithFields(logrus.Fields{"file": singleFile.Path()}).Debug("Unable to create absolute path")
+				}
+				TorrentFileStruct.FilePath = absFilePath
 				PieceState := singleFile.State()
 				var downloadedBytes int64
 				for _, piece := range PieceState {
@@ -268,7 +291,12 @@ func CreateFileListArray(tclient *torrent.Client, selectedHash string) TorrentFi
 					}
 				}
 				TorrentFileStruct.FilePercent = fmt.Sprintf("%.2f", float32(downloadedBytes)/float32(singleFile.Length()))
-				TorrentFileStruct.FilePriority = "Normal" //TODO, figure out how to store this per file in storage and also tie a priority to a file
+
+				for i, specificFile := range torrentFileListStorage.TorrentFilePriority { //searching for that specific file in storage
+					if specificFile.TorrentFilePath == singleFile.DisplayPath() {
+						TorrentFileStruct.FilePriority = torrentFileListStorage.TorrentFilePriority[i].TorrentFilePriority
+					}
+				}
 				TorrentFileStruct.FileSize = HumanizeBytes(float32(singleFile.Length()))
 				TorrentFileListSelected.FileList = append(TorrentFileListSelected.FileList, TorrentFileStruct)
 			}

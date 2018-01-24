@@ -81,7 +81,7 @@ const inlineStyle = {
 const mapStateToProps = state => {
   return {
     RSSModalOpen: state.RSSModalOpen,
-  };
+  }
 }
 
 const mapDispatchToProps = dispatch => {

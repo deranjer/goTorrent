@@ -18,6 +18,12 @@ type Message struct {
 }
 
 //Next are the messages the server sends to the client
+//ServerPushMessage is information (usually logs and status messages) that the server pushes to the client
+type ServerPushMessage struct {
+	MessageType  string
+	MessageLevel string //can be "success", "error", "warn", "info"
+	Payload      string //the actual message
+}
 
 //RSSJSONList is a slice of gofeed.Feeds sent to the client
 type RSSJSONList struct {

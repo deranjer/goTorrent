@@ -18,6 +18,8 @@ let fileList = [];
 let RSSList = [];
 let RSSTorrentList = [];
 let serverMessage = [];
+let serverPushMessage = [];
+let webSocketState = false;
 
 var torrentListRequest = {
     messageType: "torrentListRequest"
@@ -29,7 +31,7 @@ var torrentListRequest = {
 //websocket is started in kickwebsocket.js and is picked up here so "ws" is already defined 22
 ws.onmessage = function (evt) { //When we recieve a message from the websocket
     var serverMessage = JSON.parse(evt.data)
-    //console.log("message", serverMessage.MessageType)
+    console.log("message", serverMessage.MessageType)
     switch (serverMessage.MessageType) {
 
         case "torrentList":
@@ -125,10 +127,11 @@ ws.onmessage = function (evt) { //When we recieve a message from the websocket
                     PublishDate: serverMessage.Torrents[i].PubDate,
                 })
             }
+            break;
         case "serverPushMessage":
-            console.log("Server push notification receieved", evt.data)
-            serverMessage = [serverMessage.Type, serverMessage.body];
-            this.props.newServerMessage(serverMessage)
+            console.log("SERVER PUSHED MESSAGE", serverMessage)
+            serverPushMessage = [serverMessage.MessageLevel, serverMessage.Payload];
+            break;
     }
                                     
 }
@@ -197,6 +200,10 @@ class BackendSocket extends React.Component {
           () => this.tick(),
           2000
         ); 
+        if (ws.readyState === (ws.CONNECTING || ws.OPEN)){ //checking to make sure we have a websocket connection
+            webSocketState = true
+            this.props.webSocketStateUpdate(webSocketState)
+        }
         
     } 
 
@@ -211,9 +218,17 @@ class BackendSocket extends React.Component {
         if (this.props.RSSTorrentList != RSSTorrentList & this.props.RSSModalOpen == true){
             this.props.RSSTorrentList(RSSTorrentList) //pushing the new RSSTorrentList to Redux
         }
+        if (this.props.serverPushMessage != serverPushMessage & serverPushMessage[0] != null){
+            console.log("PROPSSERVER", this.props.serverPushMessage, "SERVERPUSH", serverPushMessage)
+            this.props.newServerMessage(serverPushMessage)
+        }
         
         
         ws.send(JSON.stringify(torrentListRequest))//talking to the server to get the torrent list
+        if (ws.readyState === ws.CLOSED){ //if our websocket gets closed inform the user
+            webSocketState = false
+            this.props.webSocketStateUpdate(webSocketState)
+        }
         //console.log("Torrentlist", torrents)
         this.props.setButtonState(this.props.selection) //forcing an update to the buttons
         this.props.newTorrentList(torrents) //sending the list of torrents to torrentlist.js 
@@ -243,7 +258,7 @@ class BackendSocket extends React.Component {
 
 
     componentWillReceiveProps (nextProps) {
-        console.log("Lenght", nextProps.selectionHashes.length, "value", nextProps.selectionHashes)
+        console.log("Length", nextProps.selectionHashes.length, "value", nextProps.selectionHashes)
         if (nextProps.selectionHashes.length === 1){ //if we have a selection pass it on for the tabs to verify
             this.selectionHandler(nextProps.selectionHashes, nextProps.selectedTab)
         }
@@ -271,6 +286,7 @@ const mapStateToProps = state => {
         selection: state.selection,
         RSSModalOpen: state.RSSModalOpen,
         RSSTorrentList: state.RSSTorrentList,
+        serverPushMessage: state.serverPushMessage
     };
   }
 
@@ -285,7 +301,8 @@ const mapDispatchToProps = dispatch => {
         setButtonState: (buttonState) => dispatch({type: actionTypes.SET_BUTTON_STATE, buttonState}),
         newRSSFeedStore: (RSSList) => dispatch({type: actionTypes.NEW_RSS_FEED_STORE, RSSList}),
         RSSTorrentList: (RSSTorrentList) => dispatch({type: actionTypes.RSS_TORRENT_LIST, RSSTorrentList}),
-        newServerMessage: (serverMessage) => dispatch({type: actionTypes.SERVER_MESSAGE, serverMessage}),
+        newServerMessage: (serverPushMessage) => dispatch({type: actionTypes.SERVER_MESSAGE, serverPushMessage}),
+        webSocketStateUpdate: (webSocketState) => dispatch({type: actionTypes.WEBSOCKET_STATE, webSocketState}),
         //changeSelection: (selection) => dispatch({type: actionTypes.CHANGE_SELECTION, selection}),//forcing an update to the buttons
 
     }

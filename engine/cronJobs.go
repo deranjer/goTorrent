@@ -13,9 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-//Logger is the global variable pulled in from main.go
-var Logger *logrus.Logger
-
 //InitializeCronEngine initializes and starts the cron engine so we can add tasks as needed, returns pointer to the engine
 func InitializeCronEngine() *cron.Cron {
 	c := cron.New()

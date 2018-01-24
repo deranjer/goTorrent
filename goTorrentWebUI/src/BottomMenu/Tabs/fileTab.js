@@ -38,10 +38,7 @@ class FileTab extends React.Component {
             fileSelection: [],
             selected: [],
  
-            
         };
-
-
         this.changeColumnOrder = columnOrder => this.setState({columnOrder});
         this.changeColumnWidths = columnWidths => this.setState({columnWidths});
         this.changeSorting = sorting => this.setState({sorting});
@@ -58,40 +55,40 @@ class FileTab extends React.Component {
                 selectedRows.push(this.props.fileList[element])   //pushing the selected rows out of torrentlist
             });
            this.setState({fileSelection: selectedRows})
-        }
-       
+        }  
     }
 
-    sendPriorityRequest = (priority, sendfileNames) =>  {
+    sendPriorityRequest = (priority, selectionHash) =>  {
+        let filePaths = []
         this.state.fileSelection.forEach(element => {
             console.log("element", element)
-            sendFileNames.push(element.FilePath)
+            filePaths.push(element.FilePath)
         })
         let setFilePriority = {
             MessageType: "setFilePriority",
-            Payload: sendFileNames,    
+            MessageDetail: priority,
+            MessageDetailTwo: selectionHash,
+            Payload: filePaths,    
         }
         console.log(JSON.stringify(setFilePriority))
         ws.send(JSON.stringify(setFilePriority))
     }
 
     setHighPriority = () => {
-        let priorty = "High"
+        let priority = "High"
         let selectionHash = this.props.selectionHashes[0] //getting the first element (should be the only one)
-        let sendFileNames = [selectionHash, "High"]// adding the selection hash as the first element will be stripped out by the server, second element is the prioty request
+        this.sendPriorityRequest(priority, selectionHash)
     }
     setNormalPriority = () => {
-        let priorty = "Normal"
+        let priority = "Normal"
         let selectionHash = this.props.selectionHashes[0] //getting the first element (should be the only one)
-        let sendFileNames = [selectionHash, "Normal"]// adding the selection hash as the first element will be stripped out by the server, second element is the prioty request
+        this.sendPriorityRequest(priority, selectionHash)
     }
     setCancelPriority = () => {
-        let priorty = "Cancel"
+        let priority = "Cancel"
         let selectionHash = this.props.selectionHashes[0] //getting the first element (should be the only one)
-        let sendFileNames = [selectionHash, "Cancel"]// adding the selection hash as the first element will be stripped out by the server, second element is the prioty request
+        this.sendPriorityRequest(priority, selectionHash)
     }
-
-
 
     render() {
         return (  
@@ -140,15 +137,11 @@ const mapStateToProps = state => {
     return {
         selectionHashes: state.selectionHashes,
         fileList: state.fileList,
-        //fileSelectionNames: state.fileSelectionNames,
     };
   }
 
   const mapDispatchToProps = dispatch => {
     return {
-       
-        //changeFileSelection: (fileSelection) => dispatch({type: actionTypes.CHANGE_FILE_SELECTION, fileSelection}),
-      
         sendSelectionHashes: (selectionHashes) => dispatch({type: actionTypes.SELECTION_HASHES, selectionHashes}),
     }
 }

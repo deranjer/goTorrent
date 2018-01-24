@@ -5,11 +5,15 @@ import (
 	"path/filepath"
 
 	"github.com/asdine/storm"
+	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 )
 
 //Logger is the global Logger that is used in all packages
 var Logger *logrus.Logger
+
+//Conn is the global websocket connection used to push server notification messages
+var Conn *websocket.Conn
 
 //RSSFeedStore stores all of our RSS feeds in a slice of gofeed.Feed
 type RSSFeedStore struct {

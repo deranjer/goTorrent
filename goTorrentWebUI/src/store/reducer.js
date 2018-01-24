@@ -18,7 +18,8 @@ const initialState = {
     RSSList: [],
     RSSTorrentList: [],
     RSSModalOpen: false,
-    serverMessage: [],
+    serverPushMessage: [],
+    webSocketState: false
 }
 
 
@@ -26,6 +27,12 @@ const initialState = {
 
 const reducer = (state = initialState, action) => {
     switch(action.type){
+        case actionTypes.WEBSOCKET_STATE:
+            console.log("Websocket closed...")
+            return {
+                ...state,
+                webSocketState: action.webSocketState,
+            }
 
         case actionTypes.CHANGE_SELECTION:
             console.log("Change Selection", action.selection)
@@ -100,10 +107,10 @@ const reducer = (state = initialState, action) => {
             }
 
         case actionTypes.SERVER_MESSAGE:
-            console.log("New server push message", action.serverMessage)
+            console.log("New server push message", action.serverPushMessage)
             return {
                 ...state,
-                serverMessage: action.serverMessage
+                serverPushMessage: action.serverPushMessage
             }
  
         case actionTypes.SET_BUTTON_STATE:

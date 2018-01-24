@@ -11,25 +11,31 @@ import { ToastContainer, toast } from 'react-toastify';
 class Notifications extends React.Component {
     constructor(props){
         super(props);
-    
-        this.state = { serverMessage: ["info", "A props message"]}
         
     }
 
     componentWillReceiveProps(nextprops) {
-        if (nextprops.serverMessage != this.state.serverMessage) {
-          toast(this.state.serverMessage[1])
+        if (nextprops.serverPushMessage != this.props.serverPushMessage) {
+          toast(nextprops.serverPushMessage[1], {
+              type: nextprops.serverPushMessage[0]
+          })
+          console.log("Server Push Message", nextprops.serverPushMessage)
+        }
+        if (nextprops.webSocketState != this.props.webSocketState){
+            if (nextprops.webSocketState == true){
+                toast.success("Websocket Connection Open!")
+            } else {
+                toast("Websocket Connection Closed!", {
+                    type: "error",
+                    autoClose: false,
+                })
+            }
         }
     }
-
-    componentDidMount(){
-        toast("Testing toast custom settings")
-    }
-
     render() {
         return (
           <div>
-            <ToastContainer type={this.state.serverMessage[0]} position={toast.POSITION.TOP_RIGHT} autoClose={8000} />
+            <ToastContainer position={toast.POSITION.TOP_RIGHT} autoClose={8000} />
           </div>
         );
     }
@@ -39,7 +45,8 @@ class Notifications extends React.Component {
 
 const mapStateToProps = state => {
     return {
-      //serverMessage: state.serverMessage,
+      serverPushMessage: state.serverPushMessage,
+      webSocketState: state.webSocketState,
     };
   }
 
