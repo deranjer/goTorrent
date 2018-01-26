@@ -37,6 +37,7 @@ export default class addTorrentPopup extends React.Component {
     open: false,
     magnetLinkValue: "",
     storageValue: ``,
+    torrentLabel: "",
 
   };
 
@@ -53,14 +54,13 @@ export default class addTorrentPopup extends React.Component {
       //let magnetLinkSubmit = this.state.textValue;
       let magnetLinkMessage = {
         messageType: "magnetLinkSubmit",
-        messageDetail: this.state.storageValue,
+        storageValue: this.state.storageValue,
+        torrentLabel: this.state.torrentLabel,
         Payload: [this.state.magnetLinkValue]
       }
       console.log("Sending magnet link: ", magnetLinkMessage);
       ws.send(JSON.stringify(magnetLinkMessage));
-      this.setState({magnetLinkValue: ""})
-      this.setState({storageValue: ``})
-      console.log("Magnet Link", this.state.magnetLinkValue)
+      this.setState({magnetLinkValue: ""}, {torrentLabel: ""}, {storageValue: ``})
   }
 
   setMagnetLinkValue = (event) => {
@@ -69,6 +69,10 @@ export default class addTorrentPopup extends React.Component {
 
   setStorageValue = (event) => {
     this.setState({storageValue: event.target.value})
+  }
+
+  setLabelValue = (event) => {
+    this.setState({torrentLabel: event.target.value})
   }
 
   render() {
@@ -96,6 +100,7 @@ export default class addTorrentPopup extends React.Component {
               onChange={this.setMagnetLinkValue}
             />
             <TextField id="storagePath" type="text" label="Storage Path" placeholder="Empty will be default torrent storage path" fullWidth onChange={this.setStorageValue} />
+            <TextField id="labelValue" type="text" label="Label Value" placeholder="Empty will be no label" fullWidth onChange={this.setLabelValue} />
           </DialogContent>
           <DialogActions>
             <Button onClick={this.handleRequestClose} color="primary">
@@ -109,5 +114,4 @@ export default class addTorrentPopup extends React.Component {
       </div>
     );
   }
-  
 };

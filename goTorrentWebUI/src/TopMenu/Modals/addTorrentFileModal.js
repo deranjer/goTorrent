@@ -46,6 +46,7 @@ export default class addTorrentFilePopup extends React.Component {
     torrentFileValue: [],
     storageValue: ``, //raw string for possible windows filepath
     showDrop: true,
+    torrentLabel: "",
   };
 
   handleClickOpen = () => {
@@ -68,8 +69,9 @@ export default class addTorrentFilePopup extends React.Component {
     
       let torrentFileMessage = {
         messageType: "torrentFileSubmit",
-        messageDetail: this.state.torrentFileName,
-        messageDetailTwo: this.state.storageValue,
+        torrentFileName: this.state.torrentFileName,
+        torrentStorageValue : this.state.storageValue,
+        torrentLabelValue: this.state.torrentLabel,
         Payload: [base64data],
       }
       console.log("Sending magnet link: ", torrentFileMessage);
@@ -85,7 +87,9 @@ export default class addTorrentFilePopup extends React.Component {
     console.log("File Name", file[0].name)
   }
   
-
+  setLabelValue = (event) => {
+    this.setState({torrentLabel: event.target.value})
+  }
 
   setStorageValue = (event) => {
     this.setState({storageValue: event.target.value})
@@ -114,6 +118,7 @@ export default class addTorrentFilePopup extends React.Component {
               this.state.torrentFileName
             }
             <TextField id="storagePath" type="text" label="Storage Path" placeholder="Empty will be default torrent storage path" fullWidth onChange={this.setStorageValue} />
+            <TextField id="labelValue" type="text" label="Label Value" placeholder="Empty will be no label" fullWidth onChange={this.setLabelValue} />
           </DialogContent>
           <DialogActions>
             <Button onClick={this.handleRequestClose} color="primary">

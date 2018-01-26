@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/anacrolix/torrent"
 	"github.com/asdine/storm"
 	Storage "github.com/deranjer/goTorrent/storage"
 	pushbullet "github.com/mitsuse/pushbullet-go"
@@ -16,11 +15,11 @@ import (
 )
 
 //MoveAndLeaveSymlink takes the file from the default download dir and moves it to the user specified directory and then leaves a symlink behind.
-func MoveAndLeaveSymlink(config FullClientSettings, singleTorrent *torrent.Torrent, db *storm.DB) {
-	Logger.WithFields(logrus.Fields{"Torrent Name": singleTorrent.Name()}).Info("Move and Create symlink started for torrent")
-	tStorage := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String())
-	oldFilePath := filepath.Join(config.TorrentConfig.DataDir, singleTorrent.Name())
-	newFilePath := filepath.Join(tStorage.StoragePath, singleTorrent.Name())
+func MoveAndLeaveSymlink(config FullClientSettings, tHash string, db *storm.DB) {
+	tStorage := Storage.FetchTorrentFromStorage(db, tHash)
+	Logger.WithFields(logrus.Fields{"Torrent Name": tStorage.TorrentFileName}).Info("Move and Create symlink started for torrent")
+	oldFilePath := filepath.Join(config.TorrentConfig.DataDir, tStorage.TorrentFileName)
+	newFilePath := filepath.Join(tStorage.StoragePath, tStorage.TorrentFileName)
 	_, err := os.Stat(tStorage.StoragePath)
 	if os.IsNotExist(err) {
 		err := os.MkdirAll(tStorage.StoragePath, 0755)
@@ -40,7 +39,7 @@ func MoveAndLeaveSymlink(config FullClientSettings, singleTorrent *torrent.Torre
 				os.Mkdir(newFilePath, 0755)
 				folderCopy.Copy(oldFilePath, newFilePath) //copy the folder to the new location
 				os.Chmod(newFilePath, 0777)
-				notifyUser(tStorage, config, singleTorrent, db)
+				notifyUser(tStorage, config, db)
 				return
 			}
 			srcFile, err := os.Open(oldFilePath)
@@ -66,7 +65,7 @@ func MoveAndLeaveSymlink(config FullClientSettings, singleTorrent *torrent.Torre
 				Logger.WithFields(logrus.Fields{"Old File Path": oldFilePath, "New File Path": newFilePath, "error": err}).Error("Windows: Error syncing new file to disk")
 			}
 			Logger.WithFields(logrus.Fields{"Old File Path": oldFilePath, "New File Path": newFilePath, "bytesWritten": bytesWritten}).Info("Windows Torrent Copy Completed")
-			notifyUser(tStorage, config, singleTorrent, db)
+			notifyUser(tStorage, config, db)
 		} else {
 			folderCopy.Copy(oldFilePath, newFilePath)
 			os.Chmod(newFilePath, 0777) //changing permissions on the new file to be permissive
@@ -76,28 +75,28 @@ func MoveAndLeaveSymlink(config FullClientSettings, singleTorrent *torrent.Torre
 				Logger.WithFields(logrus.Fields{"Old File Path": oldFilePath, "New File Path": newFilePath, "error": err}).Error("Error creating symlink")
 				return
 			}
-			notifyUser(tStorage, config, singleTorrent, db)
+			notifyUser(tStorage, config, db)
 			Logger.WithFields(logrus.Fields{"Old File Path": oldFilePath, "New File Path": newFilePath}).Info("Moving completed torrent")
 		}
 	}
 
 }
 
-func notifyUser(tStorage Storage.TorrentLocal, config FullClientSettings, singleTorrent *torrent.Torrent, db *storm.DB) {
-	Logger.WithFields(logrus.Fields{"New File Path": tStorage.StoragePath, "Torrent Name": singleTorrent.Name()}).Info("Attempting to notify user..")
+func notifyUser(tStorage Storage.TorrentLocal, config FullClientSettings, db *storm.DB) {
+	Logger.WithFields(logrus.Fields{"New File Path": tStorage.StoragePath, "Torrent Name": tStorage.TorrentFileName}).Info("Attempting to notify user..")
 	tStorage.TorrentMoved = true
 	Storage.AddTorrentLocalStorage(db, tStorage) //Updating the fact that we moved the torrent
 	if config.PushBulletToken != "" {
 		pb := pushbullet.New(config.PushBulletToken)
 		n := requests.NewNote()
-		n.Title = singleTorrent.Name()
+		n.Title = tStorage.TorrentFileName
 		n.Body = "Completed and moved to " + tStorage.StoragePath
 		if _, err := pb.PostPushesNote(n); err != nil {
-			Logger.WithFields(logrus.Fields{"Torrent": singleTorrent.Name(), "New File Path": tStorage.StoragePath, "error": err}).Error("Error pushing PushBullet Note")
+			Logger.WithFields(logrus.Fields{"Torrent": tStorage.TorrentFileName, "New File Path": tStorage.StoragePath, "error": err}).Error("Error pushing PushBullet Note")
 			return
 		}
-		Logger.WithFields(logrus.Fields{"Torrent": singleTorrent.Name(), "New File Path": tStorage.StoragePath}).Info("Pushbullet note sent")
+		Logger.WithFields(logrus.Fields{"Torrent": tStorage.TorrentFileName, "New File Path": tStorage.StoragePath}).Info("Pushbullet note sent")
 	} else {
-		Logger.WithFields(logrus.Fields{"New File Path": tStorage.StoragePath, "Torrent Name": singleTorrent.Name()}).Info("No pushbullet API key set, not notifying")
+		Logger.WithFields(logrus.Fields{"New File Path": tStorage.StoragePath, "Torrent Name": tStorage.TorrentFileName}).Info("No pushbullet API key set, not notifying")
 	}
 }

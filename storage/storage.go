@@ -53,10 +53,10 @@ type TorrentLocal struct {
 	MaxConnections      int
 	TorrentType         string //magnet or .torrent file
 	TorrentFileName     string
-	TorrentFile         []byte //TODO store and reteive torrent file from here
-	Label               string //for labeling torrent files
+	TorrentFile         []byte
+	Label               string
 	UploadedBytes       int64
-	DownloadedBytes     int64 //TODO not sure if needed since we should have the file which contains the bytes
+	DownloadedBytes     int64
 	UploadRatio         string
 	TorrentFilePriority []TorrentFilePriority
 }

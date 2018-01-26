@@ -1,3 +1,12 @@
 {
-    "git.ignoreLimitWarning": true
+    "git.ignoreLimitWarning": true,
+    "cSpell.words": [
+        "anacrolix",
+        "asdine",
+        "btih",
+        "gofeed",
+        "logrus",
+        "mmcdole",
+        "otiai"
+    ]
 }

@@ -64,7 +64,7 @@ class GeneralTab extends React.Component {
                     <Paper className={classes.paper}>Storage Path: <span className={classes.floatRight}>{this.state.selectedTorrent["StoragePath"]} </span> </Paper>
                     <Paper className={classes.paper}>Date Added: <span className={classes.floatRight}> {this.state.selectedTorrent["DateAdded"]} </span> </Paper>
                     <Paper className={classes.paper}>Source Type: <span className={classes.floatRight}> {this.state.selectedTorrent["SourceType"]} </span> </Paper>
-                    <Paper className={classes.paper}>Label: <span className={classes.floatRight}> None </span> </Paper> 
+                    <Paper className={classes.paper}>Label: <span className={classes.floatRight}> {this.state.selectedTorrent["TorrentLabel"]} </span> </Paper>
                     <Paper className={classes.paper}>Torrent Hash: <span className={classes.floatRight}> {this.state.selectedTorrent["TorrentHashString"]} </span> </Paper>
                     
                 </Grid>
@@ -81,8 +81,6 @@ class GeneralTab extends React.Component {
                 <Grid item xs={12} sm={4}>
                     <Paper className={classes.paper}>Number of Files: <span className={classes.floatRight}>{this.state.selectedTorrent["FileNumber"]} </span> </Paper>
                     <Paper className={classes.paper}>Number of Pieces: <span className={classes.floatRight}>{this.state.selectedTorrent["PieceNumber"]} </span> </Paper>
-                
-                
                 
                 </Grid>
             </Grid>

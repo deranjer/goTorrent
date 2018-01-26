@@ -9,15 +9,17 @@ import (
 
 //All the message types are first, first the server handling messages from the client
 
-//Message contains the JSON messages from the client, we first unmarshal to get the messagetype, then each module unmarshalls the actual message once we know the type
+//Message contains the JSON messages from the client, we first unmarshal to get the messagetype, then each module un-marshalls the actual message once we know the type
 type Message struct {
-	MessageType      string
-	MessageDetail    string `json:",omitempty"`
-	MessageDetailTwo string `json:",omitempty"`
-	Payload          []string
+	MessageType        string
+	MessageDetail      string `json:",omitempty"`
+	MessageDetailTwo   string `json:",omitempty"`
+	MessageDetailThree string `json:",omitempty"`
+	Payload            []string
 }
 
 //Next are the messages the server sends to the client
+
 //ServerPushMessage is information (usually logs and status messages) that the server pushes to the client
 type ServerPushMessage struct {
 	MessageType  string
@@ -70,7 +72,7 @@ type TorrentFile struct {
 }
 
 //ClientDB struct contains the struct that is used to compose the torrentlist
-type ClientDB struct { //TODO maybe seperate out the internal bits into another client struct
+type ClientDB struct { //TODO maybe separate out the internal bits into another client struct
 	TorrentHashString  string         `json:"TorrentHashString"` //Passed to client for displaying hash and is used to uniquly identify all torrents
 	TorrentName        string         `json:"TorrentName"`
 	DownloadedSize     string         `json:"DownloadedSize"` //how much the client has downloaded total
@@ -83,7 +85,7 @@ type ClientDB struct { //TODO maybe seperate out the internal bits into another 
 	StoragePath        string         `json:"StoragePath"`    //Passed to client (and stored in stormdb)
 	DateAdded          string         //Passed to client (and stored in stormdb)
 	ETA                string         `json:"ETA"` //Passed to client
-	Label              string         //Passed to client and stored in stormdb
+	TorrentLabel       string         //Passed to client and stored in stormdb
 	SourceType         string         `json:"SourceType"` //Stores whether the torrent came from a torrent file or a magnet link
 	KnownSwarm         []torrent.Peer //Passed to client for Peer Tab
 	UploadRatio        string         //Passed to client, stores the string for uploadratio stored in stormdb

@@ -61,6 +61,7 @@ ws.onmessage = function (evt) { //When we recieve a message from the websocket
                     FileNumber: serverMessage.data[i].NumberofFiles,
                     PieceNumber: serverMessage.data[i].NumberofPieces,
                     MaxConnections: serverMessage.data[i].MaxConnections,
+                    Label: serverMessage.data[i].TorrentLabel,
                 })    
             } 
             var newTitle = '(' + serverMessage.total + ')' + title; //updating the title

@@ -30,7 +30,7 @@ type SingleRSSFeedMessage struct { //TODO had issues with getting this to work w
 	URL           string //the URL of the individual RSS feed
 	Name          string
 	TotalTorrents int
-	Torrents      []Storage.SingleRSSTorrent //name of the torrentss
+	Torrents      []Storage.SingleRSSTorrent //name of the torrents
 }
 
 var (
@@ -168,7 +168,6 @@ func main() {
 
 			case "torrentDetailedInfo":
 				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested TorrentListDetail Update")
-
 				torrentDetailArray := Engine.CreateTorrentDetailJSON(tclient, msg.Payload[0], db)
 				conn.WriteJSON(torrentDetailArray)
 
@@ -176,6 +175,19 @@ func main() {
 				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested PeerList Update")
 				torrentPeerList := Engine.CreatePeerListArray(tclient, msg.Payload[0])
 				conn.WriteJSON(torrentPeerList)
+
+			case "changeStorageValue":
+				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested Storage Location Update")
+				newStorageLocation := msg.MessageDetail
+				hashes := msg.Payload
+				for _, singleHash := range hashes {
+					singleTorrent := Storage.FetchTorrentFromStorage(db, singleHash)
+					singleTorrent.StoragePath = newStorageLocation
+					Storage.UpdateStorageTick(db, singleTorrent) //push torrent to storage
+					if singleTorrent.TorrentMoved == true {      //If torrent has already been moved and I change path then move it again... TODO, does this work with symlinks?
+						Engine.MoveAndLeaveSymlink(Config, singleHash, db)
+					}
+				}
 
 			case "settingsFileRequest":
 				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested Settings File")
@@ -246,6 +258,7 @@ func main() {
 
 			case "magnetLinkSubmit": //if we detect a magnet link we will be adding a magnet torrent
 				storageValue := msg.MessageDetail
+				labelValue := msg.MessageDetailTwo
 				if storageValue == "" {
 					storageValue, err = filepath.Abs(filepath.ToSlash(Config.DefaultMoveFolder))
 					if err != nil {
@@ -268,7 +281,7 @@ func main() {
 					}
 					Logger.WithFields(logrus.Fields{"clientTorrent": clientTorrent, "magnetLink": magnetLink}).Info("Adding torrent to client!")
 					Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "info", Payload: "Received MagnetLink"}, conn)
-					Engine.StartTorrent(clientTorrent, torrentLocalStorage, db, Config.TorrentConfig.DataDir, "magnet", "", storageValue) //starting the torrent and creating local DB entry
+					Engine.StartTorrent(clientTorrent, torrentLocalStorage, db, Config.TorrentConfig.DataDir, "magnet", "", storageValue, labelValue) //starting the torrent and creating local DB entry
 
 				}
 
@@ -282,6 +295,7 @@ func main() {
 				}
 				FileName := msg.MessageDetail
 				storageValue := msg.MessageDetailTwo
+				labelValue := msg.MessageDetailThree
 				if storageValue == "" {
 					storageValue, err = filepath.Abs(filepath.ToSlash(Config.DefaultMoveFolder))
 					if err != nil {
@@ -310,7 +324,7 @@ func main() {
 					Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Unable to add Torrent to torrent server"}, conn)
 				}
 				Logger.WithFields(logrus.Fields{"clienttorrent": clientTorrent.Name(), "filename": filePath}).Info("Added torrent")
-				Engine.StartTorrent(clientTorrent, torrentLocalStorage, db, Config.TorrentConfig.DataDir, "file", filePath, storageValue)
+				Engine.StartTorrent(clientTorrent, torrentLocalStorage, db, Config.TorrentConfig.DataDir, "file", filePath, storageValue, labelValue)
 
 			case "stopTorrents":
 				TorrentListCommands := msg.Payload
