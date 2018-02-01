@@ -19,7 +19,8 @@ const initialState = {
     RSSTorrentList: [],
     RSSModalOpen: false,
     serverPushMessage: [],
-    webSocketState: false
+    webSocketState: false,
+    searchFilterTerm: ""
 }
 
 

@@ -182,10 +182,12 @@ func main() {
 				hashes := msg.Payload
 				for _, singleHash := range hashes {
 					singleTorrent := Storage.FetchTorrentFromStorage(db, singleHash)
+					oldPath := singleTorrent.StoragePath
 					singleTorrent.StoragePath = newStorageLocation
 					Storage.UpdateStorageTick(db, singleTorrent) //push torrent to storage
 					if singleTorrent.TorrentMoved == true {      //If torrent has already been moved and I change path then move it again... TODO, does this work with symlinks?
-						Engine.MoveAndLeaveSymlink(Config, singleHash, db)
+						Logger.WithFields(logrus.Fields{"message": msg}).Info("Torrent completed so moving to new location")
+						Engine.MoveAndLeaveSymlink(Config, singleHash, db, true, oldPath)
 					}
 				}
 
@@ -281,7 +283,7 @@ func main() {
 					}
 					Logger.WithFields(logrus.Fields{"clientTorrent": clientTorrent, "magnetLink": magnetLink}).Info("Adding torrent to client!")
 					Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "info", Payload: "Received MagnetLink"}, conn)
-					Engine.StartTorrent(clientTorrent, torrentLocalStorage, db, Config.TorrentConfig.DataDir, "magnet", "", storageValue, labelValue) //starting the torrent and creating local DB entry
+					Engine.StartTorrent(clientTorrent, torrentLocalStorage, db, Config.TorrentConfig.DataDir, "magnet", "", storageValue, labelValue, Config.TFileUploadFolder) //starting the torrent and creating local DB entry
 
 				}
 
@@ -294,6 +296,8 @@ func main() {
 					Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Unable to decode base64 string to file"}, conn)
 				}
 				FileName := msg.MessageDetail
+				fmt.Println("Full Message", msg.MessageType, msg.MessageDetail, msg.MessageDetailTwo, msg.MessageDetailThree)
+				fmt.Println("FileName", msg.MessageDetail)
 				storageValue := msg.MessageDetailTwo
 				labelValue := msg.MessageDetailThree
 				if storageValue == "" {
@@ -314,7 +318,7 @@ func main() {
 
 				err = ioutil.WriteFile(filePath, file, 0755) //Dumping our received file into the filename
 				if err != nil {
-					Logger.WithFields(logrus.Fields{"filepath": filePath, "Error": err}).Error("Unable to write torrent data to file")
+					Logger.WithFields(logrus.Fields{"filepath": filePath, "file Name": FileName, "Error": err}).Error("Unable to write torrent data to file")
 					Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Unable to write torrent data to file"}, conn)
 				}
 
@@ -324,7 +328,7 @@ func main() {
 					Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Unable to add Torrent to torrent server"}, conn)
 				}
 				Logger.WithFields(logrus.Fields{"clienttorrent": clientTorrent.Name(), "filename": filePath}).Info("Added torrent")
-				Engine.StartTorrent(clientTorrent, torrentLocalStorage, db, Config.TorrentConfig.DataDir, "file", filePath, storageValue, labelValue)
+				Engine.StartTorrent(clientTorrent, torrentLocalStorage, db, Config.TorrentConfig.DataDir, "file", filePath, storageValue, labelValue, Config.TFileUploadFolder)
 
 			case "stopTorrents":
 				TorrentListCommands := msg.Payload
@@ -382,6 +386,25 @@ func main() {
 					}
 				}
 
+			case "forceUploadTorrents":
+				Logger.WithFields(logrus.Fields{"selection": msg.Payload}).Info("Matched for force Uploading Torrents")
+				Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "info", Payload: "Received Force Start Request"}, conn)
+				for _, singleTorrent := range runningTorrents {
+					for _, singleSelection := range msg.Payload {
+						if singleTorrent.InfoHash().String() == singleSelection {
+							Logger.WithFields(logrus.Fields{"infoHash": singleTorrent.InfoHash().String()}).Debug("Found matching torrent to force start")
+							oldTorrentInfo := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String())
+							oldTorrentInfo.TorrentUploadLimit = false // no upload limit for this torrent
+							oldTorrentInfo.TorrentStatus = "Running"
+							oldTorrentInfo.MaxConnections = 80
+							oldMax := singleTorrent.SetMaxEstablishedConns(80)
+							singleTorrent.DownloadAll()
+							Logger.WithFields(logrus.Fields{"Previous Max Connections": oldMax, "Torrent": oldTorrentInfo.TorrentName}).Info("Setting max connection from zero to")
+							Storage.UpdateStorageTick(db, oldTorrentInfo) //Updating the torrent status
+						}
+					}
+				}
+
 			case "setFilePriority": //TODO disable if the file is already at 100%?
 				Logger.WithFields(logrus.Fields{"selection": msg.Payload}).Info("Matched for setting file priority")
 				Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "info", Payload: "Received Set Priority Request"}, conn)
@@ -427,7 +450,8 @@ func main() {
 										activeTorrentStruct := Storage.FetchTorrentFromStorage(db, infoHash)   //fetching all the data from the db to update certain fields then write it all back
 										for i, specificFile := range activeTorrentStruct.TorrentFilePriority { //searching for that specific file
 											if specificFile.TorrentFilePath == file.DisplayPath() {
-												activeTorrentStruct.TorrentFilePriority[i].TorrentFilePriority = "Canceled" //writing just that field to the current struct
+												activeTorrentStruct.TorrentFilePriority[i].TorrentFilePriority = "Canceled"       //writing just that field to the current struct
+												activeTorrentStruct.TorrentSize = activeTorrentStruct.TorrentSize - file.Length() //changing the length of the download since the file was canceled
 											}
 										}
 										Storage.UpdateStorageTick(db, activeTorrentStruct) //re-writting essentially that entire struct right back into the database

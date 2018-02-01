@@ -31,10 +31,8 @@ import * as actionTypes from '../../../store/actions';
 
 const button = {
   fontSize: '60px',
-  paddingRight: '20px',
-  paddingLeft: '20px',
+  marginLeft: '20px',
 }
-
 
 const inlineStyle = {
   display: 'inline-block',
@@ -46,7 +44,7 @@ const inlineStyle = {
 
   componentDidMount () { //Immediatly request an update of the feed when loading app
     let RSSRequest = {
-      messageType: "rssFeedRequest",
+      MessageType: "rssFeedRequest",
     }
     ws.send(JSON.stringify(RSSRequest)) 
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/anacrolix/torrent"
 	"github.com/deranjer/goTorrent/storage"
+	Storage "github.com/deranjer/goTorrent/storage"
 	"github.com/sirupsen/logrus"
 )
 
@@ -45,7 +46,7 @@ func CopyFile(srcFile string, destFile string) {
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"File": srcFile, "Error": err}).Error("Cannot open source file")
 	}
-	outfileContents, err := os.Open(destFile)
+	outfileContents, err := os.Create(destFile)
 	defer outfileContents.Close()
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"File": destFile, "Error": err}).Error("Cannot open destination file")
@@ -82,9 +83,14 @@ func CalculateTorrentSpeed(t *torrent.Torrent, c *ClientDB, oc ClientDB) {
 	c.UpdatedAt = now
 }
 
+//CalculateDownloadSize will calculate the download size once file priorities are sorted out
+func CalculateDownloadSize(tFromStorage *Storage.TorrentLocal) {
+
+}
+
 //CalculateTorrentETA is used to estimate the remaining dl time of the torrent based on the speed that the MB are being downloaded
-func CalculateTorrentETA(t *torrent.Torrent, c *ClientDB) {
-	missingBytes := t.Length() - t.BytesCompleted()
+func CalculateTorrentETA(tSize int64, tBytesCompleted int64, c *ClientDB) {
+	missingBytes := tSize - tBytesCompleted
 	missingMB := missingBytes / 1024 / 1024
 	if missingMB == 0 {
 		c.ETA = "Done"
@@ -108,8 +114,8 @@ func CalculateUploadRatio(t *torrent.Torrent, c *ClientDB) string {
 }
 
 //CalculateTorrentStatus is used to determine what the STATUS column of the frontend will display ll2
-func CalculateTorrentStatus(t *torrent.Torrent, c *ClientDB, config FullClientSettings, tFromStorage *storage.TorrentLocal) { //TODO redo all of this to allow for stopped torrents
-	if (tFromStorage.TorrentStatus == "Stopped") || (float64(c.TotalUploadedBytes)/float64(t.BytesCompleted()) >= config.SeedRatioStop) {
+func CalculateTorrentStatus(t *torrent.Torrent, c *ClientDB, config FullClientSettings, tFromStorage *storage.TorrentLocal) {
+	if (tFromStorage.TorrentStatus == "Stopped") || (float64(c.TotalUploadedBytes)/float64(t.BytesCompleted()) >= config.SeedRatioStop && tFromStorage.TorrentUploadLimit == true) { //If storage shows torrent stopped or if it is over the seeding ratio AND is under the global limit
 		c.Status = "Stopped"
 		c.MaxConnections = 0
 		t.SetMaxEstablishedConns(0)

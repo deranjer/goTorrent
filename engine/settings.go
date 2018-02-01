@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"golang.org/x/time/rate"
+
 	"github.com/anacrolix/dht"
 	"github.com/anacrolix/torrent"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"golang.org/x/time/rate"
 )
 
 //FullClientSettings contains all of the settings for our entire application
@@ -49,6 +50,42 @@ func dhtServerSettings(dhtConfig dht.ServerConfig) dht.ServerConfig {
 	return dhtConfig
 }
 
+func calculateRateLimiters(uploadRate, downloadRate string) (*rate.Limiter, *rate.Limiter) { //TODO reorg
+	var uploadRateLimiterSize int
+	var downloadRateLimiterSize int
+
+	switch uploadRate {
+	case "Low":
+		uploadRateLimiterSize = 50000
+	case "Medium":
+		uploadRateLimiterSize = 500000
+	case "High":
+		uploadRateLimiterSize = 1500000
+	default:
+		downloadRateLimiter := rate.NewLimiter(rate.Inf, 0)
+		uploadRateLimiter := rate.NewLimiter(rate.Inf, 0)
+		return downloadRateLimiter, uploadRateLimiter
+	}
+
+	switch downloadRate {
+	case "Low":
+		downloadRateLimiterSize = 50000
+	case "Medium":
+		downloadRateLimiterSize = 500000
+	case "High":
+		downloadRateLimiterSize = 1500000
+	default:
+		downloadRateLimiter := rate.NewLimiter(rate.Inf, 0)
+		uploadRateLimiter := rate.NewLimiter(rate.Inf, 0)
+		return downloadRateLimiter, uploadRateLimiter
+	}
+	var limitPerSecondUl = rate.Limit(uploadRateLimiterSize)
+	uploadRateLimiter := rate.NewLimiter(limitPerSecondUl, uploadRateLimiterSize)
+	var limitPerSecondDl = rate.Limit(uploadRateLimiterSize)
+	downloadRateLimiter := rate.NewLimiter(limitPerSecondDl, downloadRateLimiterSize)
+	return downloadRateLimiter, uploadRateLimiter
+}
+
 //FullClientSettingsNew creates a new set of setting from config.toml
 func FullClientSettingsNew() FullClientSettings {
 	viper.SetConfigName("config")
@@ -83,6 +120,12 @@ func FullClientSettingsNew() FullClientSettings {
 	if err != nil {
 		fmt.Println("Failed creating absolute path for dataDir", err)
 	}
+
+	var uploadRateLimiter *rate.Limiter
+	var downloadRateLimiter *rate.Limiter
+	uploadRate := viper.GetString("serverConfig.UploadRateLimit")
+	downloadRate := viper.GetString("serverConfig.DownloadRateLimit")
+	downloadRateLimiter, uploadRateLimiter = calculateRateLimiters(uploadRate, downloadRate)
 
 	listenAddr := viper.GetString("torrentClientConfig.ListenAddr")
 	disablePex := viper.GetBool("torrentClientConfig.DisablePEX")
@@ -124,12 +167,6 @@ func FullClientSettingsNew() FullClientSettings {
 		dhtServerConfig = dhtServerSettings(dhtServerConfig)
 	}
 
-	uploadRateLimiter := new(rate.Limiter)
-	viper.UnmarshalKey("UploadRateLimiter", &uploadRateLimiter)
-
-	downloadRateLimiter := new(rate.Limiter)
-	viper.UnmarshalKey("DownloadRateLimiter", &downloadRateLimiter)
-
 	encryptionPolicy := torrent.EncryptionPolicy{
 		DisableEncryption:  viper.GetBool("EncryptionPolicy.DisableEncryption"),
 		ForceEncryption:    viper.GetBool("EncryptionPolicy.ForceEncryption"),
@@ -137,21 +174,21 @@ func FullClientSettingsNew() FullClientSettings {
 	}
 
 	tConfig := torrent.Config{
-		DataDir:    dataDirAbs,
-		ListenAddr: listenAddr,
-		DisablePEX: disablePex,
-		NoDHT:      noDHT,
-		DHTConfig:  dhtServerConfig,
-		NoUpload:   noUpload,
-		Seed:       seed,
-		//UploadRateLimiter:   uploadRateLimiter,
-		//DownloadRateLimiter: downloadRateLimiter,
-		PeerID:           peerID,
-		DisableUTP:       disableUTP,
-		DisableTCP:       disableTCP,
-		DisableIPv6:      disableIPv6,
-		Debug:            debug,
-		EncryptionPolicy: encryptionPolicy,
+		DataDir:             dataDirAbs,
+		ListenAddr:          listenAddr,
+		DisablePEX:          disablePex,
+		NoDHT:               noDHT,
+		DHTConfig:           dhtServerConfig,
+		NoUpload:            noUpload,
+		Seed:                seed,
+		UploadRateLimiter:   uploadRateLimiter,
+		DownloadRateLimiter: downloadRateLimiter,
+		PeerID:              peerID,
+		DisableUTP:          disableUTP,
+		DisableTCP:          disableTCP,
+		DisableIPv6:         disableIPv6,
+		Debug:               debug,
+		EncryptionPolicy:    encryptionPolicy,
 	}
 
 	Config := FullClientSettings{

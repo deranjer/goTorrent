@@ -20,8 +20,7 @@ import IconButton from 'material-ui/IconButton';
 
 const button = {
   fontSize: '60px',
-  paddingRight: '20px',
-  paddingLeft: '20px',
+  marginRight: '20px',
 }
 
 const inlineStyle = {
@@ -52,15 +51,16 @@ export default class addTorrentPopup extends React.Component {
   handleSubmit = () => {
       this.setState({ open: false });
       //let magnetLinkSubmit = this.state.textValue;
+      console.log("MagnetLink", this.state.magnetLinkValue)
       let magnetLinkMessage = {
-        messageType: "magnetLinkSubmit",
-        storageValue: this.state.storageValue,
-        torrentLabel: this.state.torrentLabel,
+        MessageType: "magnetLinkSubmit",
+        MessageDetail: this.state.storageValue, //storage location
+        MessageDetailTwo: this.state.torrentLabel, //label
         Payload: [this.state.magnetLinkValue]
       }
       console.log("Sending magnet link: ", magnetLinkMessage);
       ws.send(JSON.stringify(magnetLinkMessage));
-      this.setState({magnetLinkValue: ""}, {torrentLabel: ""}, {storageValue: ``})
+      //this.setState({magnetLinkValue: ""}, {torrentLabel: ""}, {storageValue: ``})
   }
 
   setMagnetLinkValue = (event) => {

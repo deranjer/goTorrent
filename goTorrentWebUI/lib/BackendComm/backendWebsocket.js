@@ -52,7 +52,7 @@ var RSSList = [];
 var RSSTorrentList = [];
 
 var torrentListRequest = {
-    messageType: "torrentListRequest"
+    MessageType: "torrentListRequest"
 
     //websocket is started in kickwebsocket.js and is picked up here so "ws" is already defined 22
 };ws.onmessage = function (evt) {

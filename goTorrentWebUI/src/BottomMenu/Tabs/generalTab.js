@@ -35,7 +35,6 @@ class GeneralTab extends React.Component {
     }
 
     componentWillReceiveProps = () => {
-        //console.log("recieving props in generaltab", "TYPE", this.props.selectionHashes[Object.keys(this.props.selectionHashes)[0]])
         if (this.props.selectionHashes.length === 1) { //if one torrent is selected
             let selectionHashTemp = this.props.selectionHashes[Object.keys(this.props.selectionHashes)[0]]// extract out the hash of the single selection
             let selectedTorrentTemp = []
@@ -44,14 +43,12 @@ class GeneralTab extends React.Component {
                     selectedTorrentTemp = singleTorrent
                 }
             })
-            //selectedTorrentTemp = this.props.torrentList.filter(torrent => torrent.TorrentHashString === this.props.selectionHashes)
             //console.log("SelectedTorrentTemp", selectedTorrentTemp)
             this.setState({ selectedTorrent: selectedTorrentTemp });    
         } else {
             this.setState({ selectedTorrent: [] })
         }
     }
-
 
     render() {
         const { classes } = this.props;
@@ -88,9 +85,6 @@ class GeneralTab extends React.Component {
         );
     }
 }
-
-
-
 
 
 const mapStateToProps = state => {

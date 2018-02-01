@@ -50,13 +50,15 @@ type TorrentLocal struct {
 	TorrentMoved        bool
 	TorrentName         string
 	TorrentStatus       string
+	TorrentUploadLimit  bool //if true this torrent will bypass the upload storage limit (effectively unlimited)
 	MaxConnections      int
 	TorrentType         string //magnet or .torrent file
-	TorrentFileName     string
+	TorrentFileName     string //Should be absolute path
 	TorrentFile         []byte
 	Label               string
 	UploadedBytes       int64
 	DownloadedBytes     int64
+	TorrentSize         int64 //If we cancel a file change the download size since we won't be downloading that file
 	UploadRatio         string
 	TorrentFilePriority []TorrentFilePriority
 }

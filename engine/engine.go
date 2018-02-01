@@ -96,15 +96,17 @@ func timeOutInfo(clientTorrent *torrent.Torrent, seconds time.Duration) (deleted
 
 }
 
-func readTorrentFileFromDB(element *Storage.TorrentLocal, tclient *torrent.Client, db *storm.DB) (singleTorrent *torrent.Torrent) {
+func readTorrentFileFromDB(element *Storage.TorrentLocal, tclient *torrent.Client, db *storm.DB) (singleTorrent *torrent.Torrent, err error) {
 	tempFile, err := ioutil.TempFile("", "TorrentFileTemp")
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"tempfile": tempFile, "err": err}).Error("Unable to create tempfile")
+		return nil, err
 	}
 	//defer tempFile.Close() //Todo.. if we remove this do we need to close it?
 	defer os.Remove(tempFile.Name())
 	if _, err := tempFile.Write(element.TorrentFile); err != nil { //writing out out the entire file back into the temp dir from boltdb
 		Logger.WithFields(logrus.Fields{"tempfile": tempFile, "err": err}).Error("Unable to write to tempfile")
+		return nil, err
 	}
 	if err := tempFile.Close(); err != nil { //close the tempfile so that we can add it back into the torrent client
 		Logger.WithFields(logrus.Fields{"tempfile": tempFile, "err": err}).Error("Unable to close tempfile")
@@ -112,18 +114,21 @@ func readTorrentFileFromDB(element *Storage.TorrentLocal, tclient *torrent.Clien
 	_, err = os.Stat(element.TorrentFileName) //if we CAN find the torrent, add it
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"tempfile": tempFile, "err": err}).Error("Unable to find file")
+		Storage.DelTorrentLocalStorage(db, element.Hash) //purge the torrent
+		return nil, err
 	}
 	singleTorrent, err = tclient.AddTorrentFromFile(element.TorrentFileName)
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"tempfile": element.TorrentFileName, "err": err}).Error("Unable to add Torrent from file!")
 		CreateServerPushMessage(ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Unable to add Torrent from file!"}, Conn)
-
+		Storage.DelTorrentLocalStorage(db, element.Hash) //purge the torrent
+		return nil, err
 	}
-	return singleTorrent
+	return singleTorrent, nil
 }
 
 //StartTorrent creates the storage.db entry and starts A NEW TORRENT and adds to the running torrent array
-func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.TorrentLocal, torrentDbStorage *storm.DB, dataDir string, torrentType string, torrentFileName string, torrentStoragePath string, labelValue string) {
+func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.TorrentLocal, torrentDbStorage *storm.DB, dataDir, torrentType, torrentFileName, torrentStoragePath, labelValue, tFileUploadFolder string) {
 	timedOut := timeOutInfo(clientTorrent, 45) //seeing if adding the torrent times out (giving 45 seconds)
 	if timedOut {                              //if we fail to add the torrent return
 		return
@@ -143,11 +148,16 @@ func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.To
 	torrentLocalStorage.DateAdded = time.Now().Format("Jan _2 2006")
 	torrentLocalStorage.StoragePath = torrentStoragePath
 	torrentLocalStorage.TorrentName = clientTorrent.Name()
-	torrentLocalStorage.TorrentStatus = "Running" //by default start all the torrents as downloading.
-	torrentLocalStorage.TorrentType = torrentType //either "file" or "magnet" maybe more in the future
-	if torrentType == "file" {                    //if it is a file read the entire file into the database for us to spit out later
-		torrentLocalStorage.TorrentFileName = torrentFileName
-		torrentfile, err := ioutil.ReadFile(torrentFileName)
+	torrentLocalStorage.TorrentUploadLimit = true            //by default all of the torrents will stop uploading after the global rate is set.
+	torrentLocalStorage.TorrentMoved = false                 //by default the torrent has no been moved.
+	torrentLocalStorage.TorrentStatus = "Running"            //by default start all the torrents as downloading.
+	torrentLocalStorage.TorrentType = torrentType            //either "file" or "magnet" maybe more in the future
+	torrentLocalStorage.TorrentSize = clientTorrent.Length() //Length will change as we cancel files so store it in DB
+	if torrentType == "file" {                               //if it is a file read the entire file into the database for us to spit out later
+		torrentFilePath := filepath.Join(tFileUploadFolder, torrentFileName)
+		torrentFilePathAbs, err := filepath.Abs(torrentFilePath)
+		torrentfile, err := ioutil.ReadFile(torrentFilePathAbs)
+		torrentLocalStorage.TorrentFileName = torrentFilePathAbs
 		if err != nil {
 			Logger.WithFields(logrus.Fields{"torrentFile": torrentfile, "error": err}).Error("Unable to read the torrent file")
 		}
@@ -182,7 +192,11 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		//singleTorrentStorageInfo := Storage.FetchTorrentFromStorage(db, TempHash.String())  //pulling the single torrent info from storage ()
 
 		if singleTorrentFromStorage.TorrentType == "file" { //if it is a file pull it from the uploaded torrent folder
-			singleTorrent = readTorrentFileFromDB(singleTorrentFromStorage, tclient, db)
+			var err error
+			singleTorrent, err = readTorrentFileFromDB(singleTorrentFromStorage, tclient, db)
+			if err != nil {
+				continue
+			}
 			fullClientDB.SourceType = "Torrent File"
 		} else {
 			singleTorrentFromStorageMagnet := "magnet:?xt=urn:btih:" + singleTorrentFromStorage.Hash //For magnet links just need to prepend the magnet part to the hash to readd
@@ -204,26 +218,22 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		}
 		//Logger.WithFields(logrus.Fields{"singleTorrent": singleTorrentFromStorage.TorrentName}).Info("Generating infohash")
 		TempHash = singleTorrent.InfoHash()
-
-		if (singleTorrent.BytesCompleted() == singleTorrent.Length()) && (singleTorrentFromStorage.TorrentMoved == false) { //if we are done downloading and haven't moved torrent yet
-			MoveAndLeaveSymlink(config, singleTorrent.InfoHash().String(), db) //can take some time to move file so running this in another thread TODO make this a goroutine and skip this block if the routine is still running
+		if (singleTorrent.BytesCompleted() == singleTorrentFromStorage.TorrentSize) && (singleTorrentFromStorage.TorrentMoved == false) { //if we are done downloading and haven't moved torrent yet
+			Logger.WithFields(logrus.Fields{"singleTorrent": singleTorrentFromStorage.TorrentName}).Info("Torrent Completed, moving...")
+			MoveAndLeaveSymlink(config, singleTorrent.InfoHash().String(), db, false, "") //can take some time to move file so running this in another thread TODO make this a goroutine and skip this block if the routine is still running
 		}
 
 		fullStruct := singleTorrent.Stats()
 
 		activePeersString := strconv.Itoa(fullStruct.ActivePeers) //converting to strings
 		totalPeersString := fmt.Sprintf("%v", fullStruct.TotalPeers)
-		//fetching all the info from the database
-
-		fullClientDB.StoragePath = singleTorrentFromStorage.StoragePath //grabbed from database
-
+		fullClientDB.StoragePath = singleTorrentFromStorage.StoragePath
 		downloadedSizeHumanized := HumanizeBytes(float32(singleTorrent.BytesCompleted())) //convert size to GB if needed
-		totalSizeHumanized := HumanizeBytes(float32(singleTorrent.Length()))
-		//Logger.WithFields(logrus.Fields{"singleTorrent": singleTorrentFromStorage.TorrentName}).Info("Generated infohash")
-		//grabbed from torrent client
+
+		totalSizeHumanized := HumanizeBytes(float32(singleTorrentFromStorage.TorrentSize))
 		fullClientDB.DownloadedSize = downloadedSizeHumanized
 		fullClientDB.Size = totalSizeHumanized
-		PercentDone := fmt.Sprintf("%.2f", float32(singleTorrent.BytesCompleted())/float32(singleTorrent.Length()))
+		PercentDone := fmt.Sprintf("%.2f", float32(singleTorrent.BytesCompleted())/float32(singleTorrentFromStorage.TorrentSize))
 		fullClientDB.TorrentHash = TempHash
 		fullClientDB.PercentDone = PercentDone
 		fullClientDB.DataBytesRead = fullStruct.ConnStats.DataBytesRead       //used for calculations not passed to client calculating up/down speed
@@ -237,8 +247,7 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		fullClientDB.BytesCompleted = singleTorrent.BytesCompleted()
 		fullClientDB.NumberofFiles = len(singleTorrent.Files())
 
-		//ranging over the previous torrent array to calculate the speed for each torrent
-		if len(PreviousTorrentArray) > 0 { //if we actually have  a previous array
+		if len(PreviousTorrentArray) > 0 { //if we actually have  a previous array //ranging over the previous torrent array to calculate the speed for each torrent
 			for _, previousElement := range PreviousTorrentArray {
 				TempHash := singleTorrent.InfoHash()
 				if previousElement.TorrentHashString == TempHash.String() { //matching previous to new
@@ -247,7 +256,7 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 				}
 			}
 		}
-		CalculateTorrentETA(singleTorrent, fullClientDB) //needs to be here since we need the speed calculated before we can estimate the eta.
+		CalculateTorrentETA(singleTorrentFromStorage.TorrentSize, singleTorrent.BytesCompleted(), fullClientDB) //needs to be here since we need the speed calculated before we can estimate the eta.
 
 		fullClientDB.TotalUploadedSize = HumanizeBytes(float32(fullClientDB.TotalUploadedBytes))
 		fullClientDB.UploadRatio = CalculateUploadRatio(singleTorrent, fullClientDB) //calculate the upload ratio
@@ -344,20 +353,4 @@ func CreateTorrentDetailJSON(tclient *torrent.Client, selectedHash string, torre
 		}
 	}
 	return TorrentDetailStruct
-}
-
-func ChangeStorageLocation(newStorageLocation string, torrentHashes []string, db *storm.DB) {
-
-	for _, torrentHash := range torrentHashes {
-		var selectedTorrent Storage.TorrentLocal
-		err := db.Find("TorrentLocal", torrentHash, &selectedTorrent)
-		if err != nil {
-			Logger.WithFields(logrus.Fields{"torrentHash": torrentHash}).Error("Unable to find torrent in db to update!")
-			CreateServerPushMessage(ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Failed to change Storage Location"}, Conn)
-		}
-		fmt.Printf("%+v\n", selectedTorrent)
-		db.UpdateField(&selectedTorrent{Hash: torrentHash}, "StoragePath", newStorageLocation)
-
-	}
-
 }

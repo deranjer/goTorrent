@@ -20,8 +20,8 @@ import Dropzone from 'react-dropzone';
 
 const button = {
   fontSize: '60px',
-  paddingRight: '20px',
-  paddingLeft: '20px',
+  marginLeft: '20px',
+  marginRight: '20px',
 }
 
 const uploadButton = {
@@ -68,13 +68,13 @@ export default class addTorrentFilePopup extends React.Component {
       console.log("Base64", base64data)
     
       let torrentFileMessage = {
-        messageType: "torrentFileSubmit",
-        torrentFileName: this.state.torrentFileName,
-        torrentStorageValue : this.state.storageValue,
-        torrentLabelValue: this.state.torrentLabel,
+        MessageType: "torrentFileSubmit",
+        MessageDetail: this.state.torrentFileName,  //filename
+        MessageDetailTwo: this.state.storageValue, //storage path
+        MessageDetailThree: this.state.torrentLabel, //torrent label
         Payload: [base64data],
       }
-      console.log("Sending magnet link: ", torrentFileMessage);
+      console.log("Sending Torrent File: ", torrentFileMessage);
       ws.send(JSON.stringify(torrentFileMessage));
       this.setState({torrentFileName: "", storageValue: ``, torrentFileValue: [], showDrop: true})
     }   

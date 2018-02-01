@@ -116,9 +116,9 @@ var addTorrentFilePopup = function (_React$Component) {
         console.log("Base64", base64data);
 
         var torrentFileMessage = {
-          messageType: "torrentFileSubmit",
-          messageDetail: _this.state.torrentFileName,
-          messageDetailTwo: _this.state.storageValue,
+          MessageType: "torrentFileSubmit",
+          MessageDetail: this.state.torrentFileName,
+          MessageDetailTwo: this.state.storageValue,
           Payload: [base64data]
         };
         console.log("Sending magnet link: ", torrentFileMessage);

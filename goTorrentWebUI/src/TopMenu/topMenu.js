@@ -9,12 +9,15 @@ import AddTorrentLinkPopup from './Modals/addTorrentLinkModal';
 import AddTorrentFilePopup from './Modals/addTorrentFileModal';
 import AddRSSModal from './Modals/RSSModal/addRSSModal';
 import DeleteTorrentModal from './Modals/deleteTorrentModal';
+import ChangeStorageModal from './Modals/changeStorageModal';
+import TorrentSearch from './torrentSearch';
 
 import StartTorrentIcon from 'material-ui-icons/PlayArrow';
 //import PauseTorrentIcon from 'material-ui-icons/Pause';
 import StopTorrentIcon from 'material-ui-icons/Stop';
 import RSSTorrentIcon from 'material-ui-icons/RssFeed';
 import SettingsIcon from 'material-ui-icons/Settings';
+import ForceUploadIcon from 'material-ui-icons/KeyboardArrowUp';
 
 
 import ReactTooltip from 'react-tooltip'
@@ -38,9 +41,6 @@ const styles = theme => ({
   input: {
     display: 'none',
   },
-  paddingTest: {
-    display: 'inline-block'
-  },
   padding: {
     paddingTop: '10px',
     paddingLeft: '10px',
@@ -61,13 +61,30 @@ const styles = theme => ({
 });
 
 
-
 class IconButtons extends React.Component {
   constructor(props){
     super(props);
-
-    this.state = { serverMessage: ["info", "A props message"]}
+    this.state = {
+      forceStartButton: "default"
+    }
     
+  }
+
+  componentWillReceiveProps = (nextprops) => {
+    if (nextprops.selectionHashes.length > 0){
+      this.setState({forceStartButton: "primary"})
+    } else {
+      this.setState({forceStartButton: "default"})
+    }
+  }
+
+  forceStartTorrent = () => {
+    console.log("Force starting Torrents", this.props.selectionHashes)
+    let forceUploadTorrents = {
+      MessageType: "forceUploadTorrents",
+      Payload: this.props.selectionHashes,
+    }
+    ws.send(JSON.stringify(forceUploadTorrents))
   }
 
   startTorrent = () => {
@@ -99,6 +116,10 @@ class IconButtons extends React.Component {
         <AddTorrentFilePopup />
         <AddTorrentLinkPopup />
         <div className={classes.verticalDivider}></div>
+        <IconButton color={this.state.forceStartButton} data-tip="Force Upload Torrent (override upload limit)" className={classes.button} aria-label="Force Start Torrent" onClick={this.forceStartTorrent}>
+          <ReactTooltip place="top" type="light" effect="float" />
+          <ForceUploadIcon />
+        </IconButton>
         <IconButton color={this.props.buttonState[0].startButton} data-tip="Start Torrent" className={classes.button} aria-label="Start Torrent" onClick={this.startTorrent}>
           <ReactTooltip place="top" type="light" effect="float" />
           <StartTorrentIcon />
@@ -113,13 +134,17 @@ class IconButtons extends React.Component {
         </IconButton>
         <DeleteTorrentModal />
         <div className={classes.verticalDivider}></div>
+        <ChangeStorageModal />
         <AddRSSModal />
         <IconButton color="primary" data-tip="Settings" className={classes.button} aria-label="Settings">
           <ReactTooltip place="top" type="light" effect="float" />
           <SettingsIcon />
         </IconButton>
         <div className={classes.verticalDivider}></div>
+        <TorrentSearch />
+        <div className={classes.verticalDivider}></div>
         <BackendSocket />
+        
       </div>
     );
   }
@@ -141,7 +166,6 @@ const mapStateToProps = state => {
 const mapDispatchToProps = dispatch => {
   return {
       setButtonState: (buttonState) => dispatch({type: actionTypes.SET_BUTTON_STATE, buttonState}),
-      changeSelection: (selection) => dispatch({type: actionTypes.CHANGE_SELECTION, selection}), //used to force a selection empty after deleting torrent
   }
 }
 

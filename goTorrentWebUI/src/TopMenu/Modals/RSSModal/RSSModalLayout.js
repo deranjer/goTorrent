@@ -105,12 +105,12 @@ const inlineStyle = {
   handleAddRSSFeed = () => {
     this.setState({ textValue: "Clear"}) //clearing out the text submitted
     let RSSURLSubmit = {
-      messageType: "addRSSFeed",
+      MessageType: "addRSSFeed",
       Payload: [this.state.textValue]
     }
     ws.send(JSON.stringify(RSSURLSubmit));
     let RSSRequest = {
-      messageType: "rssFeedRequest",
+      MessageType: "rssFeedRequest",
     }
     ws.send(JSON.stringify(RSSRequest)) //Immediatly request an update of the feed when you add a new URL
   }

@@ -9,7 +9,7 @@ import (
 
 //All the message types are first, first the server handling messages from the client
 
-//Message contains the JSON messages from the client, we first unmarshal to get the messagetype, then each module un-marshalls the actual message once we know the type
+//Message contains the JSON messages from the client, we first unmarshal to get the messagetype, then pass it on to each module
 type Message struct {
 	MessageType        string
 	MessageDetail      string `json:",omitempty"`

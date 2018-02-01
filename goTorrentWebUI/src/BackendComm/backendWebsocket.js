@@ -22,7 +22,7 @@ let serverPushMessage = [];
 let webSocketState = false;
 
 var torrentListRequest = {
-    messageType: "torrentListRequest"
+    MessageType: "torrentListRequest"
 }
 
 
@@ -61,7 +61,7 @@ ws.onmessage = function (evt) { //When we recieve a message from the websocket
                     FileNumber: serverMessage.data[i].NumberofFiles,
                     PieceNumber: serverMessage.data[i].NumberofPieces,
                     MaxConnections: serverMessage.data[i].MaxConnections,
-                    Label: serverMessage.data[i].TorrentLabel,
+                    TorrentLabel: serverMessage.data[i].TorrentLabel,
                 })    
             } 
             var newTitle = '(' + serverMessage.total + ')' + title; //updating the title
@@ -143,20 +143,18 @@ ws.onclose = function() {
     console.log('Closing connection')
 };
 
-var divStyle = {
-    display: 'inline-block',
-    paddingTop: '10px',
-    paddingLeft: '10px',
-}
 
 var buttonStyle ={
     fontSize: '60px',
+    marginLeft: '20px',
+}
+
+const inlineStyle = {
+    display: 'inline-block',
+    backdrop: 'static',
 }
 
 class BackendSocket extends React.Component {
-    
-
-
     selectionHandler = (selectionHashes, selectedTab) => {
         switch (selectedTab) {
             case 0:
@@ -258,6 +256,7 @@ class BackendSocket extends React.Component {
     }
 
 
+
     componentWillReceiveProps (nextProps) {
         console.log("Length", nextProps.selectionHashes.length, "value", nextProps.selectionHashes)
         if (nextProps.selectionHashes.length === 1){ //if we have a selection pass it on for the tabs to verify
@@ -268,12 +267,9 @@ class BackendSocket extends React.Component {
 
     render() {
         return (
-            <div style={divStyle}>
-                <BackendIcon styles={buttonStyle} color="primary" data-tip="BackendStatus: Green=Good" aria-label="Settings" />
+            <div style={inlineStyle}>
+                <BackendIcon style={buttonStyle} color="primary" data-tip="BackendStatus: Green=Good" aria-label="Settings" />
             </div>
-
-
-
         );
 
     }

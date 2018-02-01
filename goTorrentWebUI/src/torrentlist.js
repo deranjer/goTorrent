@@ -116,9 +116,7 @@ class TorrentListTable extends React.Component {
 
     filterHandler = (filter) => { //TODO, figure out how to do multiple filter
         //console.log("Changing FIlter", filter)
-        if (filter.value ==="Active"){
-            console.log("This filter doesn't fucking work")
-        }
+        
     }
 
 
@@ -149,13 +147,6 @@ class TorrentListTable extends React.Component {
                     <TableColumnReordering order={this.state.columnOrder} onOrderChange={this.changeColumnOrder} />
                     <TableSelection selectByRowClick highlightSelected />
                     <TableHeaderRow allowSorting allowResizing allowDragging />
-
-                    
-                    
-
- 
-
-
                 </Grid>
             </Paper>
         );

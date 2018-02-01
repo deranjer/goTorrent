@@ -16,14 +16,14 @@ import Icon from 'material-ui/Icon';
 import IconButton from 'material-ui/IconButton';
 //Importing Redux
 import {connect} from 'react-redux';
-import * as actionTypes from '../store/actions';
+import * as actionTypes from '../../store/actions';
 
 
 
 const button = {
   fontSize: '60px',
-  paddingRight: '20px',
-  paddingLeft: '20px',
+  marginLeft: '20px',
+
 }
 
 const inlineStyle = {
@@ -31,7 +31,7 @@ const inlineStyle = {
   backdrop: 'static',
 }
 
-class addTorrentPopup extends React.Component {
+class ChangeStorageModal extends React.Component {
 
   state = {
     open: false,
@@ -50,9 +50,9 @@ class addTorrentPopup extends React.Component {
       this.setState({ open: false });
       //let magnetLinkSubmit = this.state.textValue;
       let changeStorageMessage = {
-        messageType: "changeStorageValue",
-        newStorageValue: this.state.storageValue,
-        Payload: [this.props.selectionHashes]
+        MessageType: "changeStorageValue",
+        MessageDetail: this.state.storageValue, //new storage value
+        Payload: this.props.selectionHashes, //the selection hashes 
       }
       console.log("Sending new Storage Location: ", changeStorageMessage);
       ws.send(JSON.stringify(changeStorageMessage));
@@ -113,4 +113,4 @@ const mapStateToProps = state => {
 
 
 
-export default connect(mapStateToProps)(BackendSocket);
+export default connect(mapStateToProps)(ChangeStorageModal);

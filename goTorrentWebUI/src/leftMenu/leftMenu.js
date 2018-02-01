@@ -55,10 +55,19 @@ class SimpleList extends React.Component {
     }
   }
 
-  setActiveElement = (listItem) => {
+  componentWillReceiveProps = (nextprops) => {
+    const { classes } = this.props;
+    if (nextprops.filter[0].columnName == "TorrentName"){ //If we are using the top searchbox move back to all torrents
+      this.setState({
+        allTorrentsClass: classes.active,
+        downloadingClass: '',
+        seedingClass: '',
+        activeTorrentsClass: '',
+        completedTorrentsClass: '',
 
+      })
+    }
   }
-
 
 
   setFilter = (filterState, id) => {

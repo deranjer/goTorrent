@@ -62,7 +62,7 @@ const inlineStyle = {
 
   showRSSFiles = (key) => {
     let RSSTorrentsRequest = {
-      messageType: "rssTorrentsRequest",
+      MessageType: "rssTorrentsRequest",
       Payload: [this.props.RSSList[key].RSSURL]
     }
     ws.send(JSON.stringify(RSSTorrentsRequest))
@@ -85,7 +85,7 @@ const inlineStyle = {
 
   deleteRSSFeed = (key) => {
     let RSSURLDelete = {
-      messageType: "deleteRSSFeed",
+      MessageType: "deleteRSSFeed",
       Payload: [this.props.RSSList[key]]
     }
     console.log("Deleting THIS", this.props.RSSList[key])

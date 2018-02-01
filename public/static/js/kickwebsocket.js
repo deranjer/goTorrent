@@ -1,7 +1,7 @@
 var ws = new WebSocket("ws://192.168.1.141:8000/websocket"); //creating websocket
 
 var kickStart = {
-    messageType: "torrentListRequest"
+    MessageType: "torrentListRequest"
 }
 
 ws.onopen = function()

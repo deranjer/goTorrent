@@ -22,8 +22,7 @@ import * as actionTypes from '../../store/actions';
 
 const button = {
   fontSize: '60px',
-  paddingRight: '20px',
-  paddingLeft: '20px',
+  marginRight: '20px',
 }
 
 const inlineStyle = {
