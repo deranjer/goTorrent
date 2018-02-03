@@ -163,7 +163,7 @@ func main() {
 
 			case "torrentFileListRequest": //client requested a filelist update
 				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested FileList Update")
-				FileListArray := Engine.CreateFileListArray(tclient, msg.Payload[0], db)
+				FileListArray := Engine.CreateFileListArray(tclient, msg.Payload[0], db, Config)
 				conn.WriteJSON(FileListArray) //writing the JSON to the client
 
 			case "torrentDetailedInfo":
@@ -176,6 +176,21 @@ func main() {
 				torrentPeerList := Engine.CreatePeerListArray(tclient, msg.Payload[0])
 				conn.WriteJSON(torrentPeerList)
 
+			case "fetchTorrentsByLabel": //TODO test this to make sure it works
+				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested Torrents by Label")
+				label := msg.MessageDetail
+				torrentsByLabel := Storage.FetchTorrentsByLabel(db, label)
+				RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db)
+				labelRunningArray := []Engine.ClientDB{}
+				for _, torrent := range RunningTorrentArray { //Ranging over the running torrents and if the hashes match we have torrents by label
+					for _, label := range torrentsByLabel {
+						if torrent.TorrentHashString == label.Hash {
+							labelRunningArray = append(labelRunningArray, torrent)
+						}
+					}
+				}
+				conn.WriteJSON(labelRunningArray)
+
 			case "changeStorageValue":
 				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested Storage Location Update")
 				newStorageLocation := msg.MessageDetail
@@ -183,10 +198,16 @@ func main() {
 				for _, singleHash := range hashes {
 					singleTorrent := Storage.FetchTorrentFromStorage(db, singleHash)
 					oldPath := singleTorrent.StoragePath
-					singleTorrent.StoragePath = newStorageLocation
+					newStorageLocationAbs, err := filepath.Abs(filepath.ToSlash(newStorageLocation))
+					if err != nil {
+						Logger.WithFields(logrus.Fields{"patherr": err, "path": newStorageLocation}).Warn("Unable to create absolute path for storage location, using default")
+						singleTorrent.StoragePath = Config.TorrentConfig.DataDir
+					} else {
+						singleTorrent.StoragePath = newStorageLocationAbs
+					}
 					Storage.UpdateStorageTick(db, singleTorrent) //push torrent to storage
 					if singleTorrent.TorrentMoved == true {      //If torrent has already been moved and I change path then move it again... TODO, does this work with symlinks?
-						Logger.WithFields(logrus.Fields{"message": msg}).Info("Torrent completed so moving to new location")
+						Logger.WithFields(logrus.Fields{"message": msg}).Info("Change Storage Value called")
 						Engine.MoveAndLeaveSymlink(Config, singleHash, db, true, oldPath)
 					}
 				}
@@ -283,7 +304,7 @@ func main() {
 					}
 					Logger.WithFields(logrus.Fields{"clientTorrent": clientTorrent, "magnetLink": magnetLink}).Info("Adding torrent to client!")
 					Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "info", Payload: "Received MagnetLink"}, conn)
-					Engine.StartTorrent(clientTorrent, torrentLocalStorage, db, Config.TorrentConfig.DataDir, "magnet", "", storageValue, labelValue, Config.TFileUploadFolder) //starting the torrent and creating local DB entry
+					Engine.StartTorrent(clientTorrent, torrentLocalStorage, db, "magnet", "", storageValue, labelValue, Config) //starting the torrent and creating local DB entry
 
 				}
 
@@ -296,8 +317,6 @@ func main() {
 					Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Unable to decode base64 string to file"}, conn)
 				}
 				FileName := msg.MessageDetail
-				fmt.Println("Full Message", msg.MessageType, msg.MessageDetail, msg.MessageDetailTwo, msg.MessageDetailThree)
-				fmt.Println("FileName", msg.MessageDetail)
 				storageValue := msg.MessageDetailTwo
 				labelValue := msg.MessageDetailThree
 				if storageValue == "" {
@@ -314,21 +333,22 @@ func main() {
 						storageValue, _ = filepath.Abs(filepath.ToSlash(Config.DefaultMoveFolder))
 					}
 				}
-				filePath := filepath.Join(Config.TFileUploadFolder, FileName) //creating a full filepath to store the .torrent files
+				filePath := filepath.Join(Config.TFileUploadFolder, FileName)
+				filePathAbs, err := filepath.Abs(filePath) //creating a full filepath to store the .torrent files
 
-				err = ioutil.WriteFile(filePath, file, 0755) //Dumping our received file into the filename
+				err = ioutil.WriteFile(filePathAbs, file, 0755) //Dumping our received file into the filename
 				if err != nil {
-					Logger.WithFields(logrus.Fields{"filepath": filePath, "file Name": FileName, "Error": err}).Error("Unable to write torrent data to file")
+					Logger.WithFields(logrus.Fields{"filepath": filePathAbs, "file Name": FileName, "Error": err}).Error("Unable to write torrent data to file")
 					Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Unable to write torrent data to file"}, conn)
 				}
 
-				clientTorrent, err := tclient.AddTorrentFromFile(filePath)
+				clientTorrent, err := tclient.AddTorrentFromFile(filePathAbs)
 				if err != nil {
-					Logger.WithFields(logrus.Fields{"filepath": filePath, "Error": err}).Error("Unable to add Torrent to torrent server")
+					Logger.WithFields(logrus.Fields{"filepath": filePathAbs, "Error": err}).Error("Unable to add Torrent to torrent server")
 					Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Unable to add Torrent to torrent server"}, conn)
 				}
-				Logger.WithFields(logrus.Fields{"clienttorrent": clientTorrent.Name(), "filename": filePath}).Info("Added torrent")
-				Engine.StartTorrent(clientTorrent, torrentLocalStorage, db, Config.TorrentConfig.DataDir, "file", filePath, storageValue, labelValue, Config.TFileUploadFolder)
+				Logger.WithFields(logrus.Fields{"clienttorrent": clientTorrent.Name(), "filename": filePathAbs}).Info("Added torrent")
+				Engine.StartTorrent(clientTorrent, torrentLocalStorage, db, "file", filePathAbs, storageValue, labelValue, Config)
 
 			case "stopTorrents":
 				TorrentListCommands := msg.Payload

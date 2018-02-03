@@ -89,7 +89,10 @@ const inlineStyle = {
             {i: 'b', x: 0, y: 1, w: 1, h: 5, static: true},
             {i: 'c', x: 1, y: 1, w: 5, h: 5, minW: 5, minH: 3, static: true},
           ];
-        this.state = { layout };
+        this.state = { 
+          layout ,
+          textValue: "",
+        };
 
 
     };
@@ -103,7 +106,6 @@ const inlineStyle = {
     }
 
   handleAddRSSFeed = () => {
-    this.setState({ textValue: "Clear"}) //clearing out the text submitted
     let RSSURLSubmit = {
       MessageType: "addRSSFeed",
       Payload: [this.state.textValue]
@@ -113,20 +115,13 @@ const inlineStyle = {
       MessageType: "rssFeedRequest",
     }
     ws.send(JSON.stringify(RSSRequest)) //Immediatly request an update of the feed when you add a new URL
+    this.setState({textValue: ""})
   }
 
   setTextValue = (event) => {
     this.setState({ textValue: event.target.value });
   }
-
-  componentWillReceiveProps (nextProps) {
-      console.log("nextprops", nextProps, "Modal", nextProps.RSSModalOpen)
-  }
-  componentWillMount () {
-      console.log("Mounting grid")
-  }
   
-
   render() {
     return (
             <div style={inlineStyle}>

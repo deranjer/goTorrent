@@ -1,8 +1,6 @@
 package engine
 
 import (
-	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -20,22 +18,21 @@ func MoveAndLeaveSymlink(config FullClientSettings, tHash string, db *storm.DB, 
 	tStorage := Storage.FetchTorrentFromStorage(db, tHash)
 	Logger.WithFields(logrus.Fields{"Torrent Name": tStorage.TorrentName}).Info("Move and Create symlink started for torrent")
 	var oldFilePath string
-	if moveDone {
+	if moveDone { //only occurs on manual move
 		oldFilePathTemp := filepath.Join(oldPath, tStorage.TorrentName)
-		oldFilePath, err := filepath.Abs(oldFilePathTemp)
+		var err error
+		oldFilePath, err = filepath.Abs(oldFilePathTemp)
 		if err != nil {
 			Logger.WithFields(logrus.Fields{"Torrent Name": tStorage.TorrentName, "Filepath": oldFilePath}).Error("Cannot create absolute file path!")
 		}
-
-		fmt.Println("oldfilepath", oldFilePath)
 	} else {
 		oldFilePathTemp := filepath.Join(config.TorrentConfig.DataDir, tStorage.TorrentName)
-		oldFilePath, err := filepath.Abs(oldFilePathTemp)
+		var err error
+		oldFilePath, err = filepath.Abs(oldFilePathTemp)
 		if err != nil {
 			Logger.WithFields(logrus.Fields{"Torrent Name": tStorage.TorrentName, "Filepath": oldFilePath}).Error("Cannot create absolute file path!")
 		}
 	}
-
 	newFilePathTemp := filepath.Join(tStorage.StoragePath, tStorage.TorrentName)
 	newFilePath, err := filepath.Abs(newFilePathTemp)
 	if err != nil {
@@ -55,70 +52,27 @@ func MoveAndLeaveSymlink(config FullClientSettings, tHash string, db *storm.DB, 
 	}
 
 	if oldFilePath != newFilePath {
-		if runtime.GOOS == "windows" { //TODO the windows symlink is broken on windows 10 creator edition, so doing a copy for now until Go 1.11
-			if oldFileInfo.IsDir() {
-				os.Mkdir(newFilePath, 0755)
-				if moveDone {
-					err := folderCopy.Copy(config.TorrentConfig.DataDir, newFilePath)
-					if err != nil {
-						Logger.WithFields(logrus.Fields{"Old File Path": config.TorrentConfig.DataDir, "New File Path": newFilePath, "error": err}).Error("Error Copying Folder!")
-					}
-				} else {
-					err := folderCopy.Copy(oldFilePath, newFilePath) //copy the folder to the new location
-					if err != nil {
-						Logger.WithFields(logrus.Fields{"Old File Path": oldFilePath, "New File Path": newFilePath, "error": err}).Error("Error Copying Folder!")
-					}
-
-				}
-				os.Chmod(newFilePath, 0777)
-				notifyUser(tStorage, config, db)
-				return
-			}
-			srcFile, err := os.Open(oldFilePath)
-			defer srcFile.Close()
-			if err != nil {
-				Logger.WithFields(logrus.Fields{"Old File Path": oldFilePath, "error": err}).Error("Windows: Cannot open old file for copy")
-				return
-			}
-			destFile, err := os.Create(newFilePath)
-			defer destFile.Close()
-			if err != nil {
-				Logger.WithFields(logrus.Fields{"New File Path": newFilePath, "error": err}).Error("Windows: Cannot open new file for copying into")
-				return
-			}
-
-			bytesWritten, err := io.Copy(destFile, srcFile)
-			if err != nil {
-				Logger.WithFields(logrus.Fields{"Old File Path": oldFilePath, "New File Path": newFilePath, "error": err}).Error("Windows: Cannot copy old file into new")
-				return
-			}
-			err = destFile.Sync()
-			if err != nil {
-				Logger.WithFields(logrus.Fields{"Old File Path": oldFilePath, "New File Path": newFilePath, "error": err}).Error("Windows: Error syncing new file to disk")
-			}
-			Logger.WithFields(logrus.Fields{"Old File Path": oldFilePath, "New File Path": newFilePath, "bytesWritten": bytesWritten}).Info("Windows Torrent Copy Completed")
-			notifyUser(tStorage, config, db)
-		} else {
-
-			folderCopy.Copy(oldFilePath, newFilePath)
-			os.Chmod(newFilePath, 0777) //changing permissions on the new file to be permissive
-			os.RemoveAll(oldFilePath)
-			if moveDone {
-				err := os.Symlink(newFilePath, config.TorrentConfig.DataDir)
-				if err != nil {
-					Logger.WithFields(logrus.Fields{"Old File Path": config.TorrentConfig.DataDir, "New File Path": newFilePath, "error": err}).Error("Error creating symlink")
-					return
-				}
-			} else {
-				err := os.Symlink(newFilePath, oldFilePath) //For all other OS's create a symlink
-				if err != nil {
-					Logger.WithFields(logrus.Fields{"Old File Path": oldFilePath, "New File Path": newFilePath, "error": err}).Error("Error creating symlink")
-					return
-				}
-			}
-			notifyUser(tStorage, config, db)
-			Logger.WithFields(logrus.Fields{"Old File Path": oldFilePath, "New File Path": newFilePath}).Info("Moving completed torrent")
+		newFilePathDir := filepath.Dir(newFilePath)
+		os.Mkdir(newFilePathDir, 0755)
+		err := folderCopy.Copy(oldFilePath, newFilePath) //copy the folder to the new location
+		if err != nil {
+			Logger.WithFields(logrus.Fields{"Old File Path": oldFilePath, "New File Path": newFilePath, "error": err}).Error("Error Copying Folder!")
 		}
+		os.Chmod(newFilePath, 0777)
+		if runtime.GOOS != "windows" { //TODO the windows symlink is broken on windows 10 creator edition, so on the other platforms create symlink (windows will copy) until Go1.11
+			os.RemoveAll(oldFilePath)
+			err = os.Symlink(newFilePath, oldFilePath)
+			if err != nil {
+				Logger.WithFields(logrus.Fields{"Old File Path": oldFilePath, "New File Path": newFilePath, "error": err}).Error("Error creating symlink")
+			}
+		}
+		if moveDone == false {
+			tStorage.TorrentMoved = true     //TODO error handling instead of just saying torrent was moved when it was not
+			notifyUser(tStorage, config, db) //Only notify if we haven't moved yet, don't want to push notify user every time user uses change storage button
+		}
+		Logger.WithFields(logrus.Fields{"Old File Path": oldFilePath, "New File Path": newFilePath}).Info("Moving completed torrent")
+		tStorage.StoragePath = filepath.Dir(newFilePath)
+		Storage.UpdateStorageTick(db, tStorage)
 	}
 
 }

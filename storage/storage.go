@@ -46,14 +46,15 @@ type TorrentLocal struct {
 	Hash                string `storm:"id,unique"` //Hash should be unique for every torrent... if not we are re-adding an already added torrent
 	InfoBytes           []byte
 	DateAdded           string
-	StoragePath         string
+	StoragePath         string //The absolute value of the path where the torrent will be moved when completed
+	TempStoragePath     string //The absolute path of where the torrent is temporarily stored as it is downloaded
 	TorrentMoved        bool
 	TorrentName         string
 	TorrentStatus       string
 	TorrentUploadLimit  bool //if true this torrent will bypass the upload storage limit (effectively unlimited)
 	MaxConnections      int
 	TorrentType         string //magnet or .torrent file
-	TorrentFileName     string //Should be absolute path
+	TorrentFileName     string //Should be just the name of the torrent
 	TorrentFile         []byte
 	Label               string
 	UploadedBytes       int64
@@ -142,6 +143,22 @@ func FetchTorrentFromStorage(torrentStorage *storm.DB, selectedHash string) Torr
 	}
 
 	return singleTorrentInfo
+}
+
+//FetchTorrentsByLabel fetches a list of torrents that have a specific label
+func FetchTorrentsByLabel(torrentStorage *storm.DB, label string) []TorrentLocal {
+	allTorrents := []*TorrentLocal{}
+	torrentsByLabel := []TorrentLocal{}
+	err := torrentStorage.All(&allTorrents)
+	if err != nil {
+		Logger.WithFields(logrus.Fields{"database": torrentStorage, "error": err}).Error("Unable to read Database into torrentLocalArray!")
+	}
+	for _, torrent := range allTorrents {
+		if torrent.Label == label {
+			torrentsByLabel = append(torrentsByLabel, *torrent)
+		}
+	}
+	return torrentsByLabel
 }
 
 //FetchHashHistory fetches the infohash of all torrents added into the client.  The cron job checks this so as not to add torrents from RSS that were already added before

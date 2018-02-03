@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -128,7 +127,7 @@ func readTorrentFileFromDB(element *Storage.TorrentLocal, tclient *torrent.Clien
 }
 
 //StartTorrent creates the storage.db entry and starts A NEW TORRENT and adds to the running torrent array
-func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.TorrentLocal, torrentDbStorage *storm.DB, dataDir, torrentType, torrentFileName, torrentStoragePath, labelValue, tFileUploadFolder string) {
+func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.TorrentLocal, torrentDbStorage *storm.DB, torrentType, torrentFilePathAbs, torrentStoragePath, labelValue string, config FullClientSettings) {
 	timedOut := timeOutInfo(clientTorrent, 45) //seeing if adding the torrent times out (giving 45 seconds)
 	if timedOut {                              //if we fail to add the torrent return
 		return
@@ -147,6 +146,7 @@ func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.To
 	torrentLocalStorage.Label = labelValue
 	torrentLocalStorage.DateAdded = time.Now().Format("Jan _2 2006")
 	torrentLocalStorage.StoragePath = torrentStoragePath
+	torrentLocalStorage.TempStoragePath = config.TorrentConfig.DataDir
 	torrentLocalStorage.TorrentName = clientTorrent.Name()
 	torrentLocalStorage.TorrentUploadLimit = true            //by default all of the torrents will stop uploading after the global rate is set.
 	torrentLocalStorage.TorrentMoved = false                 //by default the torrent has no been moved.
@@ -154,8 +154,6 @@ func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.To
 	torrentLocalStorage.TorrentType = torrentType            //either "file" or "magnet" maybe more in the future
 	torrentLocalStorage.TorrentSize = clientTorrent.Length() //Length will change as we cancel files so store it in DB
 	if torrentType == "file" {                               //if it is a file read the entire file into the database for us to spit out later
-		torrentFilePath := filepath.Join(tFileUploadFolder, torrentFileName)
-		torrentFilePathAbs, err := filepath.Abs(torrentFilePath)
 		torrentfile, err := ioutil.ReadFile(torrentFilePathAbs)
 		torrentLocalStorage.TorrentFileName = torrentFilePathAbs
 		if err != nil {
@@ -236,11 +234,10 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		PercentDone := fmt.Sprintf("%.2f", float32(singleTorrent.BytesCompleted())/float32(singleTorrentFromStorage.TorrentSize))
 		fullClientDB.TorrentHash = TempHash
 		fullClientDB.PercentDone = PercentDone
-		fullClientDB.DataBytesRead = fullStruct.ConnStats.DataBytesRead       //used for calculations not passed to client calculating up/down speed
-		fullClientDB.DataBytesWritten = fullStruct.ConnStats.DataBytesWritten //used for calculations not passed to client calculating up/down speed
+		fullClientDB.DataBytesRead = fullStruct.ConnStats.BytesReadData       //used for calculations not passed to client calculating up/down speed
+		fullClientDB.DataBytesWritten = fullStruct.ConnStats.BytesWrittenData //used for calculations not passed to client calculating up/down speed
 		fullClientDB.ActivePeers = activePeersString + " / (" + totalPeersString + ")"
 		fullClientDB.TorrentHashString = TempHash.String()
-		fullClientDB.StoragePath = singleTorrentFromStorage.StoragePath
 		fullClientDB.TorrentName = singleTorrentFromStorage.TorrentName
 		fullClientDB.DateAdded = singleTorrentFromStorage.DateAdded
 		fullClientDB.TorrentLabel = singleTorrentFromStorage.Label
@@ -252,7 +249,7 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 				TempHash := singleTorrent.InfoHash()
 				if previousElement.TorrentHashString == TempHash.String() { //matching previous to new
 					CalculateTorrentSpeed(singleTorrent, fullClientDB, previousElement)
-					fullClientDB.TotalUploadedBytes = singleTorrentFromStorage.UploadedBytes + (fullStruct.ConnStats.DataBytesWritten - previousElement.DataBytesWritten)
+					fullClientDB.TotalUploadedBytes = singleTorrentFromStorage.UploadedBytes + (fullStruct.ConnStats.BytesWrittenData - previousElement.DataBytesWritten)
 				}
 			}
 		}
@@ -276,7 +273,7 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 }
 
 //CreateFileListArray creates a file list for a single torrent that is selected and sent to the server
-func CreateFileListArray(tclient *torrent.Client, selectedHash string, db *storm.DB) TorrentFileList {
+func CreateFileListArray(tclient *torrent.Client, selectedHash string, db *storm.DB, config FullClientSettings) TorrentFileList {
 	runningTorrents := tclient.Torrents() //don't need running torrent array since we aren't adding or deleting from storage
 	torrentFileListStorage := Storage.FetchTorrentFromStorage(db, selectedHash)
 	TorrentFileListSelected := TorrentFileList{}
@@ -289,11 +286,7 @@ func CreateFileListArray(tclient *torrent.Client, selectedHash string, db *storm
 			for _, singleFile := range torrentFilesRaw {
 				TorrentFileStruct.TorrentHashString = tempHash
 				TorrentFileStruct.FileName = singleFile.DisplayPath()
-				absFilePath, err := filepath.Abs(singleFile.Path())
-				if err != nil {
-					Logger.WithFields(logrus.Fields{"file": singleFile.Path()}).Debug("Unable to create absolute path")
-				}
-				TorrentFileStruct.FilePath = absFilePath
+				TorrentFileStruct.FilePath = singleFile.Path()
 				PieceState := singleFile.State()
 				var downloadedBytes int64
 				for _, piece := range PieceState {

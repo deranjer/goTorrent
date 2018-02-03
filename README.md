@@ -26,10 +26,18 @@ Image of the frontend UI
  - Automatic stop after seeding ratio reached
  - Pushbullet notification on torrent complete
  - Automatic move of completed torrent to new directory (leave symlink behind for seeding)
-  - Doesn't work on Windows yet, have to copy file for now
+   - Symlinks don't work on Windows yet, have to copy file for now
  
 ## Roadmap
 - Early-Mid 2018
+
+ - [X] Ability to modify storage path of torrent after it has been added
+
+ - [X] Backend to frontend notification messages
+
+ - [X] Global Rate Limiting for Upload/Download Speed
+
+ - [X] Add torrents from watch folder (cron job every 5 minutes)
 
  - [ ] Unit testing completed for a large portion of the package
  
@@ -40,8 +48,8 @@ Image of the frontend UI
  - [ ] Ability to set priority for individual files (just added to anacrolix/torrent so coming soon, already added to my UI)
  
  - [ ] Ability to view TOML settings from WebUI (and perhaps change a few as well)
- 
- - [ ] Ability to modify storage path of torrent after it has been added
+
+ - [ ] Authentication from client to server
  
 - Late 2018
 
@@ -96,6 +104,12 @@ The `config.toml` file contains all of the settings for the server part of the a
     SeedRatioStop = 1.50 #automatically stops the torrent after it reaches this seeding ratio
     #Relative or absolute path accepted, the server will convert any relative path to an absolute path.
     DefaultMoveFolder = 'downloaded' #default path that a finished torrent is symlinked to after completion. Torrents added via RSS will default here
+    TorrentWatchFolder = 'torrentUpload' #folder path that is watched for .torrent files and adds them automatically every 5 minutes
+    
+    #Limits your upload and download speed globally, all are averages and not burst protected (usually burst on start).
+    #Low = ~.05MB/s, Medium = ~.5MB/s, High = ~1.5MB/s
+    UploadRateLimit = "Unlimited"  #Options are "Low", "Medium", "High", "Unlimited" #Unlimited is default
+    DownloadRateLimit = "Unlimited"
 
 
 [notifications]

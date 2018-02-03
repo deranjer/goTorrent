@@ -2,6 +2,7 @@ package engine
 
 import (
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/anacrolix/torrent"
@@ -46,9 +47,9 @@ func CheckTorrentWatchFolder(c *cron.Cron, db *storm.DB, tclient *torrent.Client
 					continue
 				}
 
-				//os.Remove(fullFilePathAbs) //delete the torrent after adding it and copying it over
+				os.Remove(fullFilePathAbs) //delete the torrent after adding it and copying it over
 				Logger.WithFields(logrus.Fields{"Source Folder": fullFilePathAbs, "Destination Folder": fullNewFilePathAbs, "Torrent": file.Name()}).Info("Added torrent from watch folder, and moved torrent file")
-				StartTorrent(clientTorrent, torrentLocalStorage, db, config.TorrentConfig.DataDir, "file", file.Name(), config.DefaultMoveFolder, "default", config.TFileUploadFolder)
+				StartTorrent(clientTorrent, torrentLocalStorage, db, "file", fullNewFilePathAbs, config.DefaultMoveFolder, "default", config)
 
 			}
 		}
@@ -84,7 +85,7 @@ func RefreshRSSCron(c *cron.Cron, db *storm.DB, tclient *torrent.Client, torrent
 					Logger.WithFields(logrus.Fields{"err": err, "Torrent": RSSTorrent.Title}).Warn("Unable to add torrent to torrent client!")
 					break //break out of the loop entirely for this message since we hit an error
 				}
-				StartTorrent(clientTorrent, torrentLocalStorage, db, config.TorrentConfig.DataDir, "magnet", "", config.DefaultMoveFolder, "RSS", config.TFileUploadFolder) //TODO let user specify torrent default storage location and let change on fly
+				StartTorrent(clientTorrent, torrentLocalStorage, db, "magnet", "", config.DefaultMoveFolder, "RSS", config) //TODO let user specify torrent default storage location and let change on fly
 				singleFeed.Torrents = append(singleFeed.Torrents, singleRSSTorrent)
 
 			}

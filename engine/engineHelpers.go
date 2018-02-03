@@ -62,7 +62,7 @@ func CopyFile(srcFile string, destFile string) {
 func CalculateTorrentSpeed(t *torrent.Torrent, c *ClientDB, oc ClientDB) {
 	now := time.Now()
 	bytes := t.BytesCompleted()
-	bytesUpload := t.Stats().DataBytesWritten
+	bytesUpload := t.Stats().BytesWrittenData
 	dt := float32(now.Sub(oc.UpdatedAt))     // get the delta time length between now and last updated
 	db := float32(bytes - oc.BytesCompleted) //getting the delta bytes
 	rate := db * (float32(time.Second) / dt) // converting into seconds
