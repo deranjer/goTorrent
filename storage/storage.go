@@ -15,6 +15,24 @@ var Logger *logrus.Logger
 //Conn is the global websocket connection used to push server notification messages
 var Conn *websocket.Conn
 
+//IssuedTokensList contains a slice of all the tokens issues to applications
+type IssuedTokensList struct {
+	ID         int `storm:"id,unique"` //storm requires unique ID (will be 3) to save although there will only be one of these
+	SigningKey []byte
+	TokenNames []SingleToken
+}
+
+//SingleToken stores a single token and all of the associated information
+type SingleToken struct {
+	ClientName string
+}
+
+//TorrentHistoryList holds the entire history of downloaded torrents by hash TODO implement a way to read this and maybe grab the name for every torrent as well
+type TorrentHistoryList struct {
+	ID       int `storm:"id,unique"` //storm requires unique ID (will be 2) to save although there will only be one of these
+	HashList []string
+}
+
 //RSSFeedStore stores all of our RSS feeds in a slice of gofeed.Feed
 type RSSFeedStore struct {
 	ID       int             `storm:"id,unique"` //storm requires unique ID (will be 1) to save although there will only be one of these
@@ -62,12 +80,6 @@ type TorrentLocal struct {
 	TorrentSize         int64 //If we cancel a file change the download size since we won't be downloading that file
 	UploadRatio         string
 	TorrentFilePriority []TorrentFilePriority
-}
-
-//TorrentHistoryList holds the entire history of downloaded torrents by hash TODO implement a way to read this and maybe grab the name for every torrent as well
-type TorrentHistoryList struct {
-	ID       int `storm:"id,unique"` //storm requires unique ID (will be 2) to save although there will only be one of these
-	HashList []string
 }
 
 //FetchAllStoredTorrents is called to read in ALL local stored torrents in the boltdb database (called on server restart)
@@ -186,6 +198,25 @@ func StoreHashHistory(db *storm.DB, torrentHash string) {
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"HashList": torrentHistory}).Error("Unable to update torrent history database with torrent hash!")
 	}
+}
+
+//FetchJWTTokens fetches the stored client authentication tokens
+func FetchJWTTokens(db *storm.DB) IssuedTokensList {
+	tokens := IssuedTokensList{}
+	err := db.One("ID", 3, &tokens)
+	if err != nil {
+		Logger.WithFields(logrus.Fields{"Tokens": tokens, "error": err}).Error("Unable to fetch Token database... should always be one token in database")
+	}
+	return tokens
+}
+
+//UpdateJWTTokens updates the database with new tokens as they are added
+func UpdateJWTTokens(db *storm.DB, tokens IssuedTokensList) {
+	err := db.Update(&tokens)
+	if err != nil {
+		Logger.WithFields(logrus.Fields{"Tokens": tokens, "error": err}).Error("Unable to update Token database")
+	}
+
 }
 
 //FetchRSSFeeds fetches the RSS feed from db, which was setup when initializing database on first startup

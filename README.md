@@ -38,6 +38,12 @@ Image of the frontend UI
  - [X] Global Rate Limiting for Upload/Download Speed
 
  - [X] Add torrents from watch folder (cron job every 5 minutes)
+  
+ - [X] Authentication from client to server (done via JWT, will add functionality for 3rd party clients later)
+
+ - [X] Reverse Proxy Support with SSL upgrade added (with provided config for nginx)
+
+ - [X] Mostly generated client config from toml.config on first run
 
  - [ ] Unit testing completed for a large portion of the package
  
@@ -49,7 +55,6 @@ Image of the frontend UI
  
  - [ ] Ability to view TOML settings from WebUI (and perhaps change a few as well)
 
- - [ ] Authentication from client to server
  
 - Late 2018
 

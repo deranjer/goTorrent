@@ -3,6 +3,7 @@ package engine
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/time/rate"
 
@@ -14,16 +15,20 @@ import (
 
 //FullClientSettings contains all of the settings for our entire application
 type FullClientSettings struct {
-	LoggingLevel       logrus.Level
-	LoggingOutput      string
-	HTTPAddr           string
-	Version            int
-	TorrentConfig      torrent.Config
-	TFileUploadFolder  string
-	SeedRatioStop      float64
-	PushBulletToken    string
-	DefaultMoveFolder  string
-	TorrentWatchFolder string
+	LoggingLevel        logrus.Level
+	LoggingOutput       string
+	HTTPAddr            string
+	HTTPAddrIP          string
+	UseProxy            bool
+	WebsocketClientPort string
+	BaseURL             string
+	Version             int
+	TorrentConfig       torrent.Config
+	TFileUploadFolder   string
+	SeedRatioStop       float64
+	PushBulletToken     string
+	DefaultMoveFolder   string
+	TorrentWatchFolder  string
 }
 
 //default is called if there is a parsing error
@@ -98,9 +103,17 @@ func FullClientSettingsNew() FullClientSettings {
 	}
 
 	var httpAddr string
+	var baseURL string
+	var websocketClientPort string
 
 	httpAddrIP := viper.GetString("serverConfig.ServerAddr")
 	httpAddrPort := viper.GetString("serverConfig.ServerPort")
+	proxySet := viper.GetBool("reverseProxy.ProxyEnabled")
+	websocketClientPort = strings.TrimLeft(viper.GetString("serverConfig.ServerPort"), ":") //Trimming off the colon in front of the port
+	if proxySet {
+		baseURL = viper.GetString("reverseProxy.BaseURL")
+		fmt.Println("WebsocketClientPort", viper.GetString("serverConfig.ServerPort"))
+	}
 	seedRatioStop := viper.GetFloat64("serverConfig.SeedRatioStop")
 	httpAddr = httpAddrIP + httpAddrPort
 	pushBulletToken := viper.GetString("notifications.PushBulletToken")
@@ -192,15 +205,19 @@ func FullClientSettingsNew() FullClientSettings {
 	}
 
 	Config := FullClientSettings{
-		LoggingLevel:       logLevel,
-		LoggingOutput:      logOutput,
-		SeedRatioStop:      seedRatioStop,
-		HTTPAddr:           httpAddr,
-		TorrentConfig:      tConfig,
-		TFileUploadFolder:  "uploadedTorrents",
-		PushBulletToken:    pushBulletToken,
-		DefaultMoveFolder:  defaultMoveFolderAbs,
-		TorrentWatchFolder: torrentWatchFolderAbs,
+		LoggingLevel:        logLevel,
+		LoggingOutput:       logOutput,
+		SeedRatioStop:       seedRatioStop,
+		HTTPAddr:            httpAddr,
+		HTTPAddrIP:          httpAddrIP,
+		UseProxy:            proxySet,
+		WebsocketClientPort: websocketClientPort,
+		TorrentConfig:       tConfig,
+		BaseURL:             baseURL,
+		TFileUploadFolder:   "uploadedTorrents",
+		PushBulletToken:     pushBulletToken,
+		DefaultMoveFolder:   defaultMoveFolderAbs,
+		TorrentWatchFolder:  torrentWatchFolderAbs,
 	}
 
 	return Config

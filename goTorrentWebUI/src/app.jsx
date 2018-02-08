@@ -18,6 +18,8 @@ import LeftMenu from './leftMenu/leftMenu';
 import TorrentList from './torrentlist';
 //Notification Element
 import Notifications from './notifications';
+//Login Box
+import Login from './login';
 
 
 
@@ -65,6 +67,7 @@ class BasicLayout extends React.PureComponent {
 
   render() {
     return [
+      <Login />,
       <Notifications />,
       <ReactGridLayout layout={this.state.layout} onLayoutChange={this.onLayoutChange}
           {...this.props}>

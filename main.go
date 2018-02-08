@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"html/template"
 	"io/ioutil"
-
 	"net/http"
 	"os"
 	"path/filepath"
@@ -18,6 +17,8 @@ import (
 	"github.com/asdine/storm"
 	Engine "github.com/deranjer/goTorrent/engine"
 	Storage "github.com/deranjer/goTorrent/storage"
+	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/mmcdole/gofeed"
@@ -35,8 +36,9 @@ type SingleRSSFeedMessage struct { //TODO had issues with getting this to work w
 
 var (
 	//Logger does logging for the entire project
-	Logger = logrus.New()
-	APP_ID = os.Getenv("APP_ID")
+	Logger        = logrus.New()
+	Authenticated = false //to verify if user is authenticated, this is stored here
+	APP_ID        = os.Getenv("APP_ID")
 )
 
 var upgrader = websocket.Upgrader{
@@ -47,6 +49,34 @@ var upgrader = websocket.Upgrader{
 func serveHome(w http.ResponseWriter, r *http.Request) {
 	s1, _ := template.ParseFiles("templates/home.tmpl")
 	s1.ExecuteTemplate(w, "base", map[string]string{"APP_ID": APP_ID})
+}
+
+func handleAuthentication(conn *websocket.Conn, db *storm.DB) {
+	msg := Engine.Message{}
+	err := conn.ReadJSON(&msg)
+	if err != nil {
+		Logger.WithFields(logrus.Fields{"error": err, "SuppliedToken": msg.Payload[0]}).Error("Unable to read authentication message")
+	}
+	authString := msg.Payload[0] //First element will be the auth request
+	fmt.Println("Authstring", authString)
+	signingKeyStruct := Storage.FetchJWTTokens(db)
+	singingKey := signingKeyStruct.SigningKey
+	token, err := jwt.Parse(authString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		}
+		return singingKey, nil
+	})
+	if err != nil {
+		Logger.WithFields(logrus.Fields{"error": err, "SuppliedToken": token}).Error("Unable to parse token!")
+		conn.Close()
+	}
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		fmt.Println("Claims", claims["ClientName"], claims["Issuer"])
+		Authenticated = true
+	} else {
+		Logger.WithFields(logrus.Fields{"error": err}).Error("Authentication Error occured, cannot complete!")
+	}
 }
 
 func main() {
@@ -92,6 +122,34 @@ func main() {
 	}
 	defer db.Close() //defering closing the database until the program closes
 
+	tokens := Storage.IssuedTokensList{} //if first run setting up the authentication tokens
+	err = db.One("ID", 3, &tokens)
+	if err != nil {
+		Logger.WithFields(logrus.Fields{"RSSFeedStore": tokens, "error": err}).Info("No Tokens database found, assuming first run, generating token...")
+		fmt.Println("Error", err)
+		fmt.Println("MAIN TOKEN: %+v\n", tokens)
+		tokens.ID = 3 //creating the initial store
+		claims := Engine.GoTorrentClaims{
+			"goTorrentWebUI",
+			jwt.StandardClaims{
+				Issuer: "goTorrentServer",
+			},
+		}
+		signingkey := Engine.GenerateSigningKey() //Running this will invalidate any certs you already issued!!
+		fmt.Println("SigningKey", signingkey)
+		authString := Engine.GenerateToken(claims, signingkey)
+		tokens.SigningKey = signingkey
+		fmt.Println("ClientToken: ", authString)
+		Engine.GenerateClientConfigFile(Config, authString) //if first run generate the client config file
+
+		tokens.TokenNames = append(tokens.TokenNames, Storage.SingleToken{"firstClient"})
+		err := ioutil.WriteFile("clientAuth.txt", []byte(authString), 0755)
+		if err != nil {
+			Logger.WithFields(logrus.Fields{"error": err}).Warn("Unable to write client auth to file..")
+		}
+		db.Save(&tokens) //Writing all of that to the database
+	}
+
 	cronEngine := Engine.InitializeCronEngine() //Starting the cron engine for tasks
 	Logger.Debug("Cron Engine Initialized...")
 
@@ -112,11 +170,13 @@ func main() {
 	Engine.CheckTorrentWatchFolder(cronEngine, db, tclient, torrentLocalStorage, Config)
 	Engine.RefreshRSSCron(cronEngine, db, tclient, torrentLocalStorage, Config) // Refresing the RSS feeds on an hourly basis to add torrents that show up in the RSS feed
 
-	router := mux.NewRouter()         //setting up the handler for the web backend
+	router := mux.NewRouter() //setting up the handler for the web backend
+	//reverseProxy := handlers.ProxyHeaders(router) //handlers.ProxyHeaders(router) //TODO pull this from the config file
 	router.HandleFunc("/", serveHome) //Serving the main page for our SPA
-	http.Handle("/static/", http.FileServer(http.Dir("public")))
+	//http.Handle("/static/", http.FileServer(http.Dir("public")))
+	router.PathPrefix("/static/").Handler(http.FileServer(http.Dir("public")))
 	http.Handle("/", router)
-	http.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) { //exposing the data to the
+	router.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) { //exposing the data to the
 		TorrentLocalArray = Storage.FetchAllStoredTorrents(db)
 		RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db) //Updates the RunningTorrentArray with the current client data as well
 		var torrentlistArray = new(Engine.TorrentList)
@@ -127,15 +187,21 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(torrentlistArrayJSON)
 	})
-	http.HandleFunc("/websocket", func(w http.ResponseWriter, r *http.Request) { //websocket is the main data pipe to the frontend
+
+	router.HandleFunc("/websocket", func(w http.ResponseWriter, r *http.Request) { //websocket is the main data pipe to the frontend
 		conn, err := upgrader.Upgrade(w, r, nil)
 		defer conn.Close() //defer closing the websocket until done.
 		if err != nil {
 			Logger.WithFields(logrus.Fields{"error": err}).Fatal("Unable to create websocket!")
 			return
 		}
-		Engine.Conn = conn //Injecting the conn variable into the other packages
-		Storage.Conn = conn
+		if Authenticated != true {
+			handleAuthentication(conn, db)
+		} else { //If we are authenticated inject the connection into the other packages
+			fmt.Println("Authenticated... continue")
+			Engine.Conn = conn
+			Storage.Conn = conn
+		}
 	MessageLoop: //Tagging this so we can continue out of it with any errors we encounter that are failing
 		for {
 			runningTorrents := tclient.Torrents() //getting running torrents here since multiple cases ask for the running torrents
@@ -148,6 +214,13 @@ func main() {
 			}
 			Logger.WithFields(logrus.Fields{"message": msg}).Debug("Message From Client")
 			switch msg.MessageType { //first handling data requests
+			case "authRequest":
+				if Authenticated {
+					Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client already authenticated... skipping authentication method")
+				} else {
+					handleAuthentication(conn, db)
+				}
+
 			case "torrentListRequest":
 				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested TorrentList Update")
 				TorrentLocalArray = Storage.FetchAllStoredTorrents(db)                                                               //Required to re-read th database since we write to the DB and this will pull the changes from it
@@ -491,9 +564,15 @@ func main() {
 		}
 
 	})
-	if err := http.ListenAndServe(httpAddr, nil); err != nil {
-		Logger.WithFields(logrus.Fields{"error": err}).Fatal("Unable to listen on the http Server!")
+	if Config.UseProxy {
+		err := http.ListenAndServe(httpAddr, handlers.ProxyHeaders(router))
+		if err != nil {
+			Logger.WithFields(logrus.Fields{"error": err}).Fatal("Unable to listen on the http Server!")
+		}
 	} else {
-		fmt.Println("Server started on:", httpAddr)
+		err := http.ListenAndServe(httpAddr, nil) //Can't send proxy headers if not used since that can be a security issue
+		if err != nil {
+			Logger.WithFields(logrus.Fields{"error": err}).Fatal("Unable to listen on the http Server with no proxy headers!")
+		}
 	}
 }

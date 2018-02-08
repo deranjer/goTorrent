@@ -41,7 +41,7 @@ type RSSFeedsNames struct {
 }
 
 //TorrentList struct contains the torrent list that is sent to the client
-type TorrentList struct { //helps create the JSON structure that react expects to recieve
+type TorrentList struct { //helps create the JSON structure that react expects to receive
 	MessageType    string     `json:"MessageType"`
 	Totaltorrents  int        `json:"total"`
 	ClientDBstruct []ClientDB `json:"data"`

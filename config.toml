@@ -1,12 +1,12 @@
-
 [serverConfig]
 
     ServerPort = ":8000" #leave format as is it expects a string with colon
     ServerAddr = "" #blank will bind to default IP address, usually fine to leave be
-    LogLevel = "Warn" # Options = Debug, Info, Warn, Error, Fatal, Panic
-    LogOutput = "file" #Options = file, stdout #file will print it to logs/server.log
+    LogLevel = "Debug" # Options = Debug, Info, Warn, Error, Fatal, Panic
+    LogOutput = "stdout" #Options = file, stdout #file will print it to logs/server.log
 
     SeedRatioStop = 1.50 #automatically stops the torrent after it reaches this seeding ratio
+
     #Relative or absolute path accepted, the server will convert any relative path to an absolute path.
     DefaultMoveFolder = 'downloaded' #default path that a finished torrent is symlinked to after completion. Torrents added via RSS will default here
     TorrentWatchFolder = 'torrentUpload' #folder path that is watched for .torrent files and adds them automatically every 5 minutes
@@ -17,17 +17,29 @@
     DownloadRateLimit = "Unlimited"
 
 
+
 [notifications]
 
     PushBulletToken = "" #add your pushbullet api token here to notify of torrent completion to pushbullet
 
+
+[goTorrentWebUI]
+    #Here you can set a basic HTTP login set of credentials
+    WebUIAuth = true # bool, if false no authentication is required for the webUI
+    WebUIUser = "admin"
+    WebUIPassword = "Password"
+
+
+[reverseProxy]
+    #This is for setting up goTorrent behind a reverse Proxy (with SSL, reverse proxy with no SSL will require editing the WSS connection to a WS connection manually)
+    ProxyEnabled = false #bool, either false or true
+    BaseURL = "yoursubdomain.domain.org/subroute/"  # MUST be in the format (if you have a subdomain, and must have trailing slash) "yoursubdomain.domain.org/subroute/"
 
 [EncryptionPolicy]
 
     DisableEncryption = false
     ForceEncryption = false
     PreferNoEncryption = true
-
 
 [torrentClientConfig]
     DownloadDir = 'downloading'    #the full OR relative path where the torrent server stores in-progress torrents
@@ -36,6 +48,9 @@
     
     # Never send chunks to peers.
     NoUpload = false #boolean
+
+    #User-provided Client peer ID. If not present, one is generated automatically.
+    PeerID = "" #string
 
     #The address to listen for new uTP and TCP bittorrent protocol connections. DHT shares a UDP socket with uTP unless configured otherwise.
     ListenAddr = "" #Leave Blank for default, syntax "HOST:PORT"
@@ -47,9 +62,6 @@
 
     # Don't create a DHT.
     NoDHT = false #boolean
-
-    #User-provided Client peer ID. If not present, one is generated automatically.
-    PeerID = "" #string
 
     #For the bittorrent protocol.
     DisableUTP = false #bool
