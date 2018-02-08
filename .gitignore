@@ -4,6 +4,7 @@ downloaded/
 uploadedTorrents/
 storage.db.lock
 storage.db
+storage.db.old
 .torrent.bolt.db.lock
 .torrent.bolt.db
 .idea/torrent-project.iml
