@@ -507,6 +507,7 @@ func main() {
 				Logger.WithFields(logrus.Fields{"filelist": fileList}).Debug("Full filelist for setting file priority")
 				for _, singleTorrent := range runningTorrents {
 					if singleTorrent.InfoHash().String() == infoHash {
+						activeTorrentStruct := Storage.FetchTorrentFromStorage(db, infoHash) //fetching all the data from the db to update certain fields then write it all back
 						Logger.WithFields(logrus.Fields{"singleTorrent": singleTorrent}).Debug("Matched for changing file prio torrents")
 						for _, file := range singleTorrent.Files() {
 							for _, sentFile := range fileList {
@@ -518,7 +519,6 @@ func main() {
 									if priorityRequested == "High" {
 										file.SetPriority(torrent.PiecePriorityHigh)
 										Logger.WithFields(logrus.Fields{"singleTorrent": file.DisplayPath()}).Debug("Setting priority for HIGH")
-										activeTorrentStruct := Storage.FetchTorrentFromStorage(db, infoHash)   //fetching all the data from the db to update certain fields then write it all back
 										for i, specificFile := range activeTorrentStruct.TorrentFilePriority { //searching for that specific file
 											if specificFile.TorrentFilePath == file.DisplayPath() {
 												activeTorrentStruct.TorrentFilePriority[i].TorrentFilePriority = "High" //writing just that field to the current struct
@@ -529,7 +529,6 @@ func main() {
 									if priorityRequested == "Normal" {
 										file.SetPriority(torrent.PiecePriorityNormal)
 										Logger.WithFields(logrus.Fields{"singleTorrent": file.DisplayPath()}).Debug("Setting priority for Normal")
-										activeTorrentStruct := Storage.FetchTorrentFromStorage(db, infoHash)   //fetching all the data from the db to update certain fields then write it all back
 										for i, specificFile := range activeTorrentStruct.TorrentFilePriority { //searching for that specific file
 											if specificFile.TorrentFilePath == file.DisplayPath() {
 												activeTorrentStruct.TorrentFilePriority[i].TorrentFilePriority = "Normal" //writing just that field to the current struct
@@ -540,7 +539,6 @@ func main() {
 									if priorityRequested == "Cancel" {
 										file.SetPriority(torrent.PiecePriorityNone)
 										Logger.WithFields(logrus.Fields{"singleTorrent": file.DisplayPath()}).Debug("Canceling file")
-										activeTorrentStruct := Storage.FetchTorrentFromStorage(db, infoHash)   //fetching all the data from the db to update certain fields then write it all back
 										for i, specificFile := range activeTorrentStruct.TorrentFilePriority { //searching for that specific file
 											if specificFile.TorrentFilePath == file.DisplayPath() {
 												activeTorrentStruct.TorrentFilePriority[i].TorrentFilePriority = "Canceled"       //writing just that field to the current struct

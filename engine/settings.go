@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -22,6 +23,8 @@ type FullClientSettings struct {
 	UseProxy            bool
 	WebsocketClientPort string
 	BaseURL             string
+	ClientUsername      string
+	ClientPassword      string
 	Version             int
 	TorrentConfig       torrent.Config
 	TFileUploadFolder   string
@@ -105,55 +108,10 @@ func FullClientSettingsNew() FullClientSettings {
 	var httpAddr string
 	var baseURL string
 	var websocketClientPort string
-
-	httpAddrIP := viper.GetString("serverConfig.ServerAddr")
-	httpAddrPort := viper.GetString("serverConfig.ServerPort")
-	proxySet := viper.GetBool("reverseProxy.ProxyEnabled")
-	websocketClientPort = strings.TrimLeft(viper.GetString("serverConfig.ServerPort"), ":") //Trimming off the colon in front of the port
-	if proxySet {
-		baseURL = viper.GetString("reverseProxy.BaseURL")
-		fmt.Println("WebsocketClientPort", viper.GetString("serverConfig.ServerPort"))
-	}
-	seedRatioStop := viper.GetFloat64("serverConfig.SeedRatioStop")
-	httpAddr = httpAddrIP + httpAddrPort
-	pushBulletToken := viper.GetString("notifications.PushBulletToken")
-	defaultMoveFolder := filepath.ToSlash(viper.GetString("serverConfig.DefaultMoveFolder")) //Converting the string literal into a filepath
-	defaultMoveFolderAbs, err := filepath.Abs(defaultMoveFolder)
-	if err != nil {
-		fmt.Println("Failed creating absolute path for defaultMoveFolder", err)
-	}
-	torrentWatchFolder := filepath.ToSlash(viper.GetString("serverConfig.TorrentWatchFolder"))
-	torrentWatchFolderAbs, err := filepath.Abs(torrentWatchFolder)
-	if err != nil {
-		fmt.Println("Failed creating absolute path for torrentWatchFolderAbs", err)
-	}
-
-	dataDir := filepath.ToSlash(viper.GetString("torrentClientConfig.DownloadDir")) //Converting the string literal into a filepath
-	dataDirAbs, err := filepath.Abs(dataDir)                                        //Converting to an absolute file path
-	if err != nil {
-		fmt.Println("Failed creating absolute path for dataDir", err)
-	}
-
-	var uploadRateLimiter *rate.Limiter
-	var downloadRateLimiter *rate.Limiter
-	uploadRate := viper.GetString("serverConfig.UploadRateLimit")
-	downloadRate := viper.GetString("serverConfig.DownloadRateLimit")
-	downloadRateLimiter, uploadRateLimiter = calculateRateLimiters(uploadRate, downloadRate)
-
-	listenAddr := viper.GetString("torrentClientConfig.ListenAddr")
-	disablePex := viper.GetBool("torrentClientConfig.DisablePEX")
-	noDHT := viper.GetBool("torrentClientConfig.NoDHT")
-	noUpload := viper.GetBool("torrentClientConfig.NoUpload")
-	seed := viper.GetBool("torrentClientConfig.Seed")
-
-	peerID := viper.GetString("torrentClientConfig.PeerID")
-	disableUTP := viper.GetBool("torrentClientConfig.DisableUTP")
-	disableTCP := viper.GetBool("torrentClientConfig.DisableTCP")
-	disableIPv6 := viper.GetBool("torrentClientConfig.DisableIPv6")
-	debug := viper.GetBool("torrentClientConfig.Debug")
+	var logLevel logrus.Level
+	//logging
 	logLevelString := viper.GetString("serverConfig.LogLevel")
 	logOutput := viper.GetString("serverConfig.LogOutput")
-	var logLevel logrus.Level
 	switch logLevelString { //Options = Debug 5, Info 4, Warn 3, Error 2, Fatal 1, Panic 0
 	case "Panic":
 		logLevel = 0
@@ -171,6 +129,65 @@ func FullClientSettingsNew() FullClientSettings {
 		logLevel = 3
 
 	}
+	//HTTP, proxy
+	httpAddrIP := viper.GetString("serverConfig.ServerAddr")
+	httpAddrPort := viper.GetString("serverConfig.ServerPort")
+	httpAddr = httpAddrIP + httpAddrPort
+	proxySet := viper.GetBool("reverseProxy.ProxyEnabled")
+	websocketClientPort = strings.TrimLeft(viper.GetString("serverConfig.ServerPort"), ":") //Trimming off the colon in front of the port
+	if proxySet {
+		baseURL = viper.GetString("reverseProxy.BaseURL")
+		fmt.Println("WebsocketClientPort", viper.GetString("serverConfig.ServerPort"))
+	}
+	//Client Authentication
+	clientAuthEnabled := viper.GetBool("goTorrentWebUI.WebUIAuth")
+	var webUIUser string
+	var webUIPasswordHash string
+	if clientAuthEnabled {
+		webUIUser = viper.GetString("goTorrentWebUI.WebUIUser")
+		webUIPassword := viper.GetString("goTorrentWebUI.WebUIPassword")
+		hash256 := sha256.New()
+		hash256.Write([]byte(webUIPassword))                    //Hashing the password
+		webUIPasswordHash = fmt.Sprintf("%x", hash256.Sum(nil)) //Printing the password out as a string
+	}
+	//General Settings
+	seedRatioStop := viper.GetFloat64("serverConfig.SeedRatioStop")
+	defaultMoveFolder := filepath.ToSlash(viper.GetString("serverConfig.DefaultMoveFolder")) //Converting the string literal into a filepath
+	defaultMoveFolderAbs, err := filepath.Abs(defaultMoveFolder)
+	if err != nil {
+		fmt.Println("Failed creating absolute path for defaultMoveFolder", err)
+	}
+	torrentWatchFolder := filepath.ToSlash(viper.GetString("serverConfig.TorrentWatchFolder"))
+	torrentWatchFolderAbs, err := filepath.Abs(torrentWatchFolder)
+	if err != nil {
+		fmt.Println("Failed creating absolute path for torrentWatchFolderAbs", err)
+	}
+	//Notifications
+	pushBulletToken := viper.GetString("notifications.PushBulletToken")
+
+	//Rate Limiters
+	var uploadRateLimiter *rate.Limiter
+	var downloadRateLimiter *rate.Limiter
+	uploadRate := viper.GetString("serverConfig.UploadRateLimit")
+	downloadRate := viper.GetString("serverConfig.DownloadRateLimit")
+	downloadRateLimiter, uploadRateLimiter = calculateRateLimiters(uploadRate, downloadRate)
+	//Internals
+	dataDir := filepath.ToSlash(viper.GetString("torrentClientConfig.DownloadDir")) //Converting the string literal into a filepath
+	dataDirAbs, err := filepath.Abs(dataDir)                                        //Converting to an absolute file path
+	if err != nil {
+		fmt.Println("Failed creating absolute path for dataDir", err)
+	}
+	listenAddr := viper.GetString("torrentClientConfig.ListenAddr")
+	disablePex := viper.GetBool("torrentClientConfig.DisablePEX")
+	noDHT := viper.GetBool("torrentClientConfig.NoDHT")
+	noUpload := viper.GetBool("torrentClientConfig.NoUpload")
+	seed := viper.GetBool("torrentClientConfig.Seed")
+
+	peerID := viper.GetString("torrentClientConfig.PeerID")
+	disableUTP := viper.GetBool("torrentClientConfig.DisableUTP")
+	disableTCP := viper.GetBool("torrentClientConfig.DisableTCP")
+	disableIPv6 := viper.GetBool("torrentClientConfig.DisableIPv6")
+	debug := viper.GetBool("torrentClientConfig.Debug")
 
 	dhtServerConfig := dht.ServerConfig{
 		StartingNodes: dht.GlobalBootstrapAddrs,
@@ -212,6 +229,8 @@ func FullClientSettingsNew() FullClientSettings {
 		HTTPAddrIP:          httpAddrIP,
 		UseProxy:            proxySet,
 		WebsocketClientPort: websocketClientPort,
+		ClientUsername:      webUIUser,
+		ClientPassword:      webUIPasswordHash,
 		TorrentConfig:       tConfig,
 		BaseURL:             baseURL,
 		TFileUploadFolder:   "uploadedTorrents",

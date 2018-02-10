@@ -29,10 +29,19 @@ var (
 func GenerateClientConfigFile(config FullClientSettings, authString string) {
 	os.Remove("public/static/js/kickwebsocket-generated.js")
 	var clientFile string
+	var webUIAuth string
+	if config.ClientUsername != "" {
+		webUIAuth = `
+		const LoginRequired = true
+		const ClientUsername = "` + config.ClientUsername + `"
+		const ClientPassword = "` + config.ClientPassword + `"
+		`
+	}
+
 	if config.UseProxy {
 		clientFile = `
 		ClientAuthString = "` + authString + `"
-	
+		` + webUIAuth + `
 		var ws = new WebSocket("wss://` + config.BaseURL + `websocket")
 		` + baseFile
 	} else {
@@ -40,7 +49,7 @@ func GenerateClientConfigFile(config FullClientSettings, authString string) {
 		IP = "` + config.HTTPAddrIP + `"
 		Port = "` + config.WebsocketClientPort + `"
 		ClientAuthString = "` + authString + `"
-		
+		` + webUIAuth + `
 		var ws = new WebSocket(` + "`" + `ws://${IP}:${Port}/websocket` + "`" + `); //creating websocket
 		` + baseFile
 

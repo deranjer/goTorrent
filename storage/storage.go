@@ -57,6 +57,7 @@ type SingleRSSTorrent struct {
 type TorrentFilePriority struct {
 	TorrentFilePath     string
 	TorrentFilePriority string
+	TorrentFileSize     int64
 }
 
 //TorrentLocal is local storage of the torrents for readd on server restart, marshalled into the database using Storm

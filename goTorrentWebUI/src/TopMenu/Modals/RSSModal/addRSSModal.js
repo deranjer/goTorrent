@@ -42,15 +42,12 @@ const inlineStyle = {
  class AddRSSModal extends React.Component {
 
 
-  componentDidMount () { //Immediatly request an update of the feed when loading app
+  rssModalOpenState = () => {
     let RSSRequest = {
       MessageType: "rssFeedRequest",
     }
     ws.send(JSON.stringify(RSSRequest)) 
 
-  }
-
-  rssModalOpenState = () => {
     console.log("Opening RSS Modal")
     this.props.rssModalOpenState(true)
   }

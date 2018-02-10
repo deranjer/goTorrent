@@ -40,7 +40,7 @@ func HumanizeBytes(bytes float32) string {
 }
 
 //CopyFile takes a source file string and a destination file string and copies the file
-func CopyFile(srcFile string, destFile string) {
+func CopyFile(srcFile string, destFile string) { //TODO move this to our imported copy repo
 	fileContents, err := os.Open(srcFile)
 	defer fileContents.Close()
 	if err != nil {
@@ -84,8 +84,35 @@ func CalculateTorrentSpeed(t *torrent.Torrent, c *ClientDB, oc ClientDB) {
 }
 
 //CalculateDownloadSize will calculate the download size once file priorities are sorted out
-func CalculateDownloadSize(tFromStorage *Storage.TorrentLocal) {
+func CalculateDownloadSize(tFromStorage *Storage.TorrentLocal, activeTorrent *torrent.Torrent) int64 {
+	var totalLength int64
+	for _, file := range tFromStorage.TorrentFilePriority {
+		if file.TorrentFilePriority != "Cancel" {
+			totalLength = totalLength + file.TorrentFileSize
+		}
+	}
+	return totalLength
+}
 
+//CalculateCompleteSize will be used to calculate how much of the actual torrent we have completed minus the canceled files (even if they have been partially downloaded)
+func CalculateCompleteSize(tFromStorage *Storage.TorrentLocal, activeTorrent *torrent.Torrent) int64 {
+	var downloadedLength int64
+	var discardByteLength int64
+	for _, storageFile := range tFromStorage.TorrentFilePriority {
+		if storageFile.TorrentFilePriority != "Cancel" { //If the file is canceled
+			for _, activeFile := range activeTorrent.Files() {
+				if activeFile.DisplayPath() == storageFile.TorrentFilePath { //match the file from storage to active
+					for _, piece := range activeFile.State() {
+						if piece.Partial || piece.Complete {
+							discardByteLength = discardByteLength + piece.Bytes
+						}
+					}
+				}
+			}
+		}
+	}
+	downloadedLength = downloadedLength - discardByteLength
+	return downloadedLength
 }
 
 //CalculateTorrentETA is used to estimate the remaining dl time of the torrent based on the speed that the MB are being downloaded

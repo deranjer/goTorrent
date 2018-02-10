@@ -22,7 +22,6 @@ import Notifications from './notifications';
 import Login from './login';
 
 
-
 const reduxStore = createStore(reducer);
 
 
@@ -58,25 +57,33 @@ class BasicLayout extends React.PureComponent {
       {i: 'c', x: 1, y: 1, w: 5, h: 5, minW: 5, minH: 3, static: true},
       {i: 'd', x: 1, y: 6, w: 5, h: 4, minW: 5, minH: 1, static: true}
     ];
-    this.state = { layout };
+    this.state = { 
+      layout, 
+      loggedin: false };
+  }
+
+  changeLoggedin = (value) => {
+    this.setState({ loggedin: value})
   }
 
   onLayoutChange(layout) {
     this.props.onLayoutChange(layout);
   }
 
+
   render() {
     return [
-      <Login />,
+      <Login loggedin={this.state.loggedin} changeLoggedin={this.changeLoggedin}/>,
       <Notifications />,
-      <ReactGridLayout layout={this.state.layout} onLayoutChange={this.onLayoutChange}
-          {...this.props}>
-          <div key="a" style={background} className="DragHandle"><TopMenu /></div>
-          <div key="b" style={background} className="DragHandle"><LeftMenu /></div>
-          <div key="c" style={background} className="DragHandle"><TorrentList /></div>
-          <div key="d"><BottomMenu /></div>
-      </ReactGridLayout> //returning our 4 grids
-
+      <ReactGridLayout layout={this.state.layout} onLayoutChange={this.onLayoutChange} {...this.props}>
+        <div key="a" style={background} className="DragHandle"><TopMenu /></div>
+        <div key="b" style={background} className="DragHandle"><LeftMenu /></div>
+        { this.state.loggedin
+          ? <div key="c" style={background} className="DragHandle"><TorrentList /></div>
+          : <div key="c" style={background} className="DragHandle"></div>
+        }
+        <div key="d"><BottomMenu /></div>
+      </ReactGridLayout>//returning our 4 grids 
     ];
   }
 };

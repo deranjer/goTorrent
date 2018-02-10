@@ -16,19 +16,16 @@
     UploadRateLimit = "Unlimited"  #Options are "Low", "Medium", "High", "Unlimited" #Unlimited is default
     DownloadRateLimit = "Unlimited"
 
+[goTorrentWebUI]
+    #Basic goTorrentWebUI authentication (not terribly secure, implemented in JS, password is hashed to SHA256, not salted, basically don't depend on this if you require very good security)
+    WebUIAuth = true # bool, if false no authentication is required for the webUI
+    WebUIUser = "admin"
+    WebUIPassword = "Password"
 
 
 [notifications]
 
     PushBulletToken = "" #add your pushbullet api token here to notify of torrent completion to pushbullet
-
-
-[goTorrentWebUI]
-    #Here you can set a basic HTTP login set of credentials
-    WebUIAuth = true # bool, if false no authentication is required for the webUI
-    WebUIUser = "admin"
-    WebUIPassword = "Password"
-
 
 [reverseProxy]
     #This is for setting up goTorrent behind a reverse Proxy (with SSL, reverse proxy with no SSL will require editing the WSS connection to a WS connection manually)

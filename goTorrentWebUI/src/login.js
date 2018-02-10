@@ -1,9 +1,11 @@
+var sha256 = require('js-sha256').sha256;
 import React from 'react';
 import ReactDOM from 'react-dom';
 import Button from 'material-ui/Button';
 import TextField from 'material-ui/TextField';
 import { withStyles } from 'material-ui/styles';
 import PropTypes from 'prop-types';
+import Modal from 'material-ui/Modal';
 import Dialog, {
   DialogActions,
   DialogContent,
@@ -16,7 +18,6 @@ import Icon from 'material-ui/Icon';
 import IconButton from 'material-ui/IconButton';
 
 
-let Loggedin = false
 
 const button = {
   fontSize: '60px',
@@ -39,27 +40,37 @@ export default class Login extends React.Component {
     username: "",
     password: "",
     wrongPasswordMessage: "",
-
   };
 
 
-  componentWillMount = () => {
-    if ((LoginRequired) && (Loggedin == false)) {
+  componentWillMount() {
+    if ((LoginRequired) && (this.props.loggedin == false)) {
       this.setState({open: true})
-      Loggedin = true
+    }
+  }
+
+  componentDidMount() {
+    document.addEventListener('keydown', this.handleKeySubmit); // if the user presses enter, submit the form
+  }
+
+  componentWillUnmount() {
+    document.removeEventListener('keydown', this.handleKeySubmit);
+  }
+
+  handleKeySubmit = (e) => {
+    if (e.keyCode === 13) {
+      this.handleSubmit()
     }
   }
 
   handleSubmit = () => {
-      //this.setState({ open: false });
-      //let magnetLinkSubmit = this.state.textValue;
-      console.log("Attempting authentication")
-      if ((this.state.username == ClientUsername) && (this.state.password == ClientPassword)) {
+      let hashedPass = sha256(this.state.password) //hash the password to match it with the hashed one in the kickwebsocket
+      if ((this.state.username == ClientUsername) && (hashedPass == ClientPassword)) {
         this.setState({ open: false, username: "", password: "" });
+        this.props.changeLoggedin(true)
       } else {
         this.setState({wrongPasswordMessage: "Wrong Username/Password!", username: "", password: "" })
       }
-      //this.setState({magnetLinkValue: ""}, {torrentLabel: ""}, {storageValue: ``})
   }
 
   handleRequestClose = () => {
@@ -77,7 +88,7 @@ export default class Login extends React.Component {
   render() {
     const { classes, onRequestClose, handleRequestClose, handleSubmit } = this.props;
     return (
-        <Dialog open={this.state.open} onRequestClose={this.handleRequestClose} disableBackdropClick={true} disableEscapeKeyDown={true} hideBackdrop={true} fullScreen>
+        <Dialog open={this.state.open} onRequestClose={this.handleRequestClose} ignoreBackdropClick={true} disableBackdrop={true}>
           <DialogTitle>Login Here</DialogTitle>
           <DialogContent>
             <DialogContentText>
