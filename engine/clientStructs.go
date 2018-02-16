@@ -11,11 +11,8 @@ import (
 
 //Message contains the JSON messages from the client, we first unmarshal to get the messagetype, then pass it on to each module
 type Message struct {
-	MessageType        string
-	MessageDetail      string `json:",omitempty"`
-	MessageDetailTwo   string `json:",omitempty"`
-	MessageDetailThree string `json:",omitempty"`
-	Payload            []string
+	MessageType string
+	Payload     interface{}
 }
 
 //Next are the messages the server sends to the client
@@ -56,48 +53,48 @@ type TorrentFileList struct {
 
 //PeerFileList returns a slice of peers
 type PeerFileList struct {
-	MessageType string         `json:"MessageType"`
-	TotalPeers  int            `json:"TotalPeers"`
-	PeerList    []torrent.Peer `json:"PeerList"`
+	MessageType string
+	TotalPeers  int
+	PeerList    []torrent.Peer
 }
 
 //TorrentFile describes a single file that a torrent client is downloading for a single torrent
 type TorrentFile struct {
-	TorrentHashString string //Used to tie the file to a torrent //TODO not sure if neededs
-	FileName          string
-	FilePath          string
-	FileSize          string
-	FilePercent       string
-	FilePriority      string
+	TorrentHashString string //Used to tie the file to a torrent //TODO not sure if needed
+	FileName          string //The name of the file
+	FilePath          string //The relative filepath to the file
+	FileSize          string //Humanized file size display
+	FilePercent       string //String value of percent of individual file percent done
+	FilePriority      string //Currently "High", "Normal", or "Cancel"
 }
 
 //ClientDB struct contains the struct that is used to compose the torrentlist
 type ClientDB struct { //TODO maybe separate out the internal bits into another client struct
-	TorrentHashString  string         `json:"TorrentHashString"` //Passed to client for displaying hash and is used to uniquly identify all torrents
-	TorrentName        string         `json:"TorrentName"`
-	DownloadedSize     string         `json:"DownloadedSize"` //how much the client has downloaded total
-	Size               string         `json:"Size"`           //total size of the torrent
-	DownloadSpeed      string         `json:"DownloadSpeed"`  //the dl speed of the torrent
-	Status             string         `json:"Status"`         //Passed to client for display
-	PercentDone        string         `json:"PercentDone"`    //Passed to client to show percent done
-	ActivePeers        string         `json:"ActivePeers"`    //passed to client
-	UploadSpeed        string         `json:"UploadSpeed"`    //passed to client to show Uploadspeed
-	StoragePath        string         `json:"StoragePath"`    //Passed to client (and stored in stormdb)
+	TorrentHashString  string         //Passed to client for displaying hash and is used to uniquely identify all torrents
+	TorrentName        string         //String of the name of the torrent
+	DownloadedSize     string         //how much the client has downloaded total
+	Size               string         //total size of the torrent
+	DownloadSpeed      string         //the dl speed of the torrent
+	Status             string         //Passed to client for display
+	PercentDone        string         //Passed to client to show percent done
+	ActivePeers        string         //passed to client
+	UploadSpeed        string         //passed to client to show Uploadspeed
+	StoragePath        string         //Passed to client (and stored in stormdb)
 	DateAdded          string         //Passed to client (and stored in stormdb)
-	ETA                string         `json:"ETA"` //Passed to client
+	ETA                string         //Passed to client
 	TorrentLabel       string         //Passed to client and stored in stormdb
-	SourceType         string         `json:"SourceType"` //Stores whether the torrent came from a torrent file or a magnet link
+	SourceType         string         //Stores whether the torrent came from a torrent file or a magnet link
 	KnownSwarm         []torrent.Peer //Passed to client for Peer Tab
 	UploadRatio        string         //Passed to client, stores the string for uploadratio stored in stormdb
 	TotalUploadedSize  string         //Humanized version of TotalUploadedBytes to pass to the client
-	TotalUploadedBytes int64          //includes bytes that happened before reboot (from stormdb)
+	TotalUploadedBytes int64          `json:"-"` //includes bytes that happened before reboot (from stormdb)
 	downloadSpeedInt   int64          //Internal used for calculating dl speed
-	BytesCompleted     int64          //Internal used for calculating the dl speed
-	DataBytesWritten   int64          //Internal used for calculating dl speed
-	DataBytesRead      int64          //Internal used for calculating dl speed
-	UpdatedAt          time.Time      //Internal used for calculating speeds of upload and download
-	TorrentHash        metainfo.Hash  //Used to create string for TorrentHashString... not sure why I have it... make that a TODO I guess
-	NumberofFiles      int
-	NumberofPieces     int
-	MaxConnections     int //Used to stop the torrent by limiting the max allowed connections
+	BytesCompleted     int64          `json:"-"` //Internal used for calculating the dl speed
+	DataBytesWritten   int64          `json:"-"` //Internal used for calculating dl speed
+	DataBytesRead      int64          `json:"-"` //Internal used for calculating dl speed
+	UpdatedAt          time.Time      `json:"-"` //Internal used for calculating speeds of upload and download
+	TorrentHash        metainfo.Hash  `json:"-"` //Used to create string for TorrentHashString... not sure why I have it... make that a TODO I guess
+	NumberofFiles      int            //Number of files in the torrent
+	NumberofPieces     int            //Total number of pieces in the torrent (Not currently used)
+	MaxConnections     int            //Used to stop the torrent by limiting the max allowed connections
 }

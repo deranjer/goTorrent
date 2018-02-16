@@ -69,7 +69,7 @@ export default class Login extends React.Component {
         this.setState({ open: false, username: "", password: "" });
         this.props.changeLoggedin(true)
       } else {
-        this.setState({wrongPasswordMessage: "Wrong Username/Password!", username: "", password: "" })
+        this.setState({wrongPasswordMessage: "Wrong Username/Password!"})
       }
   }
 

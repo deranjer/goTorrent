@@ -128,7 +128,7 @@ var torrentListRequest = {
             console.log("Logger data requested");
             break;
 
-        case "rssListRequest":
+        case "rssList":
             console.log("RSSListRequest recieved", evt.data);
             RSSList = [];
             for (var i = 0; i < serverMessage.TotalRSSFeeds; i++) {
@@ -191,7 +191,7 @@ var BackendSocket = function (_React$Component) {
                 case 1:
                     var peerListHashes = {
                         MessageType: "torrentPeerListRequest",
-                        Payload: selectionHashes
+                        Payload: {"PeerListHash": selectionHashes}
                     };
                     console.log("Peers tab information requested", peerListHashes);
                     ws.send(JSON.stringify(peerListHashes));
@@ -199,7 +199,7 @@ var BackendSocket = function (_React$Component) {
                 case 2:
                     var fileListHashes = {
                         MessageType: "torrentFileListRequest",
-                        Payload: selectionHashes
+                        Payload: {"FileListHash": selectionHashes[0]}
                     };
                     console.log("Files tab information requested", fileListHashes);
                     ws.send(JSON.stringify(fileListHashes));
@@ -256,7 +256,7 @@ var BackendSocket = function (_React$Component) {
                     case 1:
                         var peerListHashes = {
                             MessageType: "torrentPeerListRequest",
-                            Payload: this.props.selectionHashes
+                            Payload: {"PeerListHash": this.props.selectionHashes}
                         };
                         ws.send(JSON.stringify(peerListHashes));
                         this.props.newPeerList(peerList);
@@ -264,7 +264,7 @@ var BackendSocket = function (_React$Component) {
                     case 2:
                         var fileListHashes = {
                             MessageType: "torrentFileListRequest",
-                            Payload: this.props.selectionHashes
+                            Payload: {"FileListHash": this.props.selectionHashes[0]}
                         };
                         ws.send(JSON.stringify(fileListHashes));
                         this.props.newFileList(fileList);

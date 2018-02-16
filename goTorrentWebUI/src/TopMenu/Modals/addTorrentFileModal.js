@@ -66,13 +66,10 @@ export default class addTorrentFilePopup extends React.Component {
     reader.onloadend = () => {
       let base64data = reader.result;                
       console.log("Base64", base64data)
-    
+
       let torrentFileMessage = {
         MessageType: "torrentFileSubmit",
-        MessageDetail: this.state.torrentFileName,  //filename
-        MessageDetailTwo: this.state.storageValue, //storage path
-        MessageDetailThree: this.state.torrentLabel, //torrent label
-        Payload: [base64data],
+        Payload: {"FileData": base64data, "FileName": this.state.torrentFileName, "StorageValue": this.state.storageValue, "Label": this.state.torrentLabel}
       }
       console.log("Sending Torrent File: ", torrentFileMessage);
       ws.send(JSON.stringify(torrentFileMessage));

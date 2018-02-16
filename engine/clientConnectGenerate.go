@@ -9,7 +9,7 @@ var (
 	baseFile = `
 	var authMessage = {
 		MessageType: "authRequest",
-		Payload: [ClientAuthString]
+		Payload: {"ClientAuthString": ClientAuthString}
 	}
 
 	var kickStart = {

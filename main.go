@@ -36,8 +36,9 @@ type SingleRSSFeedMessage struct { //TODO had issues with getting this to work w
 
 var (
 	//Logger does logging for the entire project
-	Logger        = logrus.New()
-	Authenticated = false //to verify if user is authenticated, this is stored here
+	Logger = logrus.New()
+	//Authenticated stores the value of the result of the client that connects to the server
+	Authenticated = false
 	APP_ID        = os.Getenv("APP_ID")
 )
 
@@ -54,14 +55,15 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 func handleAuthentication(conn *websocket.Conn, db *storm.DB) {
 	msg := Engine.Message{}
 	err := conn.ReadJSON(&msg)
+	payloadData := msg.Payload.(map[string]interface{})
+	clientAuthToken := payloadData["ClientAuthString"].(string)
 	if err != nil {
-		Logger.WithFields(logrus.Fields{"error": err, "SuppliedToken": msg.Payload[0]}).Error("Unable to read authentication message")
+		Logger.WithFields(logrus.Fields{"error": err, "SuppliedToken": clientAuthToken}).Error("Unable to read authentication message")
 	}
-	authString := msg.Payload[0] //First element will be the auth request
-	fmt.Println("Authstring", authString)
+	fmt.Println("Authstring", clientAuthToken)
 	signingKeyStruct := Storage.FetchJWTTokens(db)
 	singingKey := signingKeyStruct.SigningKey
-	token, err := jwt.Parse(authString, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.Parse(clientAuthToken, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 		}
@@ -198,10 +200,11 @@ func main() {
 		if Authenticated != true {
 			handleAuthentication(conn, db)
 		} else { //If we are authenticated inject the connection into the other packages
-			fmt.Println("Authenticated... continue")
-			Engine.Conn = conn
-			Storage.Conn = conn
+			Logger.WithFields(logrus.Fields{"Conn": conn}).Info("Authenticated, websocket connection available!")
 		}
+		Engine.Conn = conn
+		Storage.Conn = conn
+
 	MessageLoop: //Tagging this so we can continue out of it with any errors we encounter that are failing
 		for {
 			runningTorrents := tclient.Torrents() //getting running torrents here since multiple cases ask for the running torrents
@@ -211,6 +214,10 @@ func main() {
 				Logger.WithFields(logrus.Fields{"error": err, "message": msg}).Error("Unable to read JSON client message")
 				Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "info", Payload: "Malformed JSON request made to server.. ignoring"}, conn)
 				break MessageLoop
+			}
+			var payloadData map[string]interface{}
+			if msg.Payload != nil {
+				payloadData = msg.Payload.(map[string]interface{})
 			}
 			Logger.WithFields(logrus.Fields{"message": msg}).Debug("Message From Client")
 			switch msg.MessageType { //first handling data requests
@@ -236,22 +243,25 @@ func main() {
 
 			case "torrentFileListRequest": //client requested a filelist update
 				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested FileList Update")
-				FileListArray := Engine.CreateFileListArray(tclient, msg.Payload[0], db, Config)
+				fileListArrayRequest := payloadData["FileListHash"].(string)
+				FileListArray := Engine.CreateFileListArray(tclient, fileListArrayRequest, db, Config)
 				conn.WriteJSON(FileListArray) //writing the JSON to the client
 
-			case "torrentDetailedInfo":
-				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested TorrentListDetail Update")
-				torrentDetailArray := Engine.CreateTorrentDetailJSON(tclient, msg.Payload[0], db)
-				conn.WriteJSON(torrentDetailArray)
+			//case "torrentDetailedInfo":
+			//	Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested TorrentListDetail Update")
+			//	fileListArrayRequest := payloadData["FileListArray"].(string)
+			//	torrentDetailArray := Engine.CreateTorrentDetailJSON(tclient, msg.Payload[0], db)
+			//	conn.WriteJSON(torrentDetailArray)
 
 			case "torrentPeerListRequest":
 				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested PeerList Update")
-				torrentPeerList := Engine.CreatePeerListArray(tclient, msg.Payload[0])
+				peerListArrayRequest := payloadData["PeerListHash"].(string)
+				torrentPeerList := Engine.CreatePeerListArray(tclient, peerListArrayRequest)
 				conn.WriteJSON(torrentPeerList)
 
 			case "fetchTorrentsByLabel": //TODO test this to make sure it works
 				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested Torrents by Label")
-				label := msg.MessageDetail
+				label := payloadData["Label"].(string)
 				torrentsByLabel := Storage.FetchTorrentsByLabel(db, label)
 				RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db)
 				labelRunningArray := []Engine.ClientDB{}
@@ -266,8 +276,8 @@ func main() {
 
 			case "changeStorageValue":
 				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested Storage Location Update")
-				newStorageLocation := msg.MessageDetail
-				hashes := msg.Payload
+				newStorageLocation := payloadData["StorageValue"].(string)
+				hashes := payloadData["ChangeStorageHashes"].([]string)
 				for _, singleHash := range hashes {
 					singleTorrent := Storage.FetchTorrentFromStorage(db, singleHash)
 					oldPath := singleTorrent.StoragePath
@@ -296,9 +306,8 @@ func main() {
 
 			case "rssFeedRequest":
 				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested RSS Update")
-
 				RSSList := Storage.FetchRSSFeeds(db)
-				RSSJSONFeed := Engine.RSSJSONList{MessageType: "rssListRequest", TotalRSSFeeds: len(RSSList.RSSFeeds)}
+				RSSJSONFeed := Engine.RSSJSONList{MessageType: "rssList", TotalRSSFeeds: len(RSSList.RSSFeeds)}
 				RSSsingleFeed := Engine.RSSFeedsNames{}
 				for _, singleFeed := range RSSList.RSSFeeds {
 					RSSsingleFeed.RSSName = singleFeed.Name
@@ -308,8 +317,8 @@ func main() {
 				conn.WriteJSON(RSSJSONFeed)
 
 			case "addRSSFeed":
-				Logger.WithFields(logrus.Fields{"message": msg.Payload[0]}).Debug("Client Added RSS Feed")
-				newRSSFeed := msg.Payload[0] //there will only be one RSS feed (hopefully)
+				newRSSFeed := payloadData["RSSURL"].(string)
+				Logger.WithFields(logrus.Fields{"message": newRSSFeed}).Debug("Client Added RSS Feed")
 				fullRSSFeeds := Storage.FetchRSSFeeds(db)
 				Logger.WithFields(logrus.Fields{"RSSFeeds": fullRSSFeeds}).Debug("Pulled Full RSS Feeds")
 				for _, singleFeed := range fullRSSFeeds.RSSFeeds {
@@ -330,31 +339,31 @@ func main() {
 				Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "success", Payload: "Added RSS Feed"}, conn)
 				newRSSFeedFull := Storage.SingleRSSFeed{}
 				newRSSFeedFull.Name = feed.Title
-				newRSSFeedFull.URL = msg.Payload[0]
+				newRSSFeedFull.URL = newRSSFeed
 				fullRSSFeeds.RSSFeeds = append(fullRSSFeeds.RSSFeeds, newRSSFeedFull) // add the new RSS feed to the stack
 				Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "info", Payload: "Adding RSS feed..."}, conn)
 				Engine.ForceRSSRefresh(db, fullRSSFeeds)
 				//forcing an RSS refresh to fully populate all rss feeds TODO maybe just push the update of the new RSS feed and leave cron to update?  But user would most likely expect and immediate update
 
 			case "deleteRSSFeed":
-				Logger.WithFields(logrus.Fields{"message": msg.Payload[0]}).Debug("Deleting RSS Feed")
-				removingRSSFeed := msg.Payload[0]
-				Storage.DeleteRSSFeed(db, removingRSSFeed)
+				deleteRSSFeed := payloadData["RSSURL"].(string)
+				Logger.WithFields(logrus.Fields{"message": deleteRSSFeed}).Debug("Deleting RSS Feed")
+				Storage.DeleteRSSFeed(db, deleteRSSFeed)
 				fullRSSFeeds := Storage.FetchRSSFeeds(db)
 				Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "info", Payload: "Deleting RSS feed..."}, conn)
 				Engine.ForceRSSRefresh(db, fullRSSFeeds)
 
 			case "rssTorrentsRequest":
-				RSSFeedURL := msg.Payload[0]
-				Logger.WithFields(logrus.Fields{"RSSFeed": msg.Payload[0]}).Info("Requesting torrentList for feed..")
+				RSSFeedURL := payloadData["RSSURL"].(string)
+				Logger.WithFields(logrus.Fields{"RSSFeed": RSSFeedURL}).Info("Requesting torrentList for feed..")
 				UpdatedRSSFeed := Engine.RefreshSingleRSSFeed(db, Storage.FetchSpecificRSSFeed(db, RSSFeedURL))
 				TorrentRSSList := SingleRSSFeedMessage{MessageType: "rssTorrentList", URL: RSSFeedURL, Name: UpdatedRSSFeed.Name, TotalTorrents: len(UpdatedRSSFeed.Torrents), Torrents: UpdatedRSSFeed.Torrents}
 				Logger.WithFields(logrus.Fields{"TorrentRSSList": TorrentRSSList}).Debug("Returning Torrent list from RSSFeed to client")
 				conn.WriteJSON(TorrentRSSList)
 
 			case "magnetLinkSubmit": //if we detect a magnet link we will be adding a magnet torrent
-				storageValue := msg.MessageDetail
-				labelValue := msg.MessageDetailTwo
+				storageValue := payloadData["StorageValue"].(string)
+				labelValue := payloadData["Label"].(string)
 				if storageValue == "" {
 					storageValue, err = filepath.Abs(filepath.ToSlash(Config.DefaultMoveFolder))
 					if err != nil {
@@ -368,7 +377,8 @@ func main() {
 						storageValue, _ = filepath.Abs(filepath.ToSlash(Config.DefaultMoveFolder))
 					}
 				}
-				for _, magnetLink := range msg.Payload {
+				magnetLinks := payloadData["MagnetLinks"].([]string)
+				for _, magnetLink := range magnetLinks {
 					clientTorrent, err := tclient.AddMagnet(magnetLink) //reading the payload into the torrent client
 					if err != nil {
 						Logger.WithFields(logrus.Fields{"err": err, "MagnetLink": magnetLink}).Error("Unable to add magnetlink to client!")
@@ -382,16 +392,17 @@ func main() {
 				}
 
 			case "torrentFileSubmit":
-				//base64file := strings.TrimPrefix(msg.Payload[0], "data:;base64,") //trimming off the unneeded bits from the front of the json //TODO maybe do this in client?
-				base64file := strings.Split(msg.Payload[0], ",")            //Mozilla and Chrome have different payloads, but both start the file after the comma
+				base64encoded := payloadData["FileData"].(string)
+				fileName := payloadData["FileName"].(string)
+				storageValue := payloadData["StorageValue"].(string)
+				labelValue := payloadData["Label"].(string)
+				base64file := strings.Split(base64encoded, ",")             //Mozilla and Chrome have different payloads, but both start the file after the comma
 				file, err := base64.StdEncoding.DecodeString(base64file[1]) //grabbing the second half of the string after the split
 				if err != nil {
 					Logger.WithFields(logrus.Fields{"Error": err, "file": file}).Info("Unable to decode base64 string to file")
 					Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Unable to decode base64 string to file"}, conn)
 				}
-				FileName := msg.MessageDetail
-				storageValue := msg.MessageDetailTwo
-				labelValue := msg.MessageDetailThree
+
 				if storageValue == "" {
 					storageValue, err = filepath.Abs(filepath.ToSlash(Config.DefaultMoveFolder))
 					if err != nil {
@@ -406,12 +417,12 @@ func main() {
 						storageValue, _ = filepath.Abs(filepath.ToSlash(Config.DefaultMoveFolder))
 					}
 				}
-				filePath := filepath.Join(Config.TFileUploadFolder, FileName)
+				filePath := filepath.Join(Config.TFileUploadFolder, fileName)
 				filePathAbs, err := filepath.Abs(filePath) //creating a full filepath to store the .torrent files
 
 				err = ioutil.WriteFile(filePathAbs, file, 0755) //Dumping our received file into the filename
 				if err != nil {
-					Logger.WithFields(logrus.Fields{"filepath": filePathAbs, "file Name": FileName, "Error": err}).Error("Unable to write torrent data to file")
+					Logger.WithFields(logrus.Fields{"filepath": filePathAbs, "file Name": fileName, "Error": err}).Error("Unable to write torrent data to file")
 					Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Unable to write torrent data to file"}, conn)
 				}
 
@@ -424,11 +435,11 @@ func main() {
 				Engine.StartTorrent(clientTorrent, torrentLocalStorage, db, "file", filePathAbs, storageValue, labelValue, Config)
 
 			case "stopTorrents":
-				TorrentListCommands := msg.Payload
+				torrentHashes := payloadData["TorrentHashes"].([]interface{})
 				Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "info", Payload: "Received Stop Request"}, conn)
 				for _, singleTorrent := range runningTorrents {
 
-					for _, singleSelection := range TorrentListCommands {
+					for _, singleSelection := range torrentHashes {
 						if singleTorrent.InfoHash().String() == singleSelection {
 							Logger.WithFields(logrus.Fields{"selection": singleSelection}).Info("Matched for stopping torrents")
 							oldTorrentInfo := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String())
@@ -442,15 +453,16 @@ func main() {
 				}
 
 			case "deleteTorrents":
-				withData := msg.MessageDetail //Checking if torrents should be deleted with data
+				torrentHashes := payloadData["TorrentHashes"].([]interface{})
+				withData := payloadData["WithData"].(bool) //Checking if torrents should be deleted with data
 				Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "info", Payload: "Received Delete Request"}, conn)
 				Logger.WithFields(logrus.Fields{"deleteTorrentsPayload": msg.Payload, "torrentlist": msg.Payload, "deleteWithData?": withData}).Info("message for deleting torrents")
 				for _, singleTorrent := range runningTorrents {
-					for _, singleSelection := range msg.Payload {
+					for _, singleSelection := range torrentHashes {
 						if singleTorrent.InfoHash().String() == singleSelection {
 							singleTorrent.Drop()
 							Logger.WithFields(logrus.Fields{"selection": singleSelection}).Info("Matched for deleting torrents")
-							if withData == "true" {
+							if withData {
 								Logger.WithFields(logrus.Fields{"selection": singleSelection}).Info("Deleting torrent and data")
 								Storage.DelTorrentLocalStorageAndFiles(db, singleTorrent.InfoHash().String(), Config.TorrentConfig.DataDir)
 							} else {
@@ -462,10 +474,11 @@ func main() {
 				}
 
 			case "startTorrents":
+				torrentHashes := payloadData["TorrentHashes"].([]interface{})
 				Logger.WithFields(logrus.Fields{"selection": msg.Payload}).Info("Matched for starting torrents")
 				Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "info", Payload: "Received Start Request"}, conn)
 				for _, singleTorrent := range runningTorrents {
-					for _, singleSelection := range msg.Payload {
+					for _, singleSelection := range torrentHashes {
 						if singleTorrent.InfoHash().String() == singleSelection {
 							Logger.WithFields(logrus.Fields{"infoHash": singleTorrent.InfoHash().String()}).Debug("Found matching torrent to start")
 							oldTorrentInfo := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String())
@@ -480,74 +493,62 @@ func main() {
 				}
 
 			case "forceUploadTorrents":
+				torrentHashes := payloadData["TorrentHashes"].([]interface{})
 				Logger.WithFields(logrus.Fields{"selection": msg.Payload}).Info("Matched for force Uploading Torrents")
 				Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "info", Payload: "Received Force Start Request"}, conn)
 				for _, singleTorrent := range runningTorrents {
-					for _, singleSelection := range msg.Payload {
+					for _, singleSelection := range torrentHashes {
 						if singleTorrent.InfoHash().String() == singleSelection {
 							Logger.WithFields(logrus.Fields{"infoHash": singleTorrent.InfoHash().String()}).Debug("Found matching torrent to force start")
 							oldTorrentInfo := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String())
 							oldTorrentInfo.TorrentUploadLimit = false // no upload limit for this torrent
 							oldTorrentInfo.TorrentStatus = "Running"
 							oldTorrentInfo.MaxConnections = 80
+							fmt.Println("OldtorrentinfoName", oldTorrentInfo.TorrentName)
 							oldMax := singleTorrent.SetMaxEstablishedConns(80)
 							singleTorrent.DownloadAll()
-							Logger.WithFields(logrus.Fields{"Previous Max Connections": oldMax, "Torrent": oldTorrentInfo.TorrentName}).Info("Setting max connection from zero to")
+							Logger.WithFields(logrus.Fields{"Previous Max Connections": oldMax, "NewMax": oldTorrentInfo.MaxConnections, "Torrent": oldTorrentInfo.TorrentName}).Info("Setting max connection from zero to")
 							Storage.UpdateStorageTick(db, oldTorrentInfo) //Updating the torrent status
 						}
 					}
 				}
 
 			case "setFilePriority": //TODO disable if the file is already at 100%?
-				Logger.WithFields(logrus.Fields{"selection": msg.Payload}).Info("Matched for setting file priority")
+				priorityRequested := payloadData["FilePriority"].(string)
+				torrentHash := payloadData["TorrentHash"].(string)
+				fileList := payloadData["FilePaths"].([]string)
+				Logger.WithFields(logrus.Fields{"selection": torrentHash}).Info("Matched for setting file priority")
 				Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "info", Payload: "Received Set Priority Request"}, conn)
-				priorityRequested := msg.MessageDetail //storing the priority requested
-				infoHash := msg.MessageDetailTwo       //storing our infohash
-				fileList := msg.Payload                //filelist contains the ABSOLUTE paths to all of the files
 				Logger.WithFields(logrus.Fields{"filelist": fileList}).Debug("Full filelist for setting file priority")
 				for _, singleTorrent := range runningTorrents {
-					if singleTorrent.InfoHash().String() == infoHash {
-						activeTorrentStruct := Storage.FetchTorrentFromStorage(db, infoHash) //fetching all the data from the db to update certain fields then write it all back
+					if singleTorrent.InfoHash().String() == torrentHash {
+						activeTorrentStruct := Storage.FetchTorrentFromStorage(db, torrentHash) //fetching all the data from the db to update certain fields then write it all back
 						Logger.WithFields(logrus.Fields{"singleTorrent": singleTorrent}).Debug("Matched for changing file prio torrents")
 						for _, file := range singleTorrent.Files() {
 							for _, sentFile := range fileList {
-								absFilePath, err := filepath.Abs(file.Path())
-								if err != nil {
-									Logger.WithFields(logrus.Fields{"singleTorrent": singleTorrent}).Error("Cannot create absolute file path for file")
-								}
-								if absFilePath == sentFile {
-									if priorityRequested == "High" {
+								var priorityString string
+								if file.Path() == sentFile {
+									switch priorityRequested {
+									case "High":
+										priorityString = "High"
 										file.SetPriority(torrent.PiecePriorityHigh)
-										Logger.WithFields(logrus.Fields{"singleTorrent": file.DisplayPath()}).Debug("Setting priority for HIGH")
-										for i, specificFile := range activeTorrentStruct.TorrentFilePriority { //searching for that specific file
-											if specificFile.TorrentFilePath == file.DisplayPath() {
-												activeTorrentStruct.TorrentFilePriority[i].TorrentFilePriority = "High" //writing just that field to the current struct
-											}
-										}
-										Storage.UpdateStorageTick(db, activeTorrentStruct) //re-writting essentially that entire struct right back into the database
-									}
-									if priorityRequested == "Normal" {
+									case "Normal":
+										priorityString = "Normal"
 										file.SetPriority(torrent.PiecePriorityNormal)
-										Logger.WithFields(logrus.Fields{"singleTorrent": file.DisplayPath()}).Debug("Setting priority for Normal")
-										for i, specificFile := range activeTorrentStruct.TorrentFilePriority { //searching for that specific file
-											if specificFile.TorrentFilePath == file.DisplayPath() {
-												activeTorrentStruct.TorrentFilePriority[i].TorrentFilePriority = "Normal" //writing just that field to the current struct
-											}
-										}
-										Storage.UpdateStorageTick(db, activeTorrentStruct) //re-writting essentially that entire struct right back into the database
-									}
-									if priorityRequested == "Cancel" {
+									case "Cancel":
+										priorityString = "Cancel"
 										file.SetPriority(torrent.PiecePriorityNone)
-										Logger.WithFields(logrus.Fields{"singleTorrent": file.DisplayPath()}).Debug("Canceling file")
-										for i, specificFile := range activeTorrentStruct.TorrentFilePriority { //searching for that specific file
-											if specificFile.TorrentFilePath == file.DisplayPath() {
-												activeTorrentStruct.TorrentFilePriority[i].TorrentFilePriority = "Canceled"       //writing just that field to the current struct
-												activeTorrentStruct.TorrentSize = activeTorrentStruct.TorrentSize - file.Length() //changing the length of the download since the file was canceled
-											}
-										}
-										Storage.UpdateStorageTick(db, activeTorrentStruct) //re-writting essentially that entire struct right back into the database
+									default:
+										priorityString = "Normal"
+										file.SetPriority(torrent.PiecePriorityNormal)
 									}
-
+									for i, specificFile := range activeTorrentStruct.TorrentFilePriority { //searching for that specific file
+										if specificFile.TorrentFilePath == file.DisplayPath() {
+											activeTorrentStruct.TorrentFilePriority[i].TorrentFilePriority = priorityString //writing just that field to the current struct
+										}
+									}
+									Logger.WithFields(logrus.Fields{"singleTorrent": file.DisplayPath()}).Debug("Setting priority for ", priorityString)
+									Storage.UpdateStorageTick(db, activeTorrentStruct) //re-writting essentially that entire struct right back into the database
 								}
 							}
 						}

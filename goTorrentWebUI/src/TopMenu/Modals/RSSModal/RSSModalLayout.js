@@ -108,7 +108,7 @@ const inlineStyle = {
   handleAddRSSFeed = () => {
     let RSSURLSubmit = {
       MessageType: "addRSSFeed",
-      Payload: [this.state.textValue]
+      Payload: {"RSSURL": this.state.textValue}
     }
     ws.send(JSON.stringify(RSSURLSubmit));
     let RSSRequest = {

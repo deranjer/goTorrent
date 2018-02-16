@@ -66,10 +66,9 @@ class FileTab extends React.Component {
         })
         let setFilePriority = {
             MessageType: "setFilePriority",
-            MessageDetail: priority,
-            MessageDetailTwo: selectionHash,
-            Payload: filePaths,    
+            Payload: {"TorrentHash": selectionHashes, "FilePriority": priority, "FilePaths": filePaths}
         }
+
         console.log(JSON.stringify(setFilePriority))
         ws.send(JSON.stringify(setFilePriority))
     }

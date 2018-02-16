@@ -82,7 +82,7 @@ class IconButtons extends React.Component {
     console.log("Force starting Torrents", this.props.selectionHashes)
     let forceUploadTorrents = {
       MessageType: "forceUploadTorrents",
-      Payload: this.props.selectionHashes,
+      Payload: {"TorrentHashes": this.props.selectionHashes}
     }
     ws.send(JSON.stringify(forceUploadTorrents))
   }
@@ -91,7 +91,7 @@ class IconButtons extends React.Component {
     console.log("Starting Torrents", this.props.selectionHashes)
     let startTorrentHashes = {
       MessageType: "startTorrents",
-      Payload: this.props.selectionHashes,    
+      Payload: {"TorrentHashes": this.props.selectionHashes}    
     }
     //console.log("Peers tab information requested", peerListHashes)
     ws.send(JSON.stringify(startTorrentHashes))
@@ -101,7 +101,7 @@ class IconButtons extends React.Component {
   stopTorrent = () => {
     let stopTorrentHashes = {
       MessageType: "stopTorrents",
-      Payload: this.props.selectionHashes,    
+      Payload: {"TorrentHashes": this.props.selectionHashes}    
     }
     console.log("Stopping Torrents", stopTorrentHashes)
     ws.send(JSON.stringify(stopTorrentHashes))

@@ -65,12 +65,12 @@ class RSSTorrentList extends React.Component {
             console.log("element", element)
             sendMagnetLinks.push(element.TorrentLink)
         })
-        let magnetLinkSubmit = {
+        let magnetLinkMessage = {
             MessageType: "magnetLinkSubmit",
-            Payload: sendMagnetLinks,    
-        }
-        console.log(JSON.stringify(magnetLinkSubmit))
-        ws.send(JSON.stringify(magnetLinkSubmit))
+            Payload: {"MagnetLinks": [sendMagnetLinks], "Label": "RSS"}
+          }
+        console.log(JSON.stringify(magnetLinkMessage))
+        ws.send(JSON.stringify(magnetLinkMessage))
     }
 
     componentWillReceiveProps () {

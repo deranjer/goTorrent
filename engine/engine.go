@@ -173,6 +173,7 @@ func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.To
 
 	}
 	torrentLocalStorage.TorrentFilePriority = TorrentFilePriorityArray
+	fmt.Println("TorrentUPloadLimit", torrentLocalStorage.TorrentUploadLimit)
 	Storage.AddTorrentLocalStorage(torrentDbStorage, torrentLocalStorage) //writing all of the data to the database
 	clientTorrent.DownloadAll()                                           //starting the download
 	CreateServerPushMessage(ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "success", Payload: "Torrent added!"}, Conn)
@@ -214,11 +215,10 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		if err != nil {
 			Logger.WithFields(logrus.Fields{"torrentFile": singleTorrent.Name(), "error": err}).Error("Unable to add infobytes to the torrent!")
 		}
-		//Logger.WithFields(logrus.Fields{"singleTorrent": singleTorrentFromStorage.TorrentName}).Info("Generating infohash")
 		calculatedTotalSize := CalculateDownloadSize(singleTorrentFromStorage, singleTorrent)
-		calculatedCompleteSize := CalculateCompleteSize(singleTorrentFromStorage, singleTorrent)
+		calculatedCompletedSize := CalculateCompletedSize(singleTorrentFromStorage, singleTorrent)
 		TempHash = singleTorrent.InfoHash()
-		if (calculatedCompleteSize == singleTorrentFromStorage.TorrentSize) && (singleTorrentFromStorage.TorrentMoved == false) { //if we are done downloading and haven't moved torrent yet
+		if (calculatedCompletedSize == singleTorrentFromStorage.TorrentSize) && (singleTorrentFromStorage.TorrentMoved == false) { //if we are done downloading and haven't moved torrent yet
 			Logger.WithFields(logrus.Fields{"singleTorrent": singleTorrentFromStorage.TorrentName}).Info("Torrent Completed, moving...")
 			MoveAndLeaveSymlink(config, singleTorrent.InfoHash().String(), db, false, "") //can take some time to move file so running this in another thread TODO make this a goroutine and skip this block if the routine is still running
 		}
@@ -229,12 +229,12 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		totalPeersString := fmt.Sprintf("%v", fullStruct.TotalPeers)
 		fullClientDB.StoragePath = singleTorrentFromStorage.StoragePath
 
-		downloadedSizeHumanized := HumanizeBytes(float32(calculatedCompleteSize)) //convert size to GB if needed
+		downloadedSizeHumanized := HumanizeBytes(float32(calculatedCompletedSize)) //convert size to GB if needed
 		totalSizeHumanized := HumanizeBytes(float32(calculatedTotalSize))
 
 		fullClientDB.DownloadedSize = downloadedSizeHumanized
 		fullClientDB.Size = totalSizeHumanized
-		PercentDone := fmt.Sprintf("%.2f", float32(calculatedCompleteSize)/float32(calculatedTotalSize))
+		PercentDone := fmt.Sprintf("%.2f", float32(calculatedCompletedSize)/float32(calculatedTotalSize))
 		fullClientDB.TorrentHash = TempHash
 		fullClientDB.PercentDone = PercentDone
 		fullClientDB.DataBytesRead = fullStruct.ConnStats.BytesReadData       //used for calculations not passed to client calculating up/down speed
@@ -244,7 +244,7 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		fullClientDB.TorrentName = singleTorrentFromStorage.TorrentName
 		fullClientDB.DateAdded = singleTorrentFromStorage.DateAdded
 		fullClientDB.TorrentLabel = singleTorrentFromStorage.Label
-		fullClientDB.BytesCompleted = calculatedCompleteSize
+		fullClientDB.BytesCompleted = calculatedCompletedSize
 		fullClientDB.NumberofFiles = len(singleTorrent.Files())
 
 		if len(PreviousTorrentArray) > 0 { //if we actually have  a previous array //ranging over the previous torrent array to calculate the speed for each torrent
@@ -256,18 +256,18 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 				}
 			}
 		}
-		CalculateTorrentETA(singleTorrentFromStorage.TorrentSize, calculatedCompleteSize, fullClientDB) //needs to be here since we need the speed calculated before we can estimate the eta.
+		CalculateTorrentETA(singleTorrentFromStorage.TorrentSize, calculatedCompletedSize, fullClientDB) //needs to be here since we need the speed calculated before we can estimate the eta.
 
 		fullClientDB.TotalUploadedSize = HumanizeBytes(float32(fullClientDB.TotalUploadedBytes))
 		fullClientDB.UploadRatio = CalculateUploadRatio(singleTorrent, fullClientDB) //calculate the upload ratio
 
-		CalculateTorrentStatus(singleTorrent, fullClientDB, config, singleTorrentFromStorage)
+		CalculateTorrentStatus(singleTorrent, fullClientDB, config, singleTorrentFromStorage, calculatedCompletedSize, calculatedTotalSize)
 
 		tickUpdateStruct.UploadRatio = fullClientDB.UploadRatio
 		tickUpdateStruct.UploadedBytes = fullClientDB.TotalUploadedBytes
 		tickUpdateStruct.TorrentStatus = fullClientDB.Status
 		tickUpdateStruct.Hash = fullClientDB.TorrentHashString //needed for index
-
+		fmt.Println("Status", tickUpdateStruct.TorrentStatus)
 		Storage.UpdateStorageTick(db, tickUpdateStruct)
 		RunningTorrentArray = append(RunningTorrentArray, *fullClientDB)
 

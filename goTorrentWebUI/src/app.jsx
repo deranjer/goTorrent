@@ -70,6 +70,11 @@ class BasicLayout extends React.PureComponent {
     this.props.onLayoutChange(layout);
   }
 
+  componentWillMount() { //if login not required log in automatically
+    if (LoginRequired == false){
+      this.setState({loggedin: true})
+    }
+  }
 
   render() {
     return [

@@ -104,7 +104,7 @@ ws.onmessage = function (evt) { //When we recieve a message from the websocket
             console.log("Logger data requested")
             break;
     
-        case "rssListRequest":
+        case "rssList":
             console.log("RSSListRequest recieved", evt.data)
             RSSList = [];
             for (var i = 0; i < serverMessage.TotalRSSFeeds; i++){
@@ -163,7 +163,7 @@ class BackendSocket extends React.Component {
             case 1:
                 let peerListHashes = {
                     MessageType: "torrentPeerListRequest",
-                    Payload: selectionHashes,    
+                    Payload: {"PeerListHash": selectionHashes[0]}    
                 }
                 console.log("Peers tab information requested", peerListHashes)
                 ws.send(JSON.stringify(peerListHashes))
@@ -171,7 +171,7 @@ class BackendSocket extends React.Component {
             case 2:
                 let fileListHashes = {
                     MessageType: "torrentFileListRequest",
-                    Payload: selectionHashes,
+                    Payload: {"FileListHash": selectionHashes[0]}
                 }
                 console.log("Files tab information requested", fileListHashes)
                 ws.send(JSON.stringify(fileListHashes))
@@ -222,7 +222,6 @@ class BackendSocket extends React.Component {
             this.props.newServerMessage(serverPushMessage)
         }
         
-        
         ws.send(JSON.stringify(torrentListRequest))//talking to the server to get the torrent list
         if (ws.readyState === ws.CLOSED){ //if our websocket gets closed inform the user
             webSocketState = false
@@ -236,7 +235,7 @@ class BackendSocket extends React.Component {
                 case 1:
                     let peerListHashes = {
                         MessageType: "torrentPeerListRequest",
-                        Payload: this.props.selectionHashes,    
+                        Payload: {"PeerListHash": this.props.selectionHashes[0]}       
                     }
                     ws.send(JSON.stringify(peerListHashes))
                     this.props.newPeerList(peerList)
@@ -244,7 +243,7 @@ class BackendSocket extends React.Component {
                 case 2:
                     let fileListHashes = {
                         MessageType: "torrentFileListRequest",
-                        Payload: this.props.selectionHashes,
+                        Payload: {"FileListHash": this.props.selectionHashes[0]}
                     }
                     ws.send(JSON.stringify(fileListHashes))
                     this.props.newFileList(fileList)
@@ -254,7 +253,6 @@ class BackendSocket extends React.Component {
 
         }     
     }
-
 
 
     componentWillReceiveProps (nextProps) {
@@ -287,9 +285,6 @@ const mapStateToProps = state => {
     };
   }
 
-
-
-
 const mapDispatchToProps = dispatch => {
     return {
         newTorrentList: (torrentList) => dispatch({type: actionTypes.TORRENT_LIST, torrentList }),
@@ -304,7 +299,5 @@ const mapDispatchToProps = dispatch => {
 
     }
 }
-
-
 
 export default connect(mapStateToProps, mapDispatchToProps)(BackendSocket);

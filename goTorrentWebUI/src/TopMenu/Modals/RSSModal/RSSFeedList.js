@@ -63,7 +63,7 @@ const inlineStyle = {
   showRSSFiles = (key) => {
     let RSSTorrentsRequest = {
       MessageType: "rssTorrentsRequest",
-      Payload: [this.props.RSSList[key].RSSURL]
+      Payload: {"RSSURL": this.props.RSSList[key].RSSURL}
     }
     ws.send(JSON.stringify(RSSTorrentsRequest))
 

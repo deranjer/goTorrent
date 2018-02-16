@@ -2,7 +2,10 @@
 
 IP = "192.168.1.100"
 Port = "8000"
-ClientAuthString = "" //String generated on first start and stored in the root as "clientAuth.txt" 
+ClientAuthString = "" //String generated on first start and stored in the root as "clientAuth.txt"
+const LoginRequired = true
+const ClientUsername = "admin"
+const ClientPassword = "" //create a sha256 hash of your password and enter it here
 
 //var ws = new WebSocket(`ws://${IP}:${Port}/websocket`); //for websockets not over an SSL reverse proxy
 

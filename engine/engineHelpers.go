@@ -94,12 +94,11 @@ func CalculateDownloadSize(tFromStorage *Storage.TorrentLocal, activeTorrent *to
 	return totalLength
 }
 
-//CalculateCompleteSize will be used to calculate how much of the actual torrent we have completed minus the canceled files (even if they have been partially downloaded)
-func CalculateCompleteSize(tFromStorage *Storage.TorrentLocal, activeTorrent *torrent.Torrent) int64 {
-	var downloadedLength int64
+//CalculateCompletedSize will be used to calculate how much of the actual torrent we have completed minus the canceled files (even if they have been partially downloaded)
+func CalculateCompletedSize(tFromStorage *Storage.TorrentLocal, activeTorrent *torrent.Torrent) int64 {
 	var discardByteLength int64
 	for _, storageFile := range tFromStorage.TorrentFilePriority {
-		if storageFile.TorrentFilePriority != "Cancel" { //If the file is canceled
+		if storageFile.TorrentFilePriority == "Cancel" { //If the file is canceled don't count it as downloaded
 			for _, activeFile := range activeTorrent.Files() {
 				if activeFile.DisplayPath() == storageFile.TorrentFilePath { //match the file from storage to active
 					for _, piece := range activeFile.State() {
@@ -111,7 +110,7 @@ func CalculateCompleteSize(tFromStorage *Storage.TorrentLocal, activeTorrent *to
 			}
 		}
 	}
-	downloadedLength = downloadedLength - discardByteLength
+	downloadedLength := activeTorrent.BytesCompleted() - discardByteLength
 	return downloadedLength
 }
 
@@ -141,22 +140,23 @@ func CalculateUploadRatio(t *torrent.Torrent, c *ClientDB) string {
 }
 
 //CalculateTorrentStatus is used to determine what the STATUS column of the frontend will display ll2
-func CalculateTorrentStatus(t *torrent.Torrent, c *ClientDB, config FullClientSettings, tFromStorage *storage.TorrentLocal) {
-	if (tFromStorage.TorrentStatus == "Stopped") || (float64(c.TotalUploadedBytes)/float64(t.BytesCompleted()) >= config.SeedRatioStop && tFromStorage.TorrentUploadLimit == true) { //If storage shows torrent stopped or if it is over the seeding ratio AND is under the global limit
+func CalculateTorrentStatus(t *torrent.Torrent, c *ClientDB, config FullClientSettings, tFromStorage *storage.TorrentLocal, bytesCompleted int64, totalSize int64) {
+	if (tFromStorage.TorrentStatus == "Stopped") || (float64(c.TotalUploadedBytes)/float64(bytesCompleted) >= config.SeedRatioStop && tFromStorage.TorrentUploadLimit == true) { //If storage shows torrent stopped or if it is over the seeding ratio AND is under the global limit
 		c.Status = "Stopped"
 		c.MaxConnections = 0
 		t.SetMaxEstablishedConns(0)
 	} else { //Only has 2 states in storage, stopped or running, so we know it should be running, and the websocket request handled updating the database with connections and status
+		bytesMissing := totalSize - bytesCompleted
 		c.MaxConnections = 80
 		t.SetMaxEstablishedConns(80) //TODO this should not be needed but apparently is needed
 		t.DownloadAll()              //ensure that we are setting the torrent to download
-		if t.Seeding() && t.Stats().ActivePeers > 0 && t.BytesMissing() == 0 {
+		if t.Seeding() && t.Stats().ActivePeers > 0 && bytesMissing == 0 {
 			c.Status = "Seeding"
-		} else if t.Stats().ActivePeers > 0 && t.BytesMissing() > 0 {
+		} else if t.Stats().ActivePeers > 0 && bytesMissing > 0 {
 			c.Status = "Downloading"
-		} else if t.Stats().ActivePeers == 0 && t.BytesMissing() == 0 {
+		} else if t.Stats().ActivePeers == 0 && bytesMissing == 0 {
 			c.Status = "Completed"
-		} else if t.Stats().ActivePeers == 0 && t.BytesMissing() > 0 {
+		} else if t.Stats().ActivePeers == 0 && bytesMissing > 0 {
 			c.Status = "Awaiting Peers"
 		} else {
 			c.Status = "Unknown"

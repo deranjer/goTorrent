@@ -48,12 +48,11 @@ class ChangeStorageModal extends React.Component {
 
   handleSubmit = () => {
       this.setState({ open: false });
-      //let magnetLinkSubmit = this.state.textValue;
       let changeStorageMessage = {
         MessageType: "changeStorageValue",
-        MessageDetail: this.state.storageValue, //new storage value
-        Payload: this.props.selectionHashes, //the selection hashes 
+        Payload: {"ChangeStorageHashes": this.props.selectionHashes, "StorageValue": this.state.storageValue} //the selection hashes and new store value
       }
+
       console.log("Sending new Storage Location: ", changeStorageMessage);
       ws.send(JSON.stringify(changeStorageMessage));
       this.setState({storageValue: ``})

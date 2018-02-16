@@ -41,8 +41,7 @@ class DeleteTorrentModal extends React.Component {
     let selection = []
     let deleteTorrentHashes = {
       MessageType: "deleteTorrents",
-      MessageDetail: "false", //delete with data
-      Payload: this.props.selectionHashes
+      Payload: {"TorrentHashes": this.props.selectionHashes, "WithData": false}
     }
     console.log("Deleting Torrents", deleteTorrentHashes)
     ws.send(JSON.stringify(deleteTorrentHashes))
@@ -56,8 +55,7 @@ class DeleteTorrentModal extends React.Component {
 
     let deleteTorrentHashes = {
       MessageType: "deleteTorrents",
-      MessageDetail: "true", //delete with data
-      Payload: this.props.selectionHashes,
+      Payload: {"TorrentHashes": this.props.selectionHashes, "WithData": true}
     }
     console.log("Deleting Torrents and Data", deleteTorrentHashes)
     ws.send(JSON.stringify(deleteTorrentHashes))

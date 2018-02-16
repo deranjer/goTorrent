@@ -50,7 +50,7 @@ type SingleRSSFeed struct {
 type SingleRSSTorrent struct {
 	Link    string `storm:"id,unique"`
 	Title   string
-	PubDate string //TODO, change this to a date of some kind
+	PubDate string
 }
 
 //TorrentFilePriority stores the priority for each file in a torrent
@@ -266,7 +266,7 @@ func DeleteRSSFeed(db *storm.DB, RSSFeedURL string) {
 	newRSSFeedStore := RSSFeedStore{ID: RSSFeedStoreOld.ID} //creating new store
 	for _, RSSFeed := range RSSFeedStoreOld.RSSFeeds {      //recreating entire store and excluding that one RSS feed we don't want
 		if RSSFeed.URL != RSSFeedURL {
-			Logger.WithFields(logrus.Fields{"RSSFeedURL": RSSFeedURL}).Debug("Adding new RSS feed to list..")
+			Logger.WithFields(logrus.Fields{"RSSFeedURL": RSSFeedURL}).Debug("Deleting RSS Feed...")
 			newRSSFeedStore.RSSFeeds = append(newRSSFeedStore.RSSFeeds, RSSFeed)
 		}
 	}
