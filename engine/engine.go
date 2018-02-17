@@ -173,7 +173,6 @@ func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.To
 
 	}
 	torrentLocalStorage.TorrentFilePriority = TorrentFilePriorityArray
-	fmt.Println("TorrentUPloadLimit", torrentLocalStorage.TorrentUploadLimit)
 	Storage.AddTorrentLocalStorage(torrentDbStorage, torrentLocalStorage) //writing all of the data to the database
 	clientTorrent.DownloadAll()                                           //starting the download
 	CreateServerPushMessage(ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "success", Payload: "Torrent added!"}, Conn)
@@ -267,7 +266,6 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		tickUpdateStruct.UploadedBytes = fullClientDB.TotalUploadedBytes
 		tickUpdateStruct.TorrentStatus = fullClientDB.Status
 		tickUpdateStruct.Hash = fullClientDB.TorrentHashString //needed for index
-		fmt.Println("Status", tickUpdateStruct.TorrentStatus)
 		Storage.UpdateStorageTick(db, tickUpdateStruct)
 		RunningTorrentArray = append(RunningTorrentArray, *fullClientDB)
 

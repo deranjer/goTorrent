@@ -1,4 +1,4 @@
-package engine
+package settings
 
 import (
 	"crypto/sha256"
@@ -13,6 +13,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
+
+//Logger is the injected variable for global logger
+var Logger *logrus.Logger
 
 //FullClientSettings contains all of the settings for our entire application
 type FullClientSettings struct {

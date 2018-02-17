@@ -20,6 +20,7 @@ type IssuedTokensList struct {
 	ID         int `storm:"id,unique"` //storm requires unique ID (will be 3) to save although there will only be one of these
 	SigningKey []byte
 	TokenNames []SingleToken
+	FirstToken string `storm:omitempty`
 }
 
 //SingleToken stores a single token and all of the associated information
@@ -81,6 +82,25 @@ type TorrentLocal struct {
 	TorrentSize         int64 //If we cancel a file change the download size since we won't be downloading that file
 	UploadRatio         string
 	TorrentFilePriority []TorrentFilePriority
+}
+
+//SaveConfig saves the config to the database to compare for changes to settings.toml on restart
+func SaveConfig(torrentStorage *storm.DB, config interface{}) {
+	err := torrentStorage.Save(&config)
+	if err != nil {
+		Logger.WithFields(logrus.Fields{"database": torrentStorage, "error": err}).Error("Error saving Config to database!")
+	}
+}
+
+//FetchConfig fetches the client config from the database
+func FetchConfig(torrentStorage *storm.DB) (Engine.FullClientSettings, error) {
+	config := Engine.FullClientSettings{}
+	err := torrentStorage.All(&config)
+	if err != nil {
+		Logger.WithFields(logrus.Fields{"database": torrentStorage, "error": err}).Error("Unable to read Database into configFile!")
+		return config, err
+	}
+	return config, err
 }
 
 //FetchAllStoredTorrents is called to read in ALL local stored torrents in the boltdb database (called on server restart)

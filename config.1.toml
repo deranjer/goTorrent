@@ -8,7 +8,7 @@
     SeedRatioStop = 1.50 #automatically stops the torrent after it reaches this seeding ratio
 
     #Relative or absolute path accepted, the server will convert any relative path to an absolute path.
-    DefaultMoveFolder = 'Z:\downloads' #default path that a finished torrent is symlinked to after completion. Torrents added via RSS will default here
+    DefaultMoveFolder = 'downloaded' #default path that a finished torrent is symlinked to after completion. Torrents added via RSS will default here
     TorrentWatchFolder = 'torrentUpload' #folder path that is watched for .torrent files and adds them automatically every 5 minutes
     
     #Limits your upload and download speed globally, all are averages and not burst protected (usually burst on start).
@@ -18,20 +18,20 @@
 
 [goTorrentWebUI]
     #Basic goTorrentWebUI authentication (not terribly secure, implemented in JS, password is hashed to SHA256, not salted, basically don't depend on this if you require very good security)
-    WebUIAuth = false # bool, if false no authentication is required for the webUI
+    WebUIAuth = true # bool, if false no authentication is required for the webUI
     WebUIUser = "admin"
     WebUIPassword = "Password1"
 
 
 [notifications]
 
-    PushBulletToken = "o.8sUHemPkTCaty3u7KnyvEBN19EkeT63g" #add your pushbullet api token here to notify of torrent completion to pushbullet
+    PushBulletToken = "" #add your pushbullet api token here to notify of torrent completion to pushbullet
 
 [reverseProxy]
     #This is for setting up goTorrent behind a reverse Proxy (with SSL, reverse proxy with no SSL will require editing the WSS connection to a WS connection manually)
-    ProxyEnabled = true #bool, either false or true
+    ProxyEnabled = false #bool, either false or true
     #URL is CASE SENSITIVE
-    BaseURL = "derajnet.duckdns.org/gopher/"  # MUST be in the format (if you have a subdomain, and must have trailing slash) "yoursubdomain.domain.org/subroute/"
+    BaseURL = "yoursubdomain.domain.org/subroute/"  # MUST be in the format (if you have a subdomain, and must have trailing slash) "yoursubdomain.domain.org/subroute/"
 
 [EncryptionPolicy]
 

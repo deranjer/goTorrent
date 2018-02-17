@@ -69,8 +69,8 @@ func CalculateTorrentSpeed(t *torrent.Torrent, c *ClientDB, oc ClientDB) {
 	dbU := float32(bytesUpload - oc.DataBytesWritten)
 	rateUpload := dbU * (float32(time.Second) / dt)
 	if rate >= 0 {
-		rate = rate / 1024 / 1024 //creating integer to calculate ETA
-		c.DownloadSpeed = fmt.Sprintf("%.2f", rate)
+		rateMB := rate / 1024 / 1024 //creating MB to calculate ETA
+		c.DownloadSpeed = fmt.Sprintf("%.2f", rateMB)
 		c.DownloadSpeed = c.DownloadSpeed + " MB/s"
 		c.downloadSpeedInt = int64(rate)
 	}
@@ -117,13 +117,12 @@ func CalculateCompletedSize(tFromStorage *Storage.TorrentLocal, activeTorrent *t
 //CalculateTorrentETA is used to estimate the remaining dl time of the torrent based on the speed that the MB are being downloaded
 func CalculateTorrentETA(tSize int64, tBytesCompleted int64, c *ClientDB) {
 	missingBytes := tSize - tBytesCompleted
-	missingMB := missingBytes / 1024 / 1024
-	if missingMB == 0 {
+	if missingBytes == 0 {
 		c.ETA = "Done"
 	} else if c.downloadSpeedInt == 0 {
 		c.ETA = "N/A"
 	} else {
-		ETASeconds := missingMB / c.downloadSpeedInt
+		ETASeconds := missingBytes / c.downloadSpeedInt
 		str := secondsToMinutes(ETASeconds) //converting seconds to minutes + seconds
 		c.ETA = str
 	}

@@ -16,6 +16,7 @@ import (
 	"github.com/anacrolix/torrent"
 	"github.com/asdine/storm"
 	Engine "github.com/deranjer/goTorrent/engine"
+	Settings "github.com/deranjer/goTorrent/settings"
 	Storage "github.com/deranjer/goTorrent/storage"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/handlers"
@@ -84,7 +85,8 @@ func handleAuthentication(conn *websocket.Conn, db *storm.DB) {
 func main() {
 	Engine.Logger = Logger //Injecting the logger into all the packages
 	Storage.Logger = Logger
-	Config := Engine.FullClientSettingsNew() //grabbing from settings.go
+	Settings.Logger = Logger
+	Config := Settings.FullClientSettingsNew() //grabbing from settings.go
 	if Config.LoggingOutput == "file" {
 		_, err := os.Stat("logs")
 		if os.IsNotExist(err) {
@@ -131,19 +133,19 @@ func main() {
 		fmt.Println("Error", err)
 		fmt.Println("MAIN TOKEN: %+v\n", tokens)
 		tokens.ID = 3 //creating the initial store
-		claims := Engine.GoTorrentClaims{
+		claims := Settings.GoTorrentClaims{
 			"goTorrentWebUI",
 			jwt.StandardClaims{
 				Issuer: "goTorrentServer",
 			},
 		}
-		signingkey := Engine.GenerateSigningKey() //Running this will invalidate any certs you already issued!!
+		signingkey := Settings.GenerateSigningKey() //Running this will invalidate any certs you already issued!!
 		fmt.Println("SigningKey", signingkey)
-		authString := Engine.GenerateToken(claims, signingkey)
+		authString := Settings.GenerateToken(claims, signingkey)
 		tokens.SigningKey = signingkey
 		fmt.Println("ClientToken: ", authString)
-		Engine.GenerateClientConfigFile(Config, authString) //if first run generate the client config file
-
+		Settings.GenerateClientConfigFile(Config, authString) //if first run generate the client config file
+		tokens.FirstToken = authString
 		tokens.TokenNames = append(tokens.TokenNames, Storage.SingleToken{"firstClient"})
 		err := ioutil.WriteFile("clientAuth.txt", []byte(authString), 0755)
 		if err != nil {
@@ -151,6 +153,16 @@ func main() {
 		}
 		db.Save(&tokens) //Writing all of that to the database
 	}
+
+	oldConfig, err := Storage.FetchConfig(db)
+	if err != nil {
+		Logger.WithFields(logrus.Fields{"error": err}).Info("Assuming first run as no config found in database")
+	} else {
+		if oldConfig != Config {
+			Settings.GenerateClientConfigFile(Config, tokens.FirstToken)
+		}
+	}
+	Storage.SaveConfig(db, Config) //Save the config to the database
 
 	cronEngine := Engine.InitializeCronEngine() //Starting the cron engine for tasks
 	Logger.Debug("Cron Engine Initialized...")
@@ -278,9 +290,9 @@ func main() {
 			case "changeStorageValue":
 				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested Storage Location Update")
 				newStorageLocation := payloadData["StorageValue"].(string)
-				hashes := payloadData["ChangeStorageHashes"].([]string)
+				hashes := payloadData["ChangeStorageHashes"].([]interface{})
 				for _, singleHash := range hashes {
-					singleTorrent := Storage.FetchTorrentFromStorage(db, singleHash)
+					singleTorrent := Storage.FetchTorrentFromStorage(db, singleHash.(string))
 					oldPath := singleTorrent.StoragePath
 					newStorageLocationAbs, err := filepath.Abs(filepath.ToSlash(newStorageLocation))
 					if err != nil {
@@ -292,7 +304,7 @@ func main() {
 					Storage.UpdateStorageTick(db, singleTorrent) //push torrent to storage
 					if singleTorrent.TorrentMoved == true {      //If torrent has already been moved and I change path then move it again... TODO, does this work with symlinks?
 						Logger.WithFields(logrus.Fields{"message": msg}).Info("Change Storage Value called")
-						Engine.MoveAndLeaveSymlink(Config, singleHash, db, true, oldPath)
+						Engine.MoveAndLeaveSymlink(Config, singleHash.(string), db, true, oldPath)
 					}
 				}
 
@@ -378,9 +390,9 @@ func main() {
 						storageValue, _ = filepath.Abs(filepath.ToSlash(Config.DefaultMoveFolder))
 					}
 				}
-				magnetLinks := payloadData["MagnetLinks"].([]string)
+				magnetLinks := payloadData["MagnetLinks"].([]interface{})
 				for _, magnetLink := range magnetLinks {
-					clientTorrent, err := tclient.AddMagnet(magnetLink) //reading the payload into the torrent client
+					clientTorrent, err := tclient.AddMagnet(magnetLink.(string)) //reading the payload into the torrent client
 					if err != nil {
 						Logger.WithFields(logrus.Fields{"err": err, "MagnetLink": magnetLink}).Error("Unable to add magnetlink to client!")
 						Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Unable to add magnetlink to client!"}, conn)
@@ -446,6 +458,7 @@ func main() {
 							oldTorrentInfo := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String())
 							oldTorrentInfo.TorrentStatus = "Stopped"
 							oldTorrentInfo.MaxConnections = 0
+							fmt.Println("Running Command...", "oldMax=singleTorrent.SetMaxEstablishedConns(0)")
 							oldMax := singleTorrent.SetMaxEstablishedConns(0) //Forcing the max amount of connections allowed to zero effectively stopping it
 							Logger.WithFields(logrus.Fields{"oldMaxConnections": oldMax, "torrent": singleTorrent}).Info("Forcing connections to zero for torrent")
 							Storage.UpdateStorageTick(db, oldTorrentInfo) //Updating the torrent status
@@ -517,7 +530,7 @@ func main() {
 			case "setFilePriority": //TODO disable if the file is already at 100%?
 				priorityRequested := payloadData["FilePriority"].(string)
 				torrentHash := payloadData["TorrentHash"].(string)
-				fileList := payloadData["FilePaths"].([]string)
+				fileList := payloadData["FilePaths"].([]interface{})
 				Logger.WithFields(logrus.Fields{"selection": torrentHash}).Info("Matched for setting file priority")
 				Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "info", Payload: "Received Set Priority Request"}, conn)
 				Logger.WithFields(logrus.Fields{"filelist": fileList}).Debug("Full filelist for setting file priority")
