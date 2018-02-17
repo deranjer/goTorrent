@@ -1,7 +1,7 @@
 {
     // See https://go.microsoft.com/fwlink/?LinkId=733558
     // for the documentation about the tasks.json format
-    "version": "2.0.0",
+    "version": "2.0.0", 
     "tasks": [
         {
             "taskName": "Run Program",
@@ -12,9 +12,9 @@
             ]
         },
         {
-            "taskName": "Build GopherJS",
+            "taskName": "goReleaser Snapshot",
             "type": "shell",
-            "command": "C:/Users/deranjer/go/bin/gopherjs.exe build C:/Users/deranjer/GoglandProjects/torrent-project/public/static/js/frontend-websocket.go",
+            "command": "C:/Users/deranjer/go/bin/goreleaser.exe -rm-dist -snapshot",
             "problemMatcher": [
                 "$go"
             ]

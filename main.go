@@ -192,6 +192,7 @@ func main() {
 
 	router.HandleFunc("/websocket", func(w http.ResponseWriter, r *http.Request) { //websocket is the main data pipe to the frontend
 		conn, err := upgrader.Upgrade(w, r, nil)
+		fmt.Println("Websocket connection here")
 		defer conn.Close() //defer closing the websocket until done.
 		if err != nil {
 			Logger.WithFields(logrus.Fields{"error": err}).Fatal("Unable to create websocket!")

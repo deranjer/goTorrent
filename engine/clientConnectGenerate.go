@@ -36,6 +36,10 @@ func GenerateClientConfigFile(config FullClientSettings, authString string) {
 		const ClientUsername = "` + config.ClientUsername + `"
 		const ClientPassword = "` + config.ClientPassword + `"
 		`
+	} else {
+		webUIAuth = `
+		const LoginRequired = false
+		`
 	}
 
 	if config.UseProxy {
