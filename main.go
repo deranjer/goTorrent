@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	_ "net/http/pprof"
@@ -25,15 +26,6 @@ import (
 	"github.com/mmcdole/gofeed"
 	"github.com/sirupsen/logrus"
 )
-
-//SingleRSSFeedMessage will most likely be deprecated as this is the only way I could get it working currently
-type SingleRSSFeedMessage struct { //TODO had issues with getting this to work with Storage or Engine
-	MessageType   string
-	URL           string //the URL of the individual RSS feed
-	Name          string
-	TotalTorrents int
-	Torrents      []Storage.SingleRSSTorrent //name of the torrents
-}
 
 var (
 	//Logger does logging for the entire project
@@ -144,7 +136,6 @@ func main() {
 		authString := Settings.GenerateToken(claims, signingkey)
 		tokens.SigningKey = signingkey
 		fmt.Println("ClientToken: ", authString)
-		Settings.GenerateClientConfigFile(Config, authString) //if first run generate the client config file
 		tokens.FirstToken = authString
 		tokens.TokenNames = append(tokens.TokenNames, Storage.SingleToken{"firstClient"})
 		err := ioutil.WriteFile("clientAuth.txt", []byte(authString), 0755)
@@ -156,9 +147,13 @@ func main() {
 
 	oldConfig, err := Storage.FetchConfig(db)
 	if err != nil {
-		Logger.WithFields(logrus.Fields{"error": err}).Info("Assuming first run as no config found in database")
+		Logger.WithFields(logrus.Fields{"error": err}).Info("Assuming first run as no config found in database, client config being generated")
+		Settings.GenerateClientConfigFile(Config, tokens.FirstToken) //if first run generate the client config file
 	} else {
-		if oldConfig != Config {
+		if reflect.DeepEqual(oldConfig.ClientConnectSettings, Config.ClientConnectSettings) {
+			Logger.WithFields(logrus.Fields{"error": err}).Info("Configs are the same, not regenerating client config")
+		} else {
+			Logger.WithFields(logrus.Fields{"error": err}).Info("Config has changed, re-writting config")
 			Settings.GenerateClientConfigFile(Config, tokens.FirstToken)
 		}
 	}
@@ -181,16 +176,14 @@ func main() {
 	} else {
 		Logger.Info("Database is empty, no torrents loaded")
 	}
-	Engine.CheckTorrentWatchFolder(cronEngine, db, tclient, torrentLocalStorage, Config)
-	Engine.RefreshRSSCron(cronEngine, db, tclient, torrentLocalStorage, Config) // Refresing the RSS feeds on an hourly basis to add torrents that show up in the RSS feed
+	Engine.CheckTorrentWatchFolder(cronEngine, db, tclient, torrentLocalStorage, Config) //Every 5 minutes the engine will check the specified folder for new .torrent files
+	Engine.RefreshRSSCron(cronEngine, db, tclient, torrentLocalStorage, Config)          // Refresing the RSS feeds on an hourly basis to add torrents that show up in the RSS feed
 
-	router := mux.NewRouter() //setting up the handler for the web backend
-	//reverseProxy := handlers.ProxyHeaders(router) //handlers.ProxyHeaders(router) //TODO pull this from the config file
+	router := mux.NewRouter()         //setting up the handler for the web backend
 	router.HandleFunc("/", serveHome) //Serving the main page for our SPA
-	//http.Handle("/static/", http.FileServer(http.Dir("public")))
 	router.PathPrefix("/static/").Handler(http.FileServer(http.Dir("public")))
 	http.Handle("/", router)
-	router.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) { //exposing the data to the
+	router.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) { //TODO, remove this
 		TorrentLocalArray = Storage.FetchAllStoredTorrents(db)
 		RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db) //Updates the RunningTorrentArray with the current client data as well
 		var torrentlistArray = new(Engine.TorrentList)
@@ -213,7 +206,7 @@ func main() {
 		if Authenticated != true {
 			handleAuthentication(conn, db)
 		} else { //If we are authenticated inject the connection into the other packages
-			Logger.WithFields(logrus.Fields{"Conn": conn}).Info("Authenticated, websocket connection available!")
+			Logger.Info("Authenticated, websocket connection available!")
 		}
 		Engine.Conn = conn
 		Storage.Conn = conn
@@ -260,12 +253,6 @@ func main() {
 				FileListArray := Engine.CreateFileListArray(tclient, fileListArrayRequest, db, Config)
 				conn.WriteJSON(FileListArray) //writing the JSON to the client
 
-			//case "torrentDetailedInfo":
-			//	Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested TorrentListDetail Update")
-			//	fileListArrayRequest := payloadData["FileListArray"].(string)
-			//	torrentDetailArray := Engine.CreateTorrentDetailJSON(tclient, msg.Payload[0], db)
-			//	conn.WriteJSON(torrentDetailArray)
-
 			case "torrentPeerListRequest":
 				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested PeerList Update")
 				peerListArrayRequest := payloadData["PeerListHash"].(string)
@@ -310,11 +297,7 @@ func main() {
 
 			case "settingsFileRequest":
 				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested Settings File")
-				clientSettingsFile, err := json.Marshal(Config)
-				if err != nil {
-					Logger.WithFields(logrus.Fields{"message": msg}).Error("Unable to Marshal Setting file into JSON!")
-					Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Unable to marshal config into JSON!"}, conn)
-				}
+				clientSettingsFile := Engine.SettingsFile{MessageType: "settingsFile", Config: Config}
 				conn.WriteJSON(clientSettingsFile)
 
 			case "rssFeedRequest":
@@ -370,7 +353,7 @@ func main() {
 				RSSFeedURL := payloadData["RSSURL"].(string)
 				Logger.WithFields(logrus.Fields{"RSSFeed": RSSFeedURL}).Info("Requesting torrentList for feed..")
 				UpdatedRSSFeed := Engine.RefreshSingleRSSFeed(db, Storage.FetchSpecificRSSFeed(db, RSSFeedURL))
-				TorrentRSSList := SingleRSSFeedMessage{MessageType: "rssTorrentList", URL: RSSFeedURL, Name: UpdatedRSSFeed.Name, TotalTorrents: len(UpdatedRSSFeed.Torrents), Torrents: UpdatedRSSFeed.Torrents}
+				TorrentRSSList := Engine.SingleRSSFeedMessage{MessageType: "rssTorrentList", URL: RSSFeedURL, Name: UpdatedRSSFeed.Name, TotalTorrents: len(UpdatedRSSFeed.Torrents), Torrents: UpdatedRSSFeed.Torrents}
 				Logger.WithFields(logrus.Fields{"TorrentRSSList": TorrentRSSList}).Debug("Returning Torrent list from RSSFeed to client")
 				conn.WriteJSON(TorrentRSSList)
 

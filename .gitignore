@@ -18,6 +18,7 @@ boltbrowser.win64.exe
 logs/server.log
 .goreleaser.yml
 config.toml.backup
+config.1.toml
 /public/static/js/kickwebsocket.js.backup
 /public/static/js/kickwebsocket-generated.js
 clientAuth.txt

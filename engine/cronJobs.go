@@ -7,6 +7,7 @@ import (
 
 	"github.com/anacrolix/torrent"
 	"github.com/asdine/storm"
+	Settings "github.com/deranjer/goTorrent/settings"
 	Storage "github.com/deranjer/goTorrent/storage"
 	"github.com/mmcdole/gofeed"
 	"github.com/robfig/cron"
@@ -21,7 +22,7 @@ func InitializeCronEngine() *cron.Cron {
 }
 
 //CheckTorrentWatchFolder adds torrents from a watch folder //TODO see if you can use filepath.Abs instead of changing directory
-func CheckTorrentWatchFolder(c *cron.Cron, db *storm.DB, tclient *torrent.Client, torrentLocalStorage Storage.TorrentLocal, config FullClientSettings) {
+func CheckTorrentWatchFolder(c *cron.Cron, db *storm.DB, tclient *torrent.Client, torrentLocalStorage Storage.TorrentLocal, config Settings.FullClientSettings) {
 	c.AddFunc("@every 5m", func() {
 		Logger.WithFields(logrus.Fields{"Watch Folder": config.TorrentWatchFolder}).Info("Running the watch folder cron job")
 		torrentFiles, err := ioutil.ReadDir(config.TorrentWatchFolder)
@@ -57,7 +58,7 @@ func CheckTorrentWatchFolder(c *cron.Cron, db *storm.DB, tclient *torrent.Client
 }
 
 //RefreshRSSCron refreshes all of the RSS feeds on an hourly basis
-func RefreshRSSCron(c *cron.Cron, db *storm.DB, tclient *torrent.Client, torrentLocalStorage Storage.TorrentLocal, config FullClientSettings) {
+func RefreshRSSCron(c *cron.Cron, db *storm.DB, tclient *torrent.Client, torrentLocalStorage Storage.TorrentLocal, config Settings.FullClientSettings) {
 	c.AddFunc("@hourly", func() {
 		torrentHashHistory := Storage.FetchHashHistory(db)
 		RSSFeedStore := Storage.FetchRSSFeeds(db)

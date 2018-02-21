@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/anacrolix/torrent"
+	Settings "github.com/deranjer/goTorrent/settings"
 	"github.com/deranjer/goTorrent/storage"
 	Storage "github.com/deranjer/goTorrent/storage"
 	"github.com/sirupsen/logrus"
@@ -139,7 +140,7 @@ func CalculateUploadRatio(t *torrent.Torrent, c *ClientDB) string {
 }
 
 //CalculateTorrentStatus is used to determine what the STATUS column of the frontend will display ll2
-func CalculateTorrentStatus(t *torrent.Torrent, c *ClientDB, config FullClientSettings, tFromStorage *storage.TorrentLocal, bytesCompleted int64, totalSize int64) {
+func CalculateTorrentStatus(t *torrent.Torrent, c *ClientDB, config Settings.FullClientSettings, tFromStorage *storage.TorrentLocal, bytesCompleted int64, totalSize int64) {
 	if (tFromStorage.TorrentStatus == "Stopped") || (float64(c.TotalUploadedBytes)/float64(bytesCompleted) >= config.SeedRatioStop && tFromStorage.TorrentUploadLimit == true) { //If storage shows torrent stopped or if it is over the seeding ratio AND is under the global limit
 		c.Status = "Stopped"
 		c.MaxConnections = 0

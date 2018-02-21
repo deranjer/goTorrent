@@ -11,6 +11,7 @@ import (
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/asdine/storm"
+	Settings "github.com/deranjer/goTorrent/settings"
 	Storage "github.com/deranjer/goTorrent/storage"
 	"github.com/gorilla/websocket"
 	"github.com/mmcdole/gofeed"
@@ -127,7 +128,7 @@ func readTorrentFileFromDB(element *Storage.TorrentLocal, tclient *torrent.Clien
 }
 
 //StartTorrent creates the storage.db entry and starts A NEW TORRENT and adds to the running torrent array
-func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.TorrentLocal, torrentDbStorage *storm.DB, torrentType, torrentFilePathAbs, torrentStoragePath, labelValue string, config FullClientSettings) {
+func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.TorrentLocal, torrentDbStorage *storm.DB, torrentType, torrentFilePathAbs, torrentStoragePath, labelValue string, config Settings.FullClientSettings) {
 	timedOut := timeOutInfo(clientTorrent, 45) //seeing if adding the torrent times out (giving 45 seconds)
 	if timedOut {                              //if we fail to add the torrent return
 		return
@@ -179,7 +180,7 @@ func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.To
 }
 
 //CreateRunningTorrentArray creates the entire torrent list to pass to client
-func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Storage.TorrentLocal, PreviousTorrentArray []ClientDB, config FullClientSettings, db *storm.DB) (RunningTorrentArray []ClientDB) {
+func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Storage.TorrentLocal, PreviousTorrentArray []ClientDB, config Settings.FullClientSettings, db *storm.DB) (RunningTorrentArray []ClientDB) {
 
 	for _, singleTorrentFromStorage := range TorrentLocalArray {
 		var singleTorrent *torrent.Torrent
@@ -274,7 +275,7 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 }
 
 //CreateFileListArray creates a file list for a single torrent that is selected and sent to the server
-func CreateFileListArray(tclient *torrent.Client, selectedHash string, db *storm.DB, config FullClientSettings) TorrentFileList {
+func CreateFileListArray(tclient *torrent.Client, selectedHash string, db *storm.DB, config Settings.FullClientSettings) TorrentFileList {
 	runningTorrents := tclient.Torrents() //don't need running torrent array since we aren't adding or deleting from storage
 	torrentFileListStorage := Storage.FetchTorrentFromStorage(db, selectedHash)
 	TorrentFileListSelected := TorrentFileList{}

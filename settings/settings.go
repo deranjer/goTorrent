@@ -17,10 +17,7 @@ import (
 //Logger is the injected variable for global logger
 var Logger *logrus.Logger
 
-//FullClientSettings contains all of the settings for our entire application
-type FullClientSettings struct {
-	LoggingLevel        logrus.Level
-	LoggingOutput       string
+type ClientConnectSettings struct {
 	HTTPAddr            string
 	HTTPAddrIP          string
 	UseProxy            bool
@@ -28,18 +25,27 @@ type FullClientSettings struct {
 	BaseURL             string
 	ClientUsername      string
 	ClientPassword      string
-	Version             int
-	TorrentConfig       torrent.Config
-	TFileUploadFolder   string
-	SeedRatioStop       float64
-	PushBulletToken     string
-	DefaultMoveFolder   string
-	TorrentWatchFolder  string
+	PushBulletToken     string `json:"-"`
+}
+
+//FullClientSettings contains all of the settings for our entire application
+type FullClientSettings struct {
+	ID                 int `storm:"id,unique"`
+	LoggingLevel       logrus.Level
+	LoggingOutput      string
+	Version            int
+	TorrentConfig      torrent.Config `json:"-"`
+	TFileUploadFolder  string
+	SeedRatioStop      float64
+	DefaultMoveFolder  string
+	TorrentWatchFolder string
+	ClientConnectSettings
 }
 
 //default is called if there is a parsing error
 func defaultConfig() FullClientSettings {
 	var Config FullClientSettings
+	Config.ID = 4 //Unique ID for StormDB
 	Config.Version = 1.0
 	Config.LoggingLevel = 3                    //Warn level
 	Config.TorrentConfig.DataDir = "downloads" //the absolute or relative path of the default download directory for torrents
@@ -225,21 +231,23 @@ func FullClientSettingsNew() FullClientSettings {
 	}
 
 	Config := FullClientSettings{
-		LoggingLevel:        logLevel,
-		LoggingOutput:       logOutput,
-		SeedRatioStop:       seedRatioStop,
-		HTTPAddr:            httpAddr,
-		HTTPAddrIP:          httpAddrIP,
-		UseProxy:            proxySet,
-		WebsocketClientPort: websocketClientPort,
-		ClientUsername:      webUIUser,
-		ClientPassword:      webUIPasswordHash,
-		TorrentConfig:       tConfig,
-		BaseURL:             baseURL,
-		TFileUploadFolder:   "uploadedTorrents",
-		PushBulletToken:     pushBulletToken,
-		DefaultMoveFolder:   defaultMoveFolderAbs,
-		TorrentWatchFolder:  torrentWatchFolderAbs,
+		LoggingLevel:  logLevel,
+		LoggingOutput: logOutput,
+		SeedRatioStop: seedRatioStop,
+		ClientConnectSettings: ClientConnectSettings{
+			HTTPAddr:            httpAddr,
+			HTTPAddrIP:          httpAddrIP,
+			UseProxy:            proxySet,
+			WebsocketClientPort: websocketClientPort,
+			ClientUsername:      webUIUser,
+			ClientPassword:      webUIPasswordHash,
+			BaseURL:             baseURL,
+			PushBulletToken:     pushBulletToken,
+		},
+		TFileUploadFolder:  "uploadedTorrents",
+		TorrentConfig:      tConfig,
+		DefaultMoveFolder:  defaultMoveFolderAbs,
+		TorrentWatchFolder: torrentWatchFolderAbs,
 	}
 
 	return Config

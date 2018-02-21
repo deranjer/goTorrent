@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/asdine/storm"
+	Settings "github.com/deranjer/goTorrent/settings"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 )
@@ -85,7 +86,8 @@ type TorrentLocal struct {
 }
 
 //SaveConfig saves the config to the database to compare for changes to settings.toml on restart
-func SaveConfig(torrentStorage *storm.DB, config interface{}) {
+func SaveConfig(torrentStorage *storm.DB, config Settings.FullClientSettings) {
+	config.ID = 4
 	err := torrentStorage.Save(&config)
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"database": torrentStorage, "error": err}).Error("Error saving Config to database!")
@@ -93,9 +95,9 @@ func SaveConfig(torrentStorage *storm.DB, config interface{}) {
 }
 
 //FetchConfig fetches the client config from the database
-func FetchConfig(torrentStorage *storm.DB) (Engine.FullClientSettings, error) {
-	config := Engine.FullClientSettings{}
-	err := torrentStorage.All(&config)
+func FetchConfig(torrentStorage *storm.DB) (Settings.FullClientSettings, error) {
+	config := Settings.FullClientSettings{}
+	err := torrentStorage.One("ID", 4, &config)
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"database": torrentStorage, "error": err}).Error("Unable to read Database into configFile!")
 		return config, err

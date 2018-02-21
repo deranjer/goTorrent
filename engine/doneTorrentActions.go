@@ -6,6 +6,7 @@ import (
 	"runtime"
 
 	"github.com/asdine/storm"
+	Settings "github.com/deranjer/goTorrent/settings"
 	Storage "github.com/deranjer/goTorrent/storage"
 	pushbullet "github.com/mitsuse/pushbullet-go"
 	"github.com/mitsuse/pushbullet-go/requests"
@@ -14,7 +15,7 @@ import (
 )
 
 //MoveAndLeaveSymlink takes the file from the default download dir and moves it to the user specified directory and then leaves a symlink behind.
-func MoveAndLeaveSymlink(config FullClientSettings, tHash string, db *storm.DB, moveDone bool, oldPath string) { //moveDone and oldPath are for moving a completed torrent
+func MoveAndLeaveSymlink(config Settings.FullClientSettings, tHash string, db *storm.DB, moveDone bool, oldPath string) { //moveDone and oldPath are for moving a completed torrent
 	tStorage := Storage.FetchTorrentFromStorage(db, tHash)
 	Logger.WithFields(logrus.Fields{"Torrent Name": tStorage.TorrentName}).Info("Move and Create symlink started for torrent")
 	var oldFilePath string
@@ -77,7 +78,7 @@ func MoveAndLeaveSymlink(config FullClientSettings, tHash string, db *storm.DB, 
 
 }
 
-func notifyUser(tStorage Storage.TorrentLocal, config FullClientSettings, db *storm.DB) {
+func notifyUser(tStorage Storage.TorrentLocal, config Settings.FullClientSettings, db *storm.DB) {
 	Logger.WithFields(logrus.Fields{"New File Path": tStorage.StoragePath, "Torrent Name": tStorage.TorrentName}).Info("Attempting to notify user..")
 	tStorage.TorrentMoved = true
 	//Storage.AddTorrentLocalStorage(db, tStorage) //Updating the fact that we moved the torrent

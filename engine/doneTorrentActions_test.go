@@ -4,12 +4,13 @@ import (
 	"testing"
 
 	"github.com/asdine/storm"
+	Settings "github.com/deranjer/goTorrent/settings"
 	Storage "github.com/deranjer/goTorrent/storage"
 )
 
 func TestMoveAndLeaveSymlink(t *testing.T) {
 	type args struct {
-		config   FullClientSettings
+		config   Settings.FullClientSettings
 		tStorage Storage.TorrentLocal
 		db       *storm.DB
 	}
@@ -29,7 +30,7 @@ func TestMoveAndLeaveSymlink(t *testing.T) {
 func Test_notifyUser(t *testing.T) {
 	type args struct {
 		tStorage Storage.TorrentLocal
-		config   FullClientSettings
+		config   Settings.FullClientSettings
 		db       *storm.DB
 	}
 	tests := []struct {

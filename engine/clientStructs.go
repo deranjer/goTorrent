@@ -5,6 +5,8 @@ import (
 
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
+	Settings "github.com/deranjer/goTorrent/settings"
+	Storage "github.com/deranjer/goTorrent/storage"
 )
 
 //All the message types are first, first the server handling messages from the client
@@ -37,6 +39,15 @@ type RSSFeedsNames struct {
 	RSSFeedURL string
 }
 
+//SingleRSSFeedMessage contains the torrents/name/etc of a single torrent feed
+type SingleRSSFeedMessage struct { //TODO had issues with getting this to work with Storage or Engine
+	MessageType   string
+	URL           string //the URL of the individual RSS feed
+	Name          string
+	TotalTorrents int
+	Torrents      []Storage.SingleRSSTorrent //name of the torrents
+}
+
 //TorrentList struct contains the torrent list that is sent to the client
 type TorrentList struct { //helps create the JSON structure that react expects to receive
 	MessageType    string     `json:"MessageType"`
@@ -66,6 +77,11 @@ type TorrentFile struct {
 	FileSize          string //Humanized file size display
 	FilePercent       string //String value of percent of individual file percent done
 	FilePriority      string //Currently "High", "Normal", or "Cancel"
+}
+
+type SettingsFile struct {
+	MessageType string
+	Config      Settings.FullClientSettings
 }
 
 //ClientDB struct contains the struct that is used to compose the torrentlist
