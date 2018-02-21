@@ -8,12 +8,12 @@ import DownloadingTorrentsIcon from 'material-ui-icons/FileDownload'
 import UploadingTorrentsIcon from 'material-ui-icons/FileUpload'
 import ActiveTorrentsIcon from 'material-ui-icons/SwapVert'
 import AllTorrentsIcon from 'material-ui-icons/AllInclusive'
+import StopTorrentIcon from 'material-ui-icons/Stop';
 
 //react redux
 import {connect} from 'react-redux';
 import * as actionTypes from '../store/actions';
 
-//TODO, clean up the goddamn variable names you are all over the place
 const styles = theme => ({
     root: {
       width: '100%',
@@ -40,32 +40,14 @@ class SimpleList extends React.Component {
     super(props);
     const { classes } = this.props;
     this.state = {
-        allTorrentsClass: classes.active,
-        downloadingClass: '',
-        seedingClass: '',
-        activeTorrentsClass: '',
-        completedTorrentsClass: '',
-        allID: "All",
-        downloadingID: "Downloading",
-        seedingID: "Seeding",
-        activeID: "Active",
-        completedID: "Completed", 
-
-
+        activeIndex: 0,
     }
   }
 
   componentWillReceiveProps = (nextprops) => {
     const { classes } = this.props;
     if (nextprops.filter[0].columnName == "TorrentName"){ //If we are using the top searchbox move back to all torrents
-      this.setState({
-        allTorrentsClass: classes.active,
-        downloadingClass: '',
-        seedingClass: '',
-        activeTorrentsClass: '',
-        completedTorrentsClass: '',
-
-      })
+      this.setState({activeIndex: 0})
     }
   }
 
@@ -75,79 +57,41 @@ class SimpleList extends React.Component {
     filterState = [{columnName: 'Status', value: filterState}]
     this.props.changeFilter(filterState)//dispatch to redux
     console.log("Switching filters classes", id)
-    switch (id){ //TODO.. there has to be a better fucking way to do this
-      case "All":
-        this.state.allTorrentsClass = classes.active
-        this.state.downloadingClass = ''
-        this.state.seedingClass = ''
-        this.state.activeTorrentsClass = ''
-        this.state.completedTorrentsClass = ''
-        break
-      case "Downloading": 
-        console.log("Downloading...")
-        this.state.downloadingClass = classes.active
-        this.state.allTorrentsClass = ''
-        this.state.seedingClass = ''
-        this.state.activeTorrentsClass = ''
-        this.state.completedTorrentsClass = ''
-        break
-      case "Seeding":
-        this.state.seedingClass = classes.active
-        this.state.allTorrentsClass = ''
-        this.state.downloadingClass = ''
-        this.state.activeTorrentsClass = ''
-        this.state.completedTorrentsClass = ''
-        break
-      case "Active":
-        this.state.activeTorrentsClass = classes.active
-        this.state.allTorrentsClass = ''
-        this.state.downloadingClass = ''
-        this.state.seedingClass = ''
-        this.state.completedTorrentsClass = ''
-        break
-      case "Completed":
-        this.state.completedTorrentsClass = classes.active
-        this.state.allTorrentsClass = ''
-        this.state.downloadingClass = ''
-        this.state.seedingClass = ''
-        this.state.activeTorrentsClass = ''
-        break
+    this.setState({activeIndex: id})
 
     }
 
-  
-  }
   render() {
     const { classes } = this.props;
     return (
       <div className={classes.root}>
         <List dense>
-        <ListItem dense className={this.state.allTorrentsClass} button onClick={ () => this.setFilter('', this.state.allID)}>
+        <ListItem dense className={this.state.activeIndex==0 ? classes.active: null} button onClick={ () => this.setFilter('', 0)}>
             <ListItemIcon className={classes.icons} >
               <AllTorrentsIcon />
             </ListItemIcon>
             <ListItemText primary="All Torrents" />
           </ListItem>
-          <ListItem className={this.state.downloadingClass} button={true} onClick={ () => this.setFilter('Downloading', this.state.downloadingID)}>
+          <ListItem className={this.state.activeIndex==1 ? classes.active: null} button onClick={ () => this.setFilter('Downloading', 1)}>
             <ListItemIcon className={classes.icons}>
               <DownloadingTorrentsIcon />
             </ListItemIcon>
             <ListItemText primary="Downloading Torrents" />
           </ListItem>
-          <ListItem className={this.state.seedingClass} button={true} onClick={ () => this.setFilter('Seeding', this.state.seedingID)}>
+          <ListItem className={this.state.activeIndex==2 ? classes.active: null} button onClick={ () => this.setFilter('Seeding', 2)}>
             <ListItemIcon className={classes.icons}>
               <UploadingTorrentsIcon />
             </ListItemIcon>
             <ListItemText primary="Seeding Torrents" />
           </ListItem>
-          {/* <ListItem className={this.state.activeTorrentsClass} button={true} onClick={ () => this.setFilter('Active', this.state.activeID)}>
-            <ListItemIcon className={classes.icons}>
-              <ActiveTorrentsIcon />
-            </ListItemIcon>
-            <ListItemText primary="Active Torrents" />
-          </ListItem> */}
-          <ListItem  className={this.state.completedTorrentsClass} button={true} onClick={ () => this.setFilter('Completed', this.state.completedID)}>
+          <ListItem className={this.state.activeIndex==3 ? classes.active: null} button onClick={ () => this.setFilter('Stopped', 3)}>
             <ListItemIcon className={classes.inactiveIcon}>
+              <StopTorrentIcon />
+            </ListItemIcon>
+            <ListItemText primary="Stopped Torrents" />
+          </ListItem>
+          <ListItem  className={this.state.activeIndex==4 ? classes.active: null} button onClick={ () => this.setFilter('Completed', 4)}>
+            <ListItemIcon className={classes.icons}>
               <ActiveTorrentsIcon />
             </ListItemIcon>
             <ListItemText primary="Completed Torrents" />

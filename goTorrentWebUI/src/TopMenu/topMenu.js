@@ -11,12 +11,13 @@ import AddRSSModal from './Modals/RSSModal/addRSSModal';
 import DeleteTorrentModal from './Modals/deleteTorrentModal';
 import ChangeStorageModal from './Modals/changeStorageModal';
 import TorrentSearch from './torrentSearch';
+import AddSettingsModal from './Modals/SettingsModal/addSettingsModal';
 
 import StartTorrentIcon from 'material-ui-icons/PlayArrow';
 //import PauseTorrentIcon from 'material-ui-icons/Pause';
 import StopTorrentIcon from 'material-ui-icons/Stop';
 import RSSTorrentIcon from 'material-ui-icons/RssFeed';
-import SettingsIcon from 'material-ui-icons/Settings';
+
 import ForceUploadIcon from 'material-ui-icons/KeyboardArrowUp';
 
 
@@ -136,10 +137,7 @@ class IconButtons extends React.Component {
         <div className={classes.verticalDivider}></div>
         <ChangeStorageModal />
         <AddRSSModal />
-        <IconButton color="primary" data-tip="Settings" className={classes.button} aria-label="Settings">
-          <ReactTooltip place="top" type="light" effect="float" />
-          <SettingsIcon />
-        </IconButton>
+        <AddSettingsModal />
         <div className={classes.verticalDivider}></div>
         <TorrentSearch />
         <div className={classes.verticalDivider}></div>

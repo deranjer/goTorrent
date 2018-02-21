@@ -20,7 +20,8 @@ const initialState = {
     RSSModalOpen: false,
     serverPushMessage: [],
     webSocketState: false,
-    searchFilterTerm: ""
+    searchFilterTerm: "",
+    settingsFile: [],
 }
 
 
@@ -105,6 +106,20 @@ const reducer = (state = initialState, action) => {
             return {
                 ...state,
                 RSSModalOpen: action.RSSModalOpen
+            }
+        
+        case actionTypes.SETTINGS_MODAL_OPEN_STATE:
+            console.log("Settings Modal State...", action.settingsModalOpen)
+            return {
+                ...state,
+                settingsModalOpen: action.settingsModalOpen
+            }
+
+        case actionTypes.NEW_SETTINGS_FILE:
+            console.log("New settings file", action.settingsFile)
+            return {
+                ...state,
+                settingsFile: action.settingsFile
             }
 
         case actionTypes.SERVER_MESSAGE:

@@ -16,12 +16,10 @@ import Dialog, {
   DialogContentText,
   DialogTitle,
 } from 'material-ui/Dialog';
-import InsertLinkIcon from 'material-ui-icons/Link';
 import ReactTooltip from 'react-tooltip'
 import Icon from 'material-ui/Icon';
 import IconButton from 'material-ui/IconButton';
 import RSSTorrentIcon from 'material-ui-icons/RssFeed';
-import AddRSSIcon from 'material-ui-icons/AddCircle';
 
 import RSSModalLayout from './RSSModalLayout'
 

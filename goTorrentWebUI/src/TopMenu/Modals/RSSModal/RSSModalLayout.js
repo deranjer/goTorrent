@@ -101,8 +101,7 @@ const inlineStyle = {
     }
 
     handleRSSModalClose = () => {
-        let closeState = false
-        this.props.rssModalOpenState(closeState)
+        this.props.rssModalOpenState(false)
     }
 
   handleAddRSSFeed = () => {

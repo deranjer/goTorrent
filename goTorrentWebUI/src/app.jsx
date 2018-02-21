@@ -83,7 +83,7 @@ class BasicLayout extends React.PureComponent {
       <ReactGridLayout layout={this.state.layout} onLayoutChange={this.onLayoutChange} {...this.props}>
         <div key="a" style={background} className="DragHandle"><TopMenu /></div>
         <div key="b" style={background} className="DragHandle"><LeftMenu /></div>
-        { this.state.loggedin
+        { this.state.loggedin //if we are not logged into the app don't show the list of torrents
           ? <div key="c" style={background} className="DragHandle"><TorrentList /></div>
           : <div key="c" style={background} className="DragHandle"></div>
         }

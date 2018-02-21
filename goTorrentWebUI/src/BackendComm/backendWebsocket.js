@@ -20,6 +20,7 @@ let RSSTorrentList = [];
 let serverMessage = [];
 let serverPushMessage = [];
 let webSocketState = false;
+let settingsFile = [];
 
 var torrentListRequest = {
     MessageType: "torrentListRequest"
@@ -113,13 +114,9 @@ ws.onmessage = function (evt) { //When we recieve a message from the websocket
                     RSSName: serverMessage.RSSFeeds[i].RSSName,
                 })
             }
-            console.log("RSSURLS", RSSList)
-            console.log("FIRSTURL", RSSList[1])
-            console.log("FULLURL", RSSList[1].RSSURL)
             break;
 
         case "rssTorrentList":
-            //console.log("RSSTorrentList recieved", evt.data)
             RSSTorrentList = [];
             for (var i = 0; i < serverMessage.TotalTorrents; i++){
                 RSSTorrentList.push({
@@ -133,6 +130,10 @@ ws.onmessage = function (evt) { //When we recieve a message from the websocket
             console.log("SERVER PUSHED MESSAGE", serverMessage)
             serverPushMessage = [serverMessage.MessageLevel, serverMessage.Payload];
             break;
+        case "settingsFile":
+            settingsFile = [];
+            console.log("Settings File Returned", serverMessage)
+            settingsFile = serverMessage.Config
     }
                                     
 }
@@ -221,6 +222,9 @@ class BackendSocket extends React.Component {
             console.log("PROPSSERVER", this.props.serverPushMessage, "SERVERPUSH", serverPushMessage)
             this.props.newServerMessage(serverPushMessage)
         }
+        if (this.props.settingsModalOpen) { //TODO don't really need to updaate every tick currently until we can edit config
+            this.props.newSettingsFile(settingsFile)
+        }
         
         ws.send(JSON.stringify(torrentListRequest))//talking to the server to get the torrent list
         if (ws.readyState === ws.CLOSED){ //if our websocket gets closed inform the user
@@ -281,7 +285,9 @@ const mapStateToProps = state => {
         selection: state.selection,
         RSSModalOpen: state.RSSModalOpen,
         RSSTorrentList: state.RSSTorrentList,
-        serverPushMessage: state.serverPushMessage
+        serverPushMessage: state.serverPushMessage,
+        settingsModalOpen: state.settingsModalOpen,
+
     };
   }
 
@@ -295,6 +301,7 @@ const mapDispatchToProps = dispatch => {
         RSSTorrentList: (RSSTorrentList) => dispatch({type: actionTypes.RSS_TORRENT_LIST, RSSTorrentList}),
         newServerMessage: (serverPushMessage) => dispatch({type: actionTypes.SERVER_MESSAGE, serverPushMessage}),
         webSocketStateUpdate: (webSocketState) => dispatch({type: actionTypes.WEBSOCKET_STATE, webSocketState}),
+        newSettingsFile: (settingsFile) => dispatch({type: actionTypes.NEW_SETTINGS_FILE, settingsFile})
         //changeSelection: (selection) => dispatch({type: actionTypes.CHANGE_SELECTION, selection}),//forcing an update to the buttons
 
     }
