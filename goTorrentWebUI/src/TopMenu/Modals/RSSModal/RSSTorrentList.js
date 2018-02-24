@@ -67,7 +67,7 @@ class RSSTorrentList extends React.Component {
         })
         let magnetLinkMessage = {
             MessageType: "magnetLinkSubmit",
-            Payload: {"MagnetLinks": [sendMagnetLinks], "Label": "RSS"}
+            Payload: {"MagnetLinks": sendMagnetLinks, "Label": "RSS"}
           }
         console.log(JSON.stringify(magnetLinkMessage))
         ws.send(JSON.stringify(magnetLinkMessage))

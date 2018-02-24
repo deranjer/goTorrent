@@ -358,9 +358,8 @@ func main() {
 				conn.WriteJSON(TorrentRSSList)
 
 			case "magnetLinkSubmit": //if we detect a magnet link we will be adding a magnet torrent
-				storageValue := payloadData["StorageValue"].(string)
-				labelValue := payloadData["Label"].(string)
-				if storageValue == "" {
+				storageValue, ok := payloadData["StorageValue"].(string)
+				if storageValue == "" || ok == false {
 					storageValue, err = filepath.Abs(filepath.ToSlash(Config.DefaultMoveFolder))
 					if err != nil {
 						Logger.WithFields(logrus.Fields{"err": err, "MagnetLink": Config.DefaultMoveFolder}).Error("Unable to add default Storage Path")
@@ -372,6 +371,10 @@ func main() {
 						Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Unable to add Storage path..."}, conn)
 						storageValue, _ = filepath.Abs(filepath.ToSlash(Config.DefaultMoveFolder))
 					}
+				}
+				labelValue, ok := payloadData["Label"].(string)
+				if labelValue == "" || ok == false {
+					labelValue = "None"
 				}
 				magnetLinks := payloadData["MagnetLinks"].([]interface{})
 				for _, magnetLink := range magnetLinks {
@@ -390,28 +393,30 @@ func main() {
 			case "torrentFileSubmit":
 				base64encoded := payloadData["FileData"].(string)
 				fileName := payloadData["FileName"].(string)
-				storageValue := payloadData["StorageValue"].(string)
-				labelValue := payloadData["Label"].(string)
+				storageValue, ok := payloadData["StorageValue"].(string)
+				if storageValue == "" || ok == false {
+					storageValue, err = filepath.Abs(filepath.ToSlash(Config.DefaultMoveFolder))
+					if err != nil {
+						Logger.WithFields(logrus.Fields{"err": err, "MagnetLink": Config.DefaultMoveFolder}).Error("Unable to add Storage Path")
+						Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Unable to add default Storage Path"}, conn)
+					} else {
+						storageValue, err = filepath.Abs(filepath.ToSlash(storageValue))
+						if err != nil {
+							Logger.WithFields(logrus.Fields{"err": err, "MagnetLink": storageValue}).Error("Unable to add Storage Path")
+							Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Unable to add Storage Path"}, conn)
+							storageValue, _ = filepath.Abs(filepath.ToSlash(Config.DefaultMoveFolder))
+						}
+					}
+				}
+				labelValue, ok := payloadData["Label"].(string)
+				if labelValue == "" || ok == false {
+					labelValue = "None"
+				}
 				base64file := strings.Split(base64encoded, ",")             //Mozilla and Chrome have different payloads, but both start the file after the comma
 				file, err := base64.StdEncoding.DecodeString(base64file[1]) //grabbing the second half of the string after the split
 				if err != nil {
 					Logger.WithFields(logrus.Fields{"Error": err, "file": file}).Info("Unable to decode base64 string to file")
 					Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Unable to decode base64 string to file"}, conn)
-				}
-
-				if storageValue == "" {
-					storageValue, err = filepath.Abs(filepath.ToSlash(Config.DefaultMoveFolder))
-					if err != nil {
-						Logger.WithFields(logrus.Fields{"err": err, "MagnetLink": Config.DefaultMoveFolder}).Error("Unable to add Storage Path")
-						Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Unable to add default Storage Path"}, conn)
-					}
-				} else {
-					storageValue, err = filepath.Abs(filepath.ToSlash(storageValue))
-					if err != nil {
-						Logger.WithFields(logrus.Fields{"err": err, "MagnetLink": storageValue}).Error("Unable to add Storage Path")
-						Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Unable to add Storage Path"}, conn)
-						storageValue, _ = filepath.Abs(filepath.ToSlash(Config.DefaultMoveFolder))
-					}
 				}
 				filePath := filepath.Join(Config.TFileUploadFolder, fileName)
 				filePathAbs, err := filepath.Abs(filePath) //creating a full filepath to store the .torrent files
