@@ -38,6 +38,9 @@ var (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
 }
 
 func serveHome(w http.ResponseWriter, r *http.Request) {
@@ -48,8 +51,16 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 func handleAuthentication(conn *websocket.Conn, db *storm.DB) {
 	msg := Engine.Message{}
 	err := conn.ReadJSON(&msg)
-	payloadData := msg.Payload.(map[string]interface{})
-	clientAuthToken := payloadData["ClientAuthString"].(string)
+	conn.WriteJSON(msg) //TODO just for testing, remove
+	payloadData, ok := msg.Payload.(map[string]interface{})
+	clientAuthToken, tokenOk := payloadData["ClientAuthString"].(string)
+	fmt.Println("ClientAuthToken:", clientAuthToken, "TokenOkay", tokenOk, "PayloadData", payloadData, "PayloadData Okay?", ok)
+	if ok == false || tokenOk == false {
+		authFail := Engine.AuthResponse{MessageType: "authResponse", Payload: "Message Payload in AuthRequest was malformed, closing connection"}
+		conn.WriteJSON(authFail)
+		conn.Close()
+		return
+	}
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"error": err, "SuppliedToken": clientAuthToken}).Error("Unable to read authentication message")
 	}
@@ -63,10 +74,15 @@ func handleAuthentication(conn *websocket.Conn, db *storm.DB) {
 		return singingKey, nil
 	})
 	if err != nil {
+		authFail := Engine.AuthResponse{MessageType: "authResponse", Payload: "Parsing of Token failed, ensure you have the correct token! Closing Connection"}
+		conn.WriteJSON(authFail)
 		Logger.WithFields(logrus.Fields{"error": err, "SuppliedToken": token}).Error("Unable to parse token!")
 		conn.Close()
+		return
 	}
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		authTrue := Engine.AuthResponse{MessageType: "authResponse", Payload: "Authentication Verified, proceed with commands."}
+		conn.WriteJSON(authTrue)
 		fmt.Println("Claims", claims["ClientName"], claims["Issuer"])
 		Authenticated = true
 	} else {
@@ -197,7 +213,9 @@ func main() {
 
 	router.HandleFunc("/websocket", func(w http.ResponseWriter, r *http.Request) { //websocket is the main data pipe to the frontend
 		conn, err := upgrader.Upgrade(w, r, nil)
-		fmt.Println("Websocket connection here")
+		fmt.Println("Websocket connection established, awaiting authentication")
+		connResponse := Engine.ServerPushMessage{MessageType: "connectResponse", MessageLevel: "Message", Payload: "Websocket Connection Established, awaiting Authentication"}
+		conn.WriteJSON(&connResponse)
 		defer conn.Close() //defer closing the websocket until done.
 		if err != nil {
 			Logger.WithFields(logrus.Fields{"error": err}).Fatal("Unable to create websocket!")
@@ -206,6 +224,8 @@ func main() {
 		if Authenticated != true {
 			handleAuthentication(conn, db)
 		} else { //If we are authenticated inject the connection into the other packages
+			connResponse := Engine.ServerPushMessage{MessageType: "authResponse", MessageLevel: "Message", Payload: "Already Authenticated... Awaiting Commands"}
+			conn.WriteJSON(&connResponse)
 			Logger.Info("Authenticated, websocket connection available!")
 		}
 		Engine.Conn = conn
@@ -222,7 +242,7 @@ func main() {
 				break MessageLoop
 			}
 			var payloadData map[string]interface{}
-			if msg.Payload != nil {
+			if msg.Payload != nil && msg.Payload != "" {
 				payloadData = msg.Payload.(map[string]interface{})
 			}
 			Logger.WithFields(logrus.Fields{"message": msg}).Debug("Message From Client")

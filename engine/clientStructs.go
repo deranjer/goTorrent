@@ -19,6 +19,12 @@ type Message struct {
 
 //Next are the messages the server sends to the client
 
+//AuthResponse is sent when the client fails to perform authentication correctly
+type AuthResponse struct {
+	MessageType string
+	Payload     string
+}
+
 //ServerPushMessage is information (usually logs and status messages) that the server pushes to the client
 type ServerPushMessage struct {
 	MessageType  string
