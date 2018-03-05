@@ -91,7 +91,7 @@ class DeleteTorrentModal extends React.Component {
           <ReactTooltip place="top" type="error" effect="float" />
           <DeleteTorrentIcon />
         </IconButton>
-        <Dialog open={this.state.open} onRequestClose={this.handleRequestClose} onEscapeKeyUp={this.handleRequestClose} maxWidth="md">
+        <Dialog open={this.state.open} onClose={this.handleRequestClose} onEscapeKeyDown={this.handleRequestClose} maxWidth="md">
           <DialogTitle>Delete Torrent</DialogTitle>
           <DialogContent>
           Are you sure you want to delete Torrent?

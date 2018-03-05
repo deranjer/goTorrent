@@ -1,5 +1,11 @@
 ## HEAD
 
+## 2.1.0
+###### _Jan 31, 2018_
+- Lodash as a peerDependency was causing missing peerDependency errors.  Lodash peerDep replaced with stifle dep (#7) @shawnmcknight
+- Bump several dependency versions @shawnmcknight
+- Configure npm to not generate package-lock file @shawnmcknight
+
 ## 2.0.0
 
 ###### _May 30, 2017_

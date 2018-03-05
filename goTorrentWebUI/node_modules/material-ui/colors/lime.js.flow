@@ -1,6 +1,3 @@
-// Wait https://github.com/facebook/flow/issues/380 to be fixed
-/* eslint-disable flowtype/require-valid-file-annotation */
-
 const lime = {
   50: '#f9fbe7',
   100: '#f0f4c3',
@@ -16,7 +13,6 @@ const lime = {
   A200: '#eeff41',
   A400: '#c6ff00',
   A700: '#aeea00',
-  contrastDefaultColor: 'dark',
 };
 
 export default lime;

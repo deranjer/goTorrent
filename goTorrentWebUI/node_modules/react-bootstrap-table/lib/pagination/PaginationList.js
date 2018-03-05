@@ -278,25 +278,42 @@ var PaginationList = function (_Component) {
       }
 
       if (dropdownProps || !dropdown) {
+        var isBootstrap4 = _util2.default.isBootstrap4(this.props.version);
         var sizePerPageOptions = sizePerPageList.map(function (_sizePerPage) {
           var pageText = _sizePerPage.text || _sizePerPage;
           var pageNum = _sizePerPage.value || _sizePerPage;
           if (sizePerPage === pageNum) sizePerPageText = pageText;
-          return _react2.default.createElement(
-            'li',
-            { key: pageText, role: 'presentation', className: 'dropdown-item' },
-            _react2.default.createElement(
+          if (isBootstrap4) {
+            return _react2.default.createElement(
               'a',
-              { role: 'menuitem',
-                tabIndex: '-1', href: '#',
-                'data-page': pageNum,
+              {
+                href: '#',
+                tabIndex: '-1',
+                key: pageText,
+                className: 'dropdown-item',
                 onMouseDown: function onMouseDown(e) {
                   e.preventDefault();
                   _this3.changeSizePerPage(pageNum);
                 } },
               pageText
-            )
-          );
+            );
+          } else {
+            return _react2.default.createElement(
+              'li',
+              { key: pageText, role: 'presentation', className: 'dropdown-item' },
+              _react2.default.createElement(
+                'a',
+                { role: 'menuitem',
+                  tabIndex: '-1', href: '#',
+                  'data-page': pageNum,
+                  onMouseDown: function onMouseDown(e) {
+                    e.preventDefault();
+                    _this3.changeSizePerPage(pageNum);
+                  } },
+                pageText
+              )
+            );
+          }
         });
         dropdown = _react2.default.createElement(_SizePerPageDropDown2.default, _extends({
           open: this.state.open,
@@ -304,7 +321,8 @@ var PaginationList = function (_Component) {
           currSizePerPage: String(sizePerPageText),
           options: sizePerPageOptions,
           onClick: this.toggleDropDown,
-          onBlur: this.closeDropDown
+          onBlur: this.closeDropDown,
+          isBootstrap4: isBootstrap4
         }, dropdownProps));
       }
       return dropdown;
@@ -335,28 +353,34 @@ var PaginationList = function (_Component) {
           return true;
         }
         return isStart(page, this.props) || isEnd(page, this.props) ? false : true;
-      }, this).map(function (page) {
+      }, this).map(function (page, index) {
         var isActive = page === this.props.currPage;
         var isDisabled = isStart(page, this.props) || isEnd(page, this.props) ? true : false;
         var title = page + '';
+        var pageNumber = page;
 
         if (page === this.props.nextPage) {
           title = this.props.nextPageTitle;
+          pageNumber = this.props.currPage + 1;
         } else if (page === this.props.prePage) {
           title = this.props.prePageTitle;
+          pageNumber = this.props.currPage - 1;
         } else if (page === this.props.firstPage) {
           title = this.props.firstPageTitle;
+          pageNumber = this.props.pageStartIndex;
         } else if (page === this.props.lastPage) {
           title = this.props.lastPageTitle;
+          pageNumber = this.getLastPage();
         }
 
         return _react2.default.createElement(
           _PageButton2.default,
-          { key: page,
+          { key: index,
             title: title,
             changePage: this.changePage,
             active: isActive,
-            disable: isDisabled },
+            disable: isDisabled,
+            pageNumber: pageNumber },
           page
         );
       }, this);
@@ -421,7 +445,10 @@ PaginationList.propTypes = {
   paginationShowsTotal: _propTypes2.default.oneOfType([_propTypes2.default.bool, _propTypes2.default.func]),
   paginationSize: _propTypes2.default.number,
   onSizePerPageList: _propTypes2.default.func,
-  prePage: _propTypes2.default.string,
+  prePage: _propTypes2.default.any,
+  nextPage: _propTypes2.default.any,
+  firstPage: _propTypes2.default.any,
+  lastPage: _propTypes2.default.any,
   pageStartIndex: _propTypes2.default.number,
   hideSizePerPage: _propTypes2.default.bool,
   alwaysShowAllBtns: _propTypes2.default.bool,

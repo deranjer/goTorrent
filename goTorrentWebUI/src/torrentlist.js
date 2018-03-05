@@ -5,12 +5,12 @@ import {BootstrapTable, TableHeaderColumn} from 'react-bootstrap-table';
 import Paper from 'material-ui/Paper';
 
 import {
-    SortingState, LocalSorting, PagingState, VirtualTableLayout, SelectionState, FilteringState, LocalFiltering,
+    SortingState, IntegratedSorting,  VirtualTableLayout, SelectionState, FilteringState, IntegratedFiltering,
 } from '@devexpress/dx-react-grid';
 
 import {
-    Grid, TableHeaderRow, PagingPanel, VirtualTableView, VirtualTable, TableSelection, TableColumnResizing,
-    DragDropContext, TableColumnReordering, 
+    Grid, TableHeaderRow, VirtualTable, TableSelection, TableColumnResizing,
+    DragDropProvider, TableColumnReordering,
 } from '@devexpress/dx-react-grid-material-ui';
 
 
@@ -19,28 +19,6 @@ import { ProgressBarCell } from './CustomCells/progressBarCell';
 import {connect} from 'react-redux';
 import * as actionTypes from './store/actions';
 
-
-/* var torrentLinkSubmit = document.getElementById('torrentLinkSubmit');
-var magnetLink = document.getElementById('magnetLink');
-var myTextArea = document.getElementById("loggerData");
-var torrentHash = document.getElementById("hash");
-initialize an empty torrents field before update.
- var torrentLinkSubmit = document.getElementById('torrentLinkSubmit');
-var magnetLink = document.getElementById('magnetLink');
-var myTextArea = document.getElementById("loggerData");
-var torrentHash = document.getElementById("hash");
-var torrentLinkSubmit = document.getElementById('torrentLinkSubmit');
-var torrentLinkModal = document.getElementById('addTorrentLinkModal');
-var btnTorrentLink = document.getElementById("addTorrentLink"); 
-*/
-
-
-
-function sendEvent(message)
-{
-    ws.send(message);
-    console.log('Sending message... ', message)
-}
 
 class TorrentListTable extends React.Component {
     
@@ -62,7 +40,20 @@ class TorrentListTable extends React.Component {
                 { name: 'Availability', title: 'Availability'},
             ],
             columnOrder: ['TorrentName', 'DownloadedSize', 'Size', 'PercentDone', 'Status', 'DownloadSpeed', 'UploadSpeed','ActivePeers', 'ETA', 'Ratio', 'DateAdded', 'Availability'],
-            columnWidths: {TorrentName: 250, DownloadedSize: 100, Size: 100, PercentDone: 175, Status: 150, DownloadSpeed: 100, UploadSpeed: 100, ActivePeers: 100, ETA: 100, Ratio: 75, DateAdded: 100, Availability: 75},
+            columnWidths: [
+                {columnName: 'TorrentName', width: 250}, 
+                {columnName: 'DownloadedSize', width: 100}, 
+                {columnName: 'Size', width: 100}, 
+                {columnName: 'PercentDone', width: 175}, 
+                {columnName: 'Status', width: 150}, 
+                {columnName: 'DownloadSpeed', width: 100}, 
+                {columnName: 'UploadSpeed', width: 100}, 
+                {columnName: 'ActivePeers', width: 100},
+                {columnName: 'ETA', width: 100}, 
+                {columnName: 'Ratio', width: 75},
+                {columnName: 'DateAdded', width: 100}, 
+                {columnName: 'Availability', width: 75},
+            ],
             prevSelection: [], //just used to pull data from cell (temp Prevcell holder), real selection is in Redux
             pageSizes: [5, 10, 15, 0],
             currentPage: 0,
@@ -74,6 +65,14 @@ class TorrentListTable extends React.Component {
         this.changeCurrentPage = currentPage => this.setState({ currentPage });
     }
 
+    progressBar = (props) => {
+        if(props.column.name == 'PercentDone'){
+            return (
+                <ProgressBarCell value={props.row.PercentDone * 100} style={props.style} />
+            );
+        }
+        return <VirtualTable.Cell {...props} />;
+    }
 
 
     componentWillReceiveProps (nextProps){  //this is for setting the filter when the left menu activates a new filter
@@ -93,8 +92,6 @@ class TorrentListTable extends React.Component {
         this.props.sendSelectionHashes(selectionHashes) //push the result to redux
     }
 
-
-   
 
     changeSelection = (selection) => {
         //console.log("TOrrentlist is changing selection now", selection)
@@ -119,7 +116,6 @@ class TorrentListTable extends React.Component {
         
     }
 
-
     render() {
         return (
             <Paper>   
@@ -130,19 +126,12 @@ class TorrentListTable extends React.Component {
                     
                     <SelectionState onSelectionChange={this.changeSelection} selection={this.props.selection}/> 
 
-                    <LocalFiltering />
-                    <LocalSorting />
+                    <IntegratedFiltering />
+                    <IntegratedSorting />
 
-                    <VirtualTableView height={530} tableCellTemplate={({ row, column, style }) => {
-                    if (column.name === 'PercentDone') {
-                        return (
-                            <ProgressBarCell value={row.PercentDone * 100} style={style} />
-                        );
-                        }
-                        return undefined;
-                    }}/>
+                    <VirtualTable height={530} cellComponent={this.progressBar} />
 
-                    <DragDropContext />
+                    <DragDropProvider/>
                     <TableColumnResizing columnWidths={this.state.columnWidths} onColumnWidthsChange={this.changeColumnWidths}/>
                     <TableColumnReordering order={this.state.columnOrder} onOrderChange={this.changeColumnOrder} />
                     <TableSelection selectByRowClick highlightSelected />

@@ -50,7 +50,7 @@ var PageButton = function (_Component) {
     key: '__pageBtnClick__REACT_HOT_LOADER__',
     value: function __pageBtnClick__REACT_HOT_LOADER__(e) {
       e.preventDefault();
-      this.props.changePage(e.currentTarget.textContent);
+      this.props.changePage(this.props.pageNumber);
     }
   }, {
     key: 'render',
@@ -82,7 +82,8 @@ PageButton.propTypes = {
   active: _propTypes2.default.bool,
   disable: _propTypes2.default.bool,
   hidden: _propTypes2.default.bool,
-  children: _propTypes2.default.node
+  children: _propTypes2.default.node,
+  pageNumber: _propTypes2.default.number
 };
 
 var _default = PageButton;

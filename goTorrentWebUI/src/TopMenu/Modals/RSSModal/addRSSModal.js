@@ -59,7 +59,7 @@ const inlineStyle = {
           <ReactTooltip place="top" type="light" effect="float" />
           <RSSTorrentIcon />
         </IconButton>
-        <Dialog fullScreen open={this.props.RSSModalOpen} onRequestClose={this.handleRequestClose}>
+        <Dialog fullScreen open={this.props.RSSModalOpen} onClose={this.handleRequestClose} onEscapeKeyDown={this.handleRequestClose}>
         <DialogTitle>Manage RSS Feeds</DialogTitle>
           <RSSModalLayout />
         </Dialog>   

@@ -7,6 +7,7 @@
 const Module = require("../Module");
 const Template = require("../Template");
 const Parser = require("../Parser");
+const crypto = require("crypto");
 const acorn = require("acorn");
 const escope = require("escope");
 const ReplaceSource = require("webpack-sources/lib/ReplaceSource");
@@ -142,6 +143,7 @@ function getPathInAst(ast, node) {
 	}
 
 	function enterNode(n) {
+		if(!n) return undefined;
 		const r = n.range;
 		if(r) {
 			if(r[0] <= nr[0] && r[1] >= nr[1]) {
@@ -210,6 +212,7 @@ class ConcatenatedModule extends Module {
 				Object.assign(this.assets, m.assets);
 			}
 		}
+		this._identifier = this._createIdentifier();
 	}
 
 	get modules() {
@@ -219,12 +222,7 @@ class ConcatenatedModule extends Module {
 	}
 
 	identifier() {
-		return this._orderedConcatenationList.map(info => {
-			switch(info.type) {
-				case "concatenated":
-					return info.module.identifier();
-			}
-		}).filter(Boolean).join(" ");
+		return this._identifier;
 	}
 
 	readableIdentifier(requestShortener) {
@@ -295,6 +293,19 @@ class ConcatenatedModule extends Module {
 		enterModule(() => rootModule);
 
 		return list;
+	}
+
+	_createIdentifier() {
+		let orderedConcatenationListIdentifiers = "";
+		for(let i = 0; i < this._orderedConcatenationList.length; i++) {
+			if(this._orderedConcatenationList[i].type === "concatenated") {
+				orderedConcatenationListIdentifiers += this._orderedConcatenationList[i].module.identifier();
+				orderedConcatenationListIdentifiers += " ";
+			}
+		}
+		const hash = crypto.createHash("md5");
+		hash.update(orderedConcatenationListIdentifiers);
+		return this.rootModule.identifier() + " " + hash.digest("hex");
 	}
 
 	source(dependencyTemplates, outputOptions, requestShortener) {

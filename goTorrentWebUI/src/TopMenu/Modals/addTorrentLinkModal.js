@@ -81,7 +81,7 @@ export default class addTorrentPopup extends React.Component {
         <ReactTooltip place="top" type="light" effect="float" />
         <InsertLinkIcon />
       </IconButton>
-        <Dialog open={this.state.open} onRequestClose={this.handleRequestClose}>
+        <Dialog open={this.state.open} onClose={this.handleRequestClose} onEscapeKeyDown={this.handleRequestClose}>
           <DialogTitle>Add Magnet Link</DialogTitle>
           <DialogContent>
             <DialogContentText>

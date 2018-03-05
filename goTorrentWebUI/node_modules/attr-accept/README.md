@@ -2,6 +2,7 @@
 JavaScript implementation of the "accept" attribute for HTML5 `<input type="file">`
 
 [![Build Status](https://travis-ci.org/okonet/attr-accept.svg?branch=master)](https://travis-ci.org/okonet/attr-accept)
+[![npm version](https://badge.fury.io/js/attr-accept.svg)](https://badge.fury.io/js/attr-accept)
 
 See https://developer.mozilla.org/en-US/docs/Web/HTML/Element/Input#Attributes for more information.
 

@@ -91,6 +91,9 @@ const inlineStyle = {
             <ListItem  className={this.state.activeIndex==3 ? classes.active: null} button onClick={() => this.changeMenuSelection(3)}>
                 <ListItemText primary="Server Settings" />
             </ListItem>
+            <ListItem  className={this.state.activeIndex==4 ? classes.active: null} button onClick={() => this.changeMenuSelection(4)}>
+                <ListItemText primary="API Settings" />
+            </ListItem>
         </List>
       </div>
     );

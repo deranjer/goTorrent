@@ -9,7 +9,7 @@ import ClientSettingsTab from './SettingsModalContentTabs/clientSettingsTab';
 import LoggingSettingsTab from './SettingsModalContentTabs/loggingSettingsTab';
 import NotesTab from './SettingsModalContentTabs/notesTab';
 import ServerSettingsTab from './SettingsModalContentTabs/serverSettingsTab';
-
+import APISettingsTab from './SettingsModalContentTabs/apiSettingsTab';
 
 
 
@@ -35,11 +35,11 @@ class SettingsModalContent extends React.Component {
                 return <LoggingSettingsTab />
             case 3:
                 return <ServerSettingsTab />
+            case 4:
+                return <APISettingsTab />
             default:
                 return <NotesTab />
-        }
-        
-       
+        } 
             
     }
 }

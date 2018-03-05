@@ -25,21 +25,42 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 var ExpandRowHeaderColumn = function (_Component) {
   _inherits(ExpandRowHeaderColumn, _Component);
 
-  function ExpandRowHeaderColumn() {
+  function ExpandRowHeaderColumn(props) {
     _classCallCheck(this, ExpandRowHeaderColumn);
 
-    return _possibleConstructorReturn(this, (ExpandRowHeaderColumn.__proto__ || Object.getPrototypeOf(ExpandRowHeaderColumn)).apply(this, arguments));
+    var _this = _possibleConstructorReturn(this, (ExpandRowHeaderColumn.__proto__ || Object.getPrototypeOf(ExpandRowHeaderColumn)).call(this, props));
+
+    _this.toggleExpandAllChilds = _this.toggleExpandAllChilds.bind(_this);
+    return _this;
   }
 
   _createClass(ExpandRowHeaderColumn, [{
+    key: 'toggleExpandAllChilds',
+    value: function toggleExpandAllChilds() {
+      this.props.toggleExpandAllChilds();
+    }
+  }, {
     key: 'render',
     value: function render() {
+      var _props = this.props,
+          expandedColumnHeaderComponent = _props.expandedColumnHeaderComponent,
+          noAnyExpand = _props.noAnyExpand,
+          expandAll = _props.expandAll;
+
+      var expandedHeaderComponent = noAnyExpand ? _react2.default.createElement('span', { className: 'fa fa-plus glyphicon glyphicon-plus' }) : _react2.default.createElement('span', { className: 'fa fa-minus glyphicon glyphicon-minus' });
+      var ExpandedColumnHeaderComponent = expandedColumnHeaderComponent;
+
       return _react2.default.createElement(
         'th',
         { rowSpan: this.props.rowCount, style: { textAlign: 'center' },
           className: 'react-bs-table-expand-cell',
           'data-is-only-head': false },
-        this.props.children
+        expandAll ? _react2.default.createElement(
+          'div',
+          { onClick: this.toggleExpandAllChilds },
+          expandedColumnHeaderComponent ? _react2.default.createElement(ExpandedColumnHeaderComponent, {
+            anyExpand: !noAnyExpand }) : expandedHeaderComponent
+        ) : null
       );
     }
   }]);
@@ -48,8 +69,11 @@ var ExpandRowHeaderColumn = function (_Component) {
 }(_react.Component);
 
 ExpandRowHeaderColumn.propTypes = {
-  children: _propTypes2.default.node,
-  rowCount: _propTypes2.default.number
+  expandedColumnHeaderComponent: _propTypes2.default.func,
+  rowCount: _propTypes2.default.number,
+  noAnyExpand: _propTypes2.default.bool,
+  expandAll: _propTypes2.default.bool,
+  toggleExpandAllChilds: _propTypes2.default.func
 };
 var _default = ExpandRowHeaderColumn;
 exports.default = _default;

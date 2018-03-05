@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom';
 import Button from 'material-ui/Button';
 import TextField from 'material-ui/TextField';
 import { withStyles } from 'material-ui/styles';
-import PropTypes from 'prop-types';
+//import PropTypes from 'prop-types';
 import List, {
     ListItem,
     ListItemIcon,
@@ -61,7 +61,7 @@ const inlineStyle = {
           <ReactTooltip place="top" type="light" effect="float" />
           <SettingsIcon />
         </IconButton>
-        <Dialog fullScreen open={this.props.settingsModalOpen} onRequestClose={this.handleRequestClose}>
+        <Dialog fullScreen open={this.props.settingsModalOpen} onClose={this.handleRequestClose} onEscapeKeyDown={this.handleRequestClose}>
         <DialogTitle>Manage Settings</DialogTitle>
         <SettingsModalLayout />
         </Dialog>   

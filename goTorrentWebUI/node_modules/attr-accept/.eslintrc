@@ -1,12 +1,7 @@
 {
-  "extends": "airbnb",
+  "extends": "okonet",
   "env": {
     "browser": true,
-    "mocha": true,
-    "node": true
-  },
-  "rules": {
-    "indent": [2, 4],
-    "comma-dangle": [2, "never"]
+    "mocha": true
   }
 }

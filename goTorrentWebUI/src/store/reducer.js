@@ -22,6 +22,7 @@ const initialState = {
     webSocketState: false,
     searchFilterTerm: "",
     settingsFile: [],
+    settingsModalOpen: false,
 }
 
 
@@ -155,7 +156,7 @@ const reducer = (state = initialState, action) => {
             
                 if (buttonStateTest.length > 0 && buttonStateTest2.length === 0){
 
-                    let buttonStateFinal = [{startButton: "default", stopButton: "primary", deleteButton: "accent", fSeedButton: "default", fRecheckButton: "primary"}]
+                    let buttonStateFinal = [{startButton: "default", stopButton: "primary", deleteButton: "secondary", fSeedButton: "default", fRecheckButton: "primary"}]
                     return {
                         ...state,
                         buttonState: buttonStateFinal
@@ -163,7 +164,7 @@ const reducer = (state = initialState, action) => {
 
                 }
                 if (buttonStateTest.length === 0 && buttonStateTest2.length > 0){
-                    let buttonStateFinal = [{startButton: "primary", stopButton: "default", deleteButton: "accent", fSeedButton: "default", fRecheckButton: "primary"}]
+                    let buttonStateFinal = [{startButton: "primary", stopButton: "default", deleteButton: "secondary", fSeedButton: "default", fRecheckButton: "primary"}]
                     return {
                         ...state,
                         buttonState: buttonStateFinal
@@ -171,7 +172,7 @@ const reducer = (state = initialState, action) => {
 
                 }
                 if (buttonStateTest.length > 0 && buttonStateTest2.length > 0){
-                    let buttonStateFinal = [{startButton: "primary", stopButton: "primary", deleteButton: "accent", fSeedButton: "default", fRecheckButton: "primary"}]
+                    let buttonStateFinal = [{startButton: "primary", stopButton: "primary", deleteButton: "secondary", fSeedButton: "default", fRecheckButton: "primary"}]
                     return {
                         ...state,
                         buttonState: buttonStateFinal

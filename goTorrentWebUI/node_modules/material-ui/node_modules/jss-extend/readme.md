@@ -1,46 +1,79 @@
-# JSS plugin that enables inheritance
+# JSS plugin that enables mixing in styles
 
 [![Gitter](https://badges.gitter.im/JoinChat.svg)](https://gitter.im/cssinjs/lobby)
 
-This plugin implements a custom `extend` style property.
+This plugin implements a custom property `extend` which allows you to mix in styles in various ways.
 
-Value of `extend` property can be a string, object and array. If string is used, it will look for a rule with such a name. If object - plain rule object is expected, if array - an array of plain rule objects is expected.
+Style object own properties always take precedence over extended objects, so you can always override the extended definition. Exception is function values.
 
-Rule's own properties always take precedence over extended rules, so you can always override the extended definition.
-
-
-## Examples
-
+## Use style object reference
 ```javascript
-const styles = {
-  redContainer: {
-    background: 'red'
-  },
-  container: {
-    extend: 'redContainer',
-    'font-size': '20px'
-  }
+
+const buttonColor = {
+  color: 'green'
 }
-```
-
-```javascript
-const redContainer = {
+const buttonTheme = {
+  extend: buttonColor
   background: 'red'
 }
 const styles = {
-  container: {
-    extend: redContainer, // Can be an array of styles
-    'font-size': '20px'
+  button: {
+    extend: buttonTheme,
+    fontSize: '20px'
   }
 }
 ```
 
-Compiles to:
+## Use rule name from the current styles object
 
-```css
-.jss-23g44j5 {
-  background: red;
-  font-size: 20px;
+```javascript
+const styles = {
+  buttonColor: {
+    background: 'red'
+  },
+  button: {
+    extend: 'buttonColor',
+    fontSize: '20px'
+  }
+}
+```
+
+## Use array of style objects
+
+```javascript
+const styles = {
+  button: {
+    extend: [{background: 'red'}, {color: 'green'}],
+    fontSize: '20px'
+  }
+}
+```
+
+```javascript
+
+const background = {background: 'red'}
+const color = {color: 'green'}
+
+const styles = {
+  button: {
+    extend: [background, color],
+    fontSize: '20px'
+  }
+}
+```
+
+## Use function which returns a style object
+
+Nested `extend` inside of the function is not supported. Will override other properties defined in the same rule.
+
+```javascript
+const styles = {
+  button: {
+    extend: (data) => ({
+      color: data.theme.color
+    }),
+    fontSize: '20px'
+  }
 }
 ```
 

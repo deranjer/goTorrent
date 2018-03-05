@@ -29,6 +29,7 @@ class JsonpMainTemplatePlugin {
 			const chunkMaps = chunk.getChunkMaps();
 			const crossOriginLoading = this.outputOptions.crossOriginLoading;
 			const chunkLoadTimeout = this.outputOptions.chunkLoadTimeout;
+			const jsonpScriptType = this.outputOptions.jsonpScriptType;
 			const scriptSrcPath = this.applyPluginsWaterfall("asset-path", JSON.stringify(chunkFilename), {
 				hash: `" + ${this.renderCurrentHashCode(hash)} + "`,
 				hashWithLength: length => `" + ${this.renderCurrentHashCode(hash, length)} + "`,
@@ -48,7 +49,7 @@ class JsonpMainTemplatePlugin {
 			});
 			return this.asString([
 				"var script = document.createElement('script');",
-				"script.type = 'text/javascript';",
+				`script.type = ${JSON.stringify(jsonpScriptType)};`,
 				"script.charset = 'utf-8';",
 				"script.async = true;",
 				`script.timeout = ${chunkLoadTimeout};`,
@@ -195,8 +196,8 @@ class JsonpMainTemplatePlugin {
 function hotDisposeChunk(chunkId) {
 	delete installedChunks[chunkId];
 }
-var parentHotUpdateCallback = this[${JSON.stringify(hotUpdateFunction)}];
-this[${JSON.stringify(hotUpdateFunction)}] = ${runtimeSource}`;
+var parentHotUpdateCallback = window[${JSON.stringify(hotUpdateFunction)}];
+window[${JSON.stringify(hotUpdateFunction)}] = ${runtimeSource}`;
 		});
 		mainTemplate.plugin("hash", function(hash) {
 			hash.update("jsonp");

@@ -1,0 +1,8 @@
+/node_modules
+/README.html
+npm-debug.log
+*.swp
+*.un~
+*.orig
+.DS_Store
+*.bak

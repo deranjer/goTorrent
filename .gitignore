@@ -19,6 +19,7 @@ logs/server.log
 .goreleaser.yml
 config.toml.backup
 config.1.toml
+config.toml.old
 /public/static/js/kickwebsocket.js.backup
 /public/static/js/kickwebsocket-generated.js
 clientAuth.txt

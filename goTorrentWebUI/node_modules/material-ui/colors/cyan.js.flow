@@ -1,6 +1,3 @@
-// Wait https://github.com/facebook/flow/issues/380 to be fixed
-/* eslint-disable flowtype/require-valid-file-annotation */
-
 const cyan = {
   50: '#e0f7fa',
   100: '#b2ebf2',
@@ -16,7 +13,6 @@ const cyan = {
   A200: '#18ffff',
   A400: '#00e5ff',
   A700: '#00b8d4',
-  contrastDefaultColor: 'dark',
 };
 
 export default cyan;

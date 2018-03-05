@@ -251,7 +251,7 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 			for _, previousElement := range PreviousTorrentArray {
 				TempHash := singleTorrent.InfoHash()
 				if previousElement.TorrentHashString == TempHash.String() { //matching previous to new
-					CalculateTorrentSpeed(singleTorrent, fullClientDB, previousElement)
+					CalculateTorrentSpeed(singleTorrent, fullClientDB, previousElement, calculatedCompletedSize)
 					fullClientDB.TotalUploadedBytes = singleTorrentFromStorage.UploadedBytes + (fullStruct.ConnStats.BytesWrittenData - previousElement.DataBytesWritten)
 				}
 			}
@@ -264,6 +264,7 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		CalculateTorrentStatus(singleTorrent, fullClientDB, config, singleTorrentFromStorage, calculatedCompletedSize, calculatedTotalSize)
 
 		tickUpdateStruct.UploadRatio = fullClientDB.UploadRatio
+		tickUpdateStruct.TorrentSize = calculatedTotalSize
 		tickUpdateStruct.UploadedBytes = fullClientDB.TotalUploadedBytes
 		tickUpdateStruct.TorrentStatus = fullClientDB.Status
 		tickUpdateStruct.Hash = fullClientDB.TorrentHashString //needed for index

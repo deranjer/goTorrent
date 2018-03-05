@@ -70,7 +70,7 @@ class ChangeStorageModal extends React.Component {
         <ReactTooltip place="top" type="light" effect="float" />
         <StorageIcon />
       </IconButton>
-        <Dialog open={this.state.open} onRequestClose={this.handleRequestClose}>
+        <Dialog open={this.state.open} onClose={this.handleRequestClose} onEscapeKeyDown={this.handleRequestClose}>
           <DialogTitle>Change Storage Value</DialogTitle>
           <DialogContent>
             <DialogContentText>

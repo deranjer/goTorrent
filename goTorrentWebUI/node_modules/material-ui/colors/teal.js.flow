@@ -1,6 +1,3 @@
-// Wait https://github.com/facebook/flow/issues/380 to be fixed
-/* eslint-disable flowtype/require-valid-file-annotation */
-
 const teal = {
   50: '#e0f2f1',
   100: '#b2dfdb',
@@ -16,7 +13,6 @@ const teal = {
   A200: '#64ffda',
   A400: '#1de9b6',
   A700: '#00bfa5',
-  contrastDefaultColor: 'dark',
 };
 
 export default teal;

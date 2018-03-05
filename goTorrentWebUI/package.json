@@ -1,6 +1,6 @@
 {
   "name": "torrent-project",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "build": "babel src -d lib"
@@ -21,13 +21,13 @@
     "babel-preset-react": "^6.24.1",
     "css-loader": "^0.28.7",
     "file-loader": "^1.1.5",
-    "material-ui": "^1.0.0-beta.20",
+    "material-ui": "^1.0.0-beta.35",
     "material-colors": "^1.2.5",
-    "material-ui-icons": "^1.0.0-beta.17",
-    "react": "^16.1.0",
+    "material-ui-icons": "^1.0.0-beta.35",
+    "react": "^16.2.0",
     "react-bootstrap-table": "^4.1.2",
     "react-resizable": "^1.7.5",
-    "react-dom": "^16.1.0",
+    "react-dom": "^16.2.0",
     "react-redux": "^5.0.6",
     "react-scripts": "^1.0.17",
     "react-tooltip": "^3.4.0",

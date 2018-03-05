@@ -60,9 +60,10 @@ func CopyFile(srcFile string, destFile string) { //TODO move this to our importe
 }
 
 //CalculateTorrentSpeed is used to calculate the torrent upload and download speed over time c is current clientdb, oc is last client db to calculate speed over time
-func CalculateTorrentSpeed(t *torrent.Torrent, c *ClientDB, oc ClientDB) {
+func CalculateTorrentSpeed(t *torrent.Torrent, c *ClientDB, oc ClientDB, completedSize int64) {
 	now := time.Now()
-	bytes := t.BytesCompleted()
+	//bytes := t.BytesCompleted()
+	bytes := completedSize
 	bytesUpload := t.Stats().BytesWrittenData
 	dt := float32(now.Sub(oc.UpdatedAt))     // get the delta time length between now and last updated
 	db := float32(bytes - oc.BytesCompleted) //getting the delta bytes

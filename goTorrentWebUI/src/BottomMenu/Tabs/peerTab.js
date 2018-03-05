@@ -1,15 +1,16 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
+import Paper from 'material-ui/Paper';
 
 import {BootstrapTable, TableHeaderColumn} from 'react-bootstrap-table';
 
 import {
-    SortingState, LocalSorting, VirtualTableLayout, SelectionState,
+    SortingState, IntegratedSorting, VirtualTableLayout, SelectionState,
 } from '@devexpress/dx-react-grid';
 
 import {
-    Grid, TableView, TableHeaderRow, PagingPanel, VirtualTableView, TableColumnResizing,
-    DragDropContext, TableColumnReordering,
+    Grid, TableHeaderRow, VirtualTable, TableColumnResizing,
+    DragDropProvider, TableColumnReordering,
 } from '@devexpress/dx-react-grid-material-ui';
 
 
@@ -32,7 +33,13 @@ class PeerTab extends React.Component {
             ],
             sorting: [],
             columnOrder: ['PeerID', 'IP', 'Port', 'Source', 'SupportsEncryption'],
-            columnWidths: {PeerID: 250, IP: 150, Port: 100, Source: 150, SupportsEncryption: 150},
+            columnWidths: [
+                {columnName: 'PeerID', width: 250},
+                {columnName: 'IP', width: 150},
+                {columnName: 'Port', width: 100},
+                {columnName: 'Source', width: 150},
+                {columnName: 'SupportsEncryption', width: 150},
+            ]
         };
  
         this.changeColumnOrder = columnOrder => this.setState({columnOrder});
@@ -41,23 +48,23 @@ class PeerTab extends React.Component {
     }
 
     render() {
-        return (   
-            <Grid rows={this.props.peerList} columns={this.state.columns}>
-                <SortingState sorting={this.state.sorting} onSortingChange={this.changeSorting} />
-                <LocalSorting />
-                <DragDropContext />
-                <VirtualTableView height={350}/>
-                <TableColumnResizing columnWidths={this.state.columnWidths} onColumnWidthsChange={this.changeColumnWidths}/>
-                <TableColumnReordering order={this.state.columnOrder} onOrderChange={this.changeColumnOrder} />
-                <TableHeaderRow allowSorting allowResizing allowDragging />
-            </Grid>
+        return (
+            <Paper>   
+                <Grid rows={this.props.peerList} columns={this.state.columns}>
+                    <SortingState sorting={this.state.sorting} onSortingChange={this.changeSorting} />
+                    <IntegratedSorting />
+                    <DragDropProvider />
+                    <VirtualTable height={350}/>
+                    <TableColumnResizing columnWidths={this.state.columnWidths} onColumnWidthsChange={this.changeColumnWidths}/>
+                    <TableColumnReordering order={this.state.columnOrder} onOrderChange={this.changeColumnOrder} />
+                    <TableHeaderRow allowSorting allowResizing allowDragging />
+                </Grid>
+            </Paper>
         );
     }
 
 
 }
-
-
 
 const mapStateToProps = state => {
     return {

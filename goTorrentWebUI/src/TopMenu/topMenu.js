@@ -43,7 +43,6 @@ const styles = theme => ({
     display: 'none',
   },
   padding: {
-    paddingTop: '10px',
     paddingLeft: '10px',
   },
   verticalDivider: {
@@ -52,6 +51,7 @@ const styles = theme => ({
     height: '40px',
     position: 'absolute',
     display: 'inline-block',
+    marginTop: '10px',
     paddingRight: '30px',
     paddingLeft: '30px',
   },

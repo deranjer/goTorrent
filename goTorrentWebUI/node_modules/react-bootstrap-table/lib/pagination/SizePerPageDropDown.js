@@ -45,21 +45,35 @@ var SizePerPageDropDown = function (_Component) {
           className = _props.className,
           variation = _props.variation,
           btnContextual = _props.btnContextual,
+          isBootstrap4 = _props.isBootstrap4,
           currSizePerPage = _props.currSizePerPage;
 
 
+      if (hidden) return null;
+
       var openClass = open ? 'open show' : '';
-      var dropDownStyle = { visibility: hidden ? 'hidden' : 'visible' };
+
+      var renderOptions = function renderOptions() {
+        var attrs = {
+          className: 'dropdown-menu ' + openClass,
+          role: 'menu',
+          'aria-labelledby': 'pageDropDown'
+        };
+        var type = isBootstrap4 ? 'div' : 'ul';
+
+        return _react2.default.createElement(type, attrs, options);
+      };
 
       return _react2.default.createElement(
         'span',
-        { style: dropDownStyle,
+        {
           className: variation + ' ' + openClass + ' ' + className + ' ' + sizePerPageDefaultClass },
         _react2.default.createElement(
           'button',
           { className: 'btn ' + btnContextual + ' dropdown-toggle',
             id: 'pageDropDown', 'data-toggle': 'dropdown',
             'aria-expanded': open,
+            'aria-haspopup': !open,
             onClick: onClick,
             onBlur: onBlur },
           currSizePerPage,
@@ -70,11 +84,7 @@ var SizePerPageDropDown = function (_Component) {
             _react2.default.createElement('span', { className: 'caret' })
           )
         ),
-        _react2.default.createElement(
-          'ul',
-          { className: 'dropdown-menu', role: 'menu', 'aria-labelledby': 'pageDropDown' },
-          options
-        )
+        renderOptions()
       );
     }
   }]);

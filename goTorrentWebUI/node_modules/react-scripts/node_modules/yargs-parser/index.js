@@ -17,11 +17,14 @@ function parse (args, opts) {
     'parse-numbers': true,
     'boolean-negation': true,
     'duplicate-arguments-array': true,
-    'flatten-duplicate-arrays': true
+    'flatten-duplicate-arrays': true,
+    'populate--': false
   }, opts.configuration)
   var defaults = opts.default || {}
   var configObjects = opts.configObjects || []
   var envPrefix = opts.envPrefix
+  var notFlagsOption = configuration['populate--']
+  var notFlagsArgv = notFlagsOption ? '--' : '_'
   var newAliases = {}
   // allow a i18n handler to be passed in, default to a fake one (util.format).
   var __ = opts.__ || function (str) {
@@ -289,8 +292,10 @@ function parse (args, opts) {
     if (!hasKey(argv, key.split('.'))) setArg(key, 0)
   })
 
+  // '--' defaults to undefined.
+  if (notFlagsOption && notFlags.length) argv[notFlagsArgv] = []
   notFlags.forEach(function (key) {
-    argv._.push(key)
+    argv[notFlagsArgv].push(key)
   })
 
   // how many arguments should we consume, based
@@ -558,7 +563,7 @@ function parse (args, opts) {
 
     var key = keys[keys.length - 1]
 
-    var isTypeArray = checkAllAliases(key, flags.arrays)
+    var isTypeArray = checkAllAliases(keys.join('.'), flags.arrays)
     var isValueArray = Array.isArray(value)
     var duplicate = configuration['duplicate-arguments-array']
 

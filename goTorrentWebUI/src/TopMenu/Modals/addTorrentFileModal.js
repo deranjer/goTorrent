@@ -100,7 +100,7 @@ export default class addTorrentFilePopup extends React.Component {
         <ReactTooltip place="top" type="light" effect="float" />
         <AddIcon />
       </IconButton>
-        <Dialog open={this.state.open} onRequestClose={this.handleRequestClose} onEscapeKeyUp={this.handleRequestClose} maxWidth="md">
+        <Dialog open={this.state.open} onClose={this.handleRequestClose} onEscapeKeyDown={this.handleRequestClose} maxWidth="md">
           <DialogTitle>Add Torrent File</DialogTitle>
           <DialogContent>
             <DialogContentText>

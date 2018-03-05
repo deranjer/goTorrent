@@ -1,14 +1,15 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import Button from 'material-ui/Button';
+import Paper from 'material-ui/Paper';
 
 import {
-    SortingState, LocalSorting, VirtualTableLayout, SelectionState,
+    SortingState, IntegratedSorting, VirtualTableLayout, SelectionState,
 } from '@devexpress/dx-react-grid';
 
 import {
-    Grid, TableHeaderRow, PagingPanel, VirtualTableView, TableColumnResizing,
-    DragDropContext, TableColumnReordering, TableSelection,
+    Grid, TableHeaderRow, VirtualTable, TableColumnResizing,
+    DragDropProvider, TableColumnReordering, TableSelection,
 } from '@devexpress/dx-react-grid-material-ui';
 
 
@@ -31,13 +32,14 @@ class RSSTorrentList extends React.Component {
             ],
             sorting: [],
             columnOrder: ['TorrentName', 'TorrentLink', 'PublishDate'],
-            columnWidths: {TorrentName: 450, TorrentLink: 650, PublishDate: 200},
+            columnWidths: [
+                {columnName: 'TorrentName', width: 450},
+                {columnName: 'TorrentLink', width: 650},
+                {columnName: 'PublishDate', width: 200},
+            ],
             fileSelection: [],
-            selected: [],
- 
-            
+            selected: [],    
         };
-
 
         this.changeColumnOrder = columnOrder => this.setState({columnOrder});
         this.changeColumnWidths = columnWidths => this.setState({columnWidths});
@@ -82,29 +84,30 @@ class RSSTorrentList extends React.Component {
         return (  
             //Buttons here 
             <div>
-                <Button raised color="primary" onClick={this.sendMagnetLinks}>
+                <Button variant="raised" color="primary" onClick={this.sendMagnetLinks}>
                     Download Torrents
                 </Button>
-                <Grid rows={this.props.RSSTorrentList} columns={this.state.columns}>
-                    <SortingState sorting={this.state.sorting} onSortingChange={this.changeSorting} />
-                    <LocalSorting />
-                    <DragDropContext />
-                    <SelectionState onSelectionChange={this.changeSelection} selection={this.state.selection}/>
-                
-                    <VirtualTableView height={500} />
-    
-                    <TableColumnResizing columnWidths={this.state.columnWidths} onColumnWidthsChange={this.changeColumnWidths}/>
-                    <TableColumnReordering order={this.state.columnOrder} onOrderChange={this.changeColumnOrder} />
-                    <TableSelection selectByRowClick highlightSelected />
-                    <TableHeaderRow allowSorting allowResizing allowDragging />
-                </Grid>
+                    <Paper>
+                    <Grid rows={this.props.RSSTorrentList} columns={this.state.columns}>
+                        <SortingState sorting={this.state.sorting} onSortingChange={this.changeSorting} />
+                        <IntegratedSorting />
+                        <DragDropProvider />
+                        <SelectionState onSelectionChange={this.changeSelection} selection={this.state.selection}/>
+                    
+                        <VirtualTable height={500} />
+        
+                        <TableColumnResizing columnWidths={this.state.columnWidths} onColumnWidthsChange={this.changeColumnWidths}/>
+                        <TableColumnReordering order={this.state.columnOrder} onOrderChange={this.changeColumnOrder} />
+                        <TableSelection selectByRowClick highlightSelected />
+                        <TableHeaderRow allowSorting allowResizing allowDragging />
+                    </Grid>
+                    </Paper>
             </div>
         );
     }
 
 
 }
-
 
 
 const mapStateToProps = state => {

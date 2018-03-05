@@ -10,9 +10,9 @@ const styles = theme => ({
     borderBottom: `1px solid ${theme.palette.text.lightDivider}`,
   },
   progressBar: {
-    backgroundColor: theme.palette.primary[300],
+    backgroundColor: '#3e72c4',
     float: 'left',
-    height: theme.spacing.unit,
+    height: '100%',
     whiteSpace: 'nowrap',
   },
   progressText: {
@@ -37,7 +37,7 @@ export const ProgressBarCellBase = ({ value, classes, style }) => (
       className={classes.progressBar}
       style={{ width: `${value}%` }}
       title={`${value.toFixed(1)}%`}  
-    /><div className={classes.progressText}>{value}</div>
+    >{value}</div>
   </TableCell>
 );
 ProgressBarCellBase.propTypes = {

@@ -1,6 +1,3 @@
-// Wait https://github.com/facebook/flow/issues/380 to be fixed
-/* eslint-disable flowtype/require-valid-file-annotation */
-
 const pink = {
   50: '#fce4ec',
   100: '#f8bbd0',
@@ -16,7 +13,6 @@ const pink = {
   A200: '#ff4081',
   A400: '#f50057',
   A700: '#c51162',
-  contrastDefaultColor: 'light',
 };
 
 export default pink;

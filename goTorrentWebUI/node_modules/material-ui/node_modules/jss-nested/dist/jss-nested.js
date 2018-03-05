@@ -70,8 +70,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 	
-	function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
-	
 	var separatorRegExp = /\s*,\s*/g;
 	var parentRegExp = /&/g;
 	var refRegExp = /\$([\w-]+)/g;
@@ -154,8 +152,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	        container.addRule(selector, style[prop], _extends({}, options, { selector: selector }));
 	      } else if (isNestedConditional) {
+	        container
 	        // Place conditional right after the parent rule to ensure right ordering.
-	        container.addRule(prop, _defineProperty({}, rule.key, style[prop]), options);
+	        .addRule(prop, null, options).addRule(rule.key, style[prop], { selector: rule.selector });
 	      }
 	
 	      delete style[prop];

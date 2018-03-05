@@ -1,4 +1,9 @@
-export type Spacing = {
+export interface Spacing {
   unit: number;
-};
-export default Spacing;
+}
+
+export type SpacingOptions = Partial<Spacing>;
+
+declare const spacing: Spacing;
+
+export default spacing;
