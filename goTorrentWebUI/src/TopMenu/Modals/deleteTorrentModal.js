@@ -83,7 +83,7 @@ class DeleteTorrentModal extends React.Component {
   }
 
   render() {
-    const { onRequestClose, handleRequestClose, handleSubmit } = this.props;
+    const { onClose, handleRequestClose, handleSubmit } = this.props;
     return (
       <div style={inlineStyle}>
 

@@ -63,7 +63,7 @@ class ChangeStorageModal extends React.Component {
   }
 
   render() {
-    const { classes, onRequestClose, handleRequestClose, handleSubmit } = this.props;
+    const { classes, onClose, handleRequestClose, handleSubmit } = this.props;
     return (
       <div style={inlineStyle}>
         <IconButton onClick={this.handleClickOpen} color="primary" data-tip="Change Storage Location" style={button}  centerRipple aria-label="Change Storage Location" >

@@ -53,7 +53,7 @@ const inlineStyle = {
   }
 
   render() {
-    const { classes, onRequestClose, handleRequestClose, handleSubmit } = this.props;
+    const { classes, onClose, handleRequestClose, handleSubmit } = this.props;
     return (
 
       <div style={inlineStyle}>

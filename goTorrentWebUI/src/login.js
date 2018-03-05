@@ -88,7 +88,7 @@ export default class Login extends React.Component {
   render() {
     const { classes, onRequestClose, handleRequestClose, handleSubmit } = this.props;
     return (
-        <Dialog open={this.state.open} onRequestClose={this.handleRequestClose} ignoreBackdropClick={true} disableBackdrop={true}>
+        <Dialog open={this.state.open} onClose={this.handleRequestClose} ignoreBackdropClick={true} disableBackdrop={true}>
           <DialogTitle>Login Here</DialogTitle>
           <DialogContent>
             <DialogContentText>
