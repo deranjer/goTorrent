@@ -121,13 +121,13 @@ func main() {
 	httpAddr := Config.HTTPAddr
 	os.MkdirAll(Config.TFileUploadFolder, 0755)  //creating a directory to store uploaded torrent files
 	os.MkdirAll(Config.TorrentWatchFolder, 0755) //creating a directory to watch for added .torrent files
-	Logger.WithFields(logrus.Fields{"Config": Config}).Info("Torrent Client Config has been generated...")
+	//Logger.WithFields(logrus.Fields{"Config": Config}).Info("Torrent Client Config has been generated...")
 
 	tclient, err := torrent.NewClient(&Config.TorrentConfig) //pulling out the torrent specific config to use
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"error": err}).Fatalf("Error creating torrent client: %s")
 	}
-
+	fmt.Printf("%+v\n", Config.TorrentConfig)
 	db, err := storm.Open("storage.db") //initializing the boltDB store that contains all the added torrents
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"error": err}).Fatal("Error opening/creating storage.db")
@@ -466,7 +466,6 @@ func main() {
 							oldTorrentInfo := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String())
 							oldTorrentInfo.TorrentStatus = "Stopped"
 							oldTorrentInfo.MaxConnections = 0
-							fmt.Println("Running Command...", "oldMax=singleTorrent.SetMaxEstablishedConns(0)")
 							oldMax := singleTorrent.SetMaxEstablishedConns(0) //Forcing the max amount of connections allowed to zero effectively stopping it
 							Logger.WithFields(logrus.Fields{"oldMaxConnections": oldMax, "torrent": singleTorrent}).Info("Forcing connections to zero for torrent")
 							Storage.UpdateStorageTick(db, oldTorrentInfo) //Updating the torrent status

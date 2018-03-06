@@ -175,11 +175,11 @@ func FullClientSettingsNew() FullClientSettings {
 	pushBulletToken := viper.GetString("notifications.PushBulletToken")
 
 	//Rate Limiters
-	var uploadRateLimiter *rate.Limiter
-	var downloadRateLimiter *rate.Limiter
-	uploadRate := viper.GetString("serverConfig.UploadRateLimit")
-	downloadRate := viper.GetString("serverConfig.DownloadRateLimit")
-	downloadRateLimiter, uploadRateLimiter = calculateRateLimiters(uploadRate, downloadRate)
+	//var uploadRateLimiter *rate.Limiter
+	//var downloadRateLimiter *rate.Limiter
+	//uploadRate := viper.GetString("serverConfig.UploadRateLimit")
+	//downloadRate := viper.GetString("serverConfig.DownloadRateLimit")
+	//downloadRateLimiter, uploadRateLimiter = calculateRateLimiters(uploadRate, downloadRate)
 	//Internals
 	dataDir := filepath.ToSlash(viper.GetString("torrentClientConfig.DownloadDir")) //Converting the string literal into a filepath
 	dataDirAbs, err := filepath.Abs(dataDir)                                        //Converting to an absolute file path
@@ -213,21 +213,21 @@ func FullClientSettingsNew() FullClientSettings {
 	}
 
 	tConfig := torrent.Config{
-		DataDir:             dataDirAbs,
-		ListenAddr:          listenAddr,
-		DisablePEX:          disablePex,
-		NoDHT:               noDHT,
-		DHTConfig:           dhtServerConfig,
-		NoUpload:            noUpload,
-		Seed:                seed,
-		UploadRateLimiter:   uploadRateLimiter,
-		DownloadRateLimiter: downloadRateLimiter,
-		PeerID:              peerID,
-		DisableUTP:          disableUTP,
-		DisableTCP:          disableTCP,
-		DisableIPv6:         disableIPv6,
-		Debug:               debug,
-		EncryptionPolicy:    encryptionPolicy,
+		DataDir:    dataDirAbs,
+		ListenAddr: listenAddr,
+		DisablePEX: disablePex,
+		NoDHT:      noDHT,
+		DHTConfig:  dhtServerConfig,
+		NoUpload:   noUpload,
+		Seed:       seed,
+		//UploadRateLimiter:   uploadRateLimiter,
+		//DownloadRateLimiter: downloadRateLimiter,
+		PeerID:           peerID,
+		DisableUTP:       disableUTP,
+		DisableTCP:       disableTCP,
+		DisableIPv6:      disableIPv6,
+		Debug:            debug,
+		EncryptionPolicy: encryptionPolicy,
 	}
 
 	Config := FullClientSettings{

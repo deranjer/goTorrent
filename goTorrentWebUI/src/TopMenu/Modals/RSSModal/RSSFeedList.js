@@ -93,7 +93,6 @@ const inlineStyle = {
   }
 
   render() {
-    //const { classes, onRequestClose, handleRequestClose, handleSubmit } = this.props;
     if (this.props.RSSList.length > 0 && this.state.showList == false){
       console.log("Setting list to show....")
       this.setState({showList: true})

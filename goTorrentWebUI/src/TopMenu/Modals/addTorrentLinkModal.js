@@ -74,7 +74,7 @@ export default class addTorrentPopup extends React.Component {
   }
 
   render() {
-    const { classes, onRequestClose, handleRequestClose, handleSubmit } = this.props;
+    const { classes, onClose, handleRequestClose, handleSubmit } = this.props;
     return (
       <div style={inlineStyle}>
         <IconButton onClick={this.handleClickOpen} color="primary" data-tip="Add Magnet Link" style={button}  centerRipple aria-label="Add Magnet Link" >

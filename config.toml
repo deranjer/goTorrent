@@ -37,12 +37,12 @@
 
     DisableEncryption = false
     ForceEncryption = false
-    PreferNoEncryption = true
+    PreferNoEncryption = false
 
 [torrentClientConfig]
     DownloadDir = 'downloading'    #the full OR relative path where the torrent server stores in-progress torrents
 
-    Seed = true #boolean #seed after download
+    Seed = false #boolean #seed after download
     
     # Never send chunks to peers.
     NoUpload = false #boolean
