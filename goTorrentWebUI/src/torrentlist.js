@@ -5,7 +5,7 @@ import {BootstrapTable, TableHeaderColumn} from 'react-bootstrap-table';
 import Paper from 'material-ui/Paper';
 
 import {
-    SortingState, IntegratedSorting,  VirtualTableLayout, SelectionState, FilteringState, IntegratedFiltering,
+    SortingState, IntegratedSorting, IntegratedSelection,  VirtualTableLayout, SelectionState, FilteringState, IntegratedFiltering,
 } from '@devexpress/dx-react-grid';
 
 import {
@@ -134,7 +134,8 @@ class TorrentListTable extends React.Component {
                     <DragDropProvider/>
                     <TableColumnResizing columnWidths={this.state.columnWidths} onColumnWidthsChange={this.changeColumnWidths}/>
                     <TableColumnReordering order={this.state.columnOrder} onOrderChange={this.changeColumnOrder} />
-                    <TableSelection selectByRowClick highlightSelected />
+                    <IntegratedSelection />
+                    <TableSelection selectByRowClick highlightSelected showSelectAll />
                     <TableHeaderRow allowSorting allowResizing allowDragging />
                 </Grid>
             </Paper>

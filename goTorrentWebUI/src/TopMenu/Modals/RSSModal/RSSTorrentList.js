@@ -4,7 +4,7 @@ import Button from 'material-ui/Button';
 import Paper from 'material-ui/Paper';
 
 import {
-    SortingState, IntegratedSorting, VirtualTableLayout, SelectionState,
+    SortingState, IntegratedSorting, IntegratedSelection, VirtualTableLayout, SelectionState,
 } from '@devexpress/dx-react-grid';
 
 import {
@@ -98,7 +98,8 @@ class RSSTorrentList extends React.Component {
         
                         <TableColumnResizing columnWidths={this.state.columnWidths} onColumnWidthsChange={this.changeColumnWidths}/>
                         <TableColumnReordering order={this.state.columnOrder} onOrderChange={this.changeColumnOrder} />
-                        <TableSelection selectByRowClick highlightSelected />
+                        <IntegratedSelection />
+                        <TableSelection selectByRowClick highlightSelected showSelectAll />
                         <TableHeaderRow allowSorting allowResizing allowDragging />
                     </Grid>
                     </Paper>

@@ -13,6 +13,10 @@ type AuthRequest struct {
 	AuthString  string `json:"AuthString"`
 }
 
+type TokenReturn struct {
+	TokenReturn string `json:"TokenReturn"`
+}
+
 //GoTorrentClaims stores the name of the client (usually user entered) and any standard jwt claims we want to define
 type GoTorrentClaims struct {
 	ClientName string `json:"clientName"`

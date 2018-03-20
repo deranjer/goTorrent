@@ -7,7 +7,7 @@ import { ProgressBarCell } from '../../CustomCells/progressBarCell';
 
 
 import {
-    SortingState, IntegratedSorting, VirtualTableLayout, SelectionState,
+    SortingState, IntegratedSorting, IntegratedSelection, VirtualTableLayout, SelectionState,
 } from '@devexpress/dx-react-grid';
 
 import {
@@ -131,7 +131,8 @@ class FileTab extends React.Component {
         
                         <TableColumnResizing columnWidths={this.state.columnWidths} onColumnWidthsChange={this.changeColumnWidths}/>
                         <TableColumnReordering order={this.state.columnOrder} onOrderChange={this.changeColumnOrder} />
-                        <TableSelection selectByRowClick highlightSelected />
+                        <IntegratedSelection />
+                        <TableSelection selectByRowClick highlightSelected showSelectAll />
                         <TableHeaderRow allowSorting allowResizing allowDragging />
                     </Grid>
                 </Paper>

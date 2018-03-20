@@ -21,6 +21,9 @@ import (
 //Logger is the injected variable for global logger
 var Logger *logrus.Logger
 
+//Config is the injected variable for the torrent config
+var Config Settings.FullClientSettings
+
 //Conn is the injected variable for the websocket connection
 var Conn *websocket.Conn
 
@@ -85,7 +88,6 @@ func timeOutInfo(clientTorrent *torrent.Torrent, seconds time.Duration) (deleted
 	select {
 	case <-clientTorrent.GotInfo(): //attempting to retrieve info for torrent
 		Logger.WithFields(logrus.Fields{"clientTorrentName": clientTorrent.Name()}).Debug("Received torrent info for torrent")
-		clientTorrent.DownloadAll()
 		return false
 	case <-timeout: // getting info for torrent has timed out so purging the torrent
 		Logger.WithFields(logrus.Fields{"clientTorrentName": clientTorrent.Name()}).Error("Forced to drop torrent from timeout waiting for info")
@@ -173,34 +175,37 @@ func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.To
 		TorrentFilePriorityArray = append(TorrentFilePriorityArray, torrentFilePriority)
 
 	}
+
 	torrentLocalStorage.TorrentFilePriority = TorrentFilePriorityArray
 	Storage.AddTorrentLocalStorage(torrentDbStorage, torrentLocalStorage) //writing all of the data to the database
-	clientTorrent.DownloadAll()                                           //starting the download
+	clientTorrent.DownloadAll()                                           //set all pieces to download
+	NumPieces := clientTorrent.NumPieces()                                //find the number of pieces
+	clientTorrent.CancelPieces(1, NumPieces)                              //cancel all of the pieces to use file priority
+	for _, singleFile := range clientTorrent.Files() {                    //setting all of the file priorities to normal
+		singleFile.SetPriority(torrent.PiecePriorityNormal)
+	}
+	fmt.Println("Downloading ALL") //starting the download
+
 	CreateServerPushMessage(ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "success", Payload: "Torrent added!"}, Conn)
 }
 
-//CreateRunningTorrentArray creates the entire torrent list to pass to client
-func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Storage.TorrentLocal, PreviousTorrentArray []ClientDB, config Settings.FullClientSettings, db *storm.DB) (RunningTorrentArray []ClientDB) {
-
+//CreateInitialTorrentArray adds all the torrents on program start from the database
+func CreateInitialTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Storage.TorrentLocal, db *storm.DB) {
 	for _, singleTorrentFromStorage := range TorrentLocalArray {
 		var singleTorrent *torrent.Torrent
-		var TempHash metainfo.Hash
-		tickUpdateStruct := Storage.TorrentLocal{} //we are shoving the tick updates into a torrentlocal struct to pass to storage happens at the end of the routine
-
-		fullClientDB := new(ClientDB)
-		//singleTorrentStorageInfo := Storage.FetchTorrentFromStorage(db, TempHash.String())  //pulling the single torrent info from storage ()
-
+		var err error
 		if singleTorrentFromStorage.TorrentType == "file" { //if it is a file pull it from the uploaded torrent folder
-			var err error
 			singleTorrent, err = readTorrentFileFromDB(singleTorrentFromStorage, tclient, db)
 			if err != nil {
 				continue
 			}
-			fullClientDB.SourceType = "Torrent File"
 		} else {
 			singleTorrentFromStorageMagnet := "magnet:?xt=urn:btih:" + singleTorrentFromStorage.Hash //For magnet links just need to prepend the magnet part to the hash to readd
-			singleTorrent, _ = tclient.AddMagnet(singleTorrentFromStorageMagnet)
-			fullClientDB.SourceType = "Magnet Link"
+			singleTorrent, err = tclient.AddMagnet(singleTorrentFromStorageMagnet)
+			if err != nil {
+				continue
+			}
+
 		}
 		if len(singleTorrentFromStorage.InfoBytes) == 0 { //TODO.. kind of a fringe scenario.. not sure if needed since the db should always have the infobytes
 			timeOut := timeOutInfo(singleTorrent, 45)
@@ -211,16 +216,66 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 			singleTorrentFromStorage.InfoBytes = singleTorrent.Metainfo().InfoBytes
 		}
 
-		err := singleTorrent.SetInfoBytes(singleTorrentFromStorage.InfoBytes) //setting the infobytes back into the torrent
+		err = singleTorrent.SetInfoBytes(singleTorrentFromStorage.InfoBytes) //setting the infobytes back into the torrent
 		if err != nil {
 			Logger.WithFields(logrus.Fields{"torrentFile": singleTorrent.Name(), "error": err}).Error("Unable to add infobytes to the torrent!")
 		}
+		if singleTorrentFromStorage.TorrentStatus != "Completed" && singleTorrentFromStorage.TorrentStatus != "Stopped" {
+			fmt.Println("Starting torrent as download", singleTorrent.Name())
+			singleTorrent.DownloadAll()                        //set all of the pieces to download (piece prio is NE to file prio)
+			NumPieces := singleTorrent.NumPieces()             //find the number of pieces
+			singleTorrent.CancelPieces(1, NumPieces)           //cancel all of the pieces to use file priority
+			for _, singleFile := range singleTorrent.Files() { //setting all of the file priorities to normal
+				singleFile.SetPriority(torrent.PiecePriorityNormal)
+			}
+		} else {
+			fmt.Println("Torrent status is....", singleTorrentFromStorage.TorrentStatus)
+		}
+
+	}
+	SetFilePriority(tclient, db) //Setting the desired file priority from storage
+}
+
+//CreateRunningTorrentArray creates the entire torrent list to pass to client
+func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Storage.TorrentLocal, PreviousTorrentArray []ClientDB, config Settings.FullClientSettings, db *storm.DB) (RunningTorrentArray []ClientDB) {
+
+	for _, singleTorrentFromStorage := range TorrentLocalArray {
+		var singleTorrent *torrent.Torrent
+		var TempHash metainfo.Hash
+		for _, liveTorrent := range tclient.Torrents() { //matching the torrent from storage to the live torrent
+			if singleTorrentFromStorage.Hash == liveTorrent.InfoHash().String() {
+				singleTorrent = liveTorrent
+			}
+		}
+
+		tickUpdateStruct := Storage.TorrentLocal{} //we are shoving the tick updates into a torrentlocal struct to pass to storage happens at the end of the routine
+
+		fullClientDB := new(ClientDB)
+		//singleTorrentStorageInfo := Storage.FetchTorrentFromStorage(db, TempHash.String())  //pulling the single torrent info from storage ()
+
+		if singleTorrentFromStorage.TorrentStatus == "Dropped" {
+			Logger.WithFields(logrus.Fields{"selection": singleTorrentFromStorage.TorrentName}).Info("Deleting just the torrent")
+			singleTorrent.Drop()
+			Storage.DelTorrentLocalStorage(db, singleTorrentFromStorage.Hash)
+		}
+		if singleTorrentFromStorage.TorrentStatus == "DroppedData" {
+			Logger.WithFields(logrus.Fields{"selection": singleTorrentFromStorage.TorrentName}).Info("Deleting just the torrent")
+			singleTorrent.Drop()
+			Storage.DelTorrentLocalStorageAndFiles(db, singleTorrentFromStorage.Hash, Config.TorrentConfig.DataDir)
+
+		}
+		if singleTorrentFromStorage.TorrentType == "file" { //if it is a file pull it from the uploaded torrent folder
+			fullClientDB.SourceType = "Torrent File"
+		} else {
+			fullClientDB.SourceType = "Magnet Link"
+		}
+
 		calculatedTotalSize := CalculateDownloadSize(singleTorrentFromStorage, singleTorrent)
 		calculatedCompletedSize := CalculateCompletedSize(singleTorrentFromStorage, singleTorrent)
 		TempHash = singleTorrent.InfoHash()
 		if (calculatedCompletedSize == singleTorrentFromStorage.TorrentSize) && (singleTorrentFromStorage.TorrentMoved == false) { //if we are done downloading and haven't moved torrent yet
 			Logger.WithFields(logrus.Fields{"singleTorrent": singleTorrentFromStorage.TorrentName}).Info("Torrent Completed, moving...")
-			MoveAndLeaveSymlink(config, singleTorrent.InfoHash().String(), db, false, "") //can take some time to move file so running this in another thread TODO make this a goroutine and skip this block if the routine is still running
+			go MoveAndLeaveSymlink(config, singleTorrent.InfoHash().String(), db, false, "") //can take some time to move file so running this in another thread TODO make this a goroutine and skip this block if the routine is still running
 		}
 
 		fullStruct := singleTorrent.Stats()

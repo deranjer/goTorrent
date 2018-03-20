@@ -157,6 +157,7 @@ const reducer = (state = initialState, action) => {
                 if (buttonStateTest.length > 0 && buttonStateTest2.length === 0){
 
                     let buttonStateFinal = [{startButton: "default", stopButton: "primary", deleteButton: "secondary", fSeedButton: "default", fRecheckButton: "primary"}]
+                    console.log("ButtonStateFil")
                     return {
                         ...state,
                         buttonState: buttonStateFinal
@@ -179,14 +180,13 @@ const reducer = (state = initialState, action) => {
                     }; 
 
                 }
-            }
-            return {
-                ...state,
-                buttonState: buttonStateFinal
-            }; 
-        
-        default:
-            return state;
+                let buttonStateFinal = state.buttonStateDefault //If we can't match, just make it default
+                return {
+                    ...state,
+                    buttonState: buttonStateFinal
+                }; 
+            } 
+                          
     };
 
     console.log("no actiontypes found", action)

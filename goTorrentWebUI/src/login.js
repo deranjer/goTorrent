@@ -88,7 +88,7 @@ export default class Login extends React.Component {
   render() {
     const { classes, onClose, handleRequestClose, handleSubmit } = this.props;
     return (
-        <Dialog open={this.state.open} onClose={this.handleRequestClose} ignoreBackdropClick={true} disableBackdrop={true}>
+        <Dialog open={this.state.open} onClose={this.handleRequestClose} disableBackdropClick disableEscapeKeyDown>
           <DialogTitle>Login Here</DialogTitle>
           <DialogContent>
             <DialogContentText>
@@ -106,9 +106,10 @@ export default class Login extends React.Component {
               type="text"
               placeholder="Username"
               fullWidth
+              required
               onChange={this.setUserNameValue}
             />
-            <TextField id="password" type="password" label="Password" placeholder="Password" fullWidth onChange={this.setPasswordValue} />
+            <TextField id="password" type="password" label="Password" placeholder="Password" required fullWidth onChange={this.setPasswordValue} />
           </DialogContent>
           <DialogActions>
             <Button onClick={this.handleRequestClose} color="primary">

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/anacrolix/torrent"
+	"github.com/asdine/storm"
 	Settings "github.com/deranjer/goTorrent/settings"
 	"github.com/deranjer/goTorrent/storage"
 	Storage "github.com/deranjer/goTorrent/storage"
@@ -20,6 +21,15 @@ func secondsToMinutes(inSeconds int64) string {
 	secondsString := fmt.Sprintf("%d", seconds)
 	str := minutesString + " Min/ " + secondsString + " Sec"
 	return str
+}
+
+//MakeRange creates a range of pieces to set their priority based on a file
+func MakeRange(min, max int) []int {
+	a := make([]int, max-min+1)
+	for i := range a {
+		a[i] = min + i
+	}
+	return a
 }
 
 //HumanizeBytes returns a nice humanized version of bytes in either GB or MB
@@ -59,10 +69,36 @@ func CopyFile(srcFile string, destFile string) { //TODO move this to our importe
 
 }
 
+//SetFilePriority sets the priorities for all of the files in a torrent
+func SetFilePriority(t *torrent.Client, db *storm.DB) {
+	storedTorrents := Storage.FetchAllStoredTorrents(db)
+	for _, singleTorrent := range t.Torrents() {
+		for _, storedTorrent := range storedTorrents {
+			if storedTorrent.Hash == singleTorrent.InfoHash().String() {
+				for _, file := range singleTorrent.Files() {
+					for _, storedFile := range storedTorrent.TorrentFilePriority {
+						if storedFile.TorrentFilePath == file.DisplayPath() {
+							switch storedFile.TorrentFilePriority {
+							case "High":
+								file.SetPriority(torrent.PiecePriorityHigh)
+							case "Normal":
+								file.SetPriority(torrent.PiecePriorityNormal)
+							case "Cancel":
+								file.SetPriority(torrent.PiecePriorityNone)
+							default:
+								file.SetPriority(torrent.PiecePriorityNormal)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 //CalculateTorrentSpeed is used to calculate the torrent upload and download speed over time c is current clientdb, oc is last client db to calculate speed over time
 func CalculateTorrentSpeed(t *torrent.Torrent, c *ClientDB, oc ClientDB, completedSize int64) {
 	now := time.Now()
-	//bytes := t.BytesCompleted()
 	bytes := completedSize
 	bytesUpload := t.Stats().BytesWrittenData
 	dt := float32(now.Sub(oc.UpdatedAt))     // get the delta time length between now and last updated
@@ -113,6 +149,9 @@ func CalculateCompletedSize(tFromStorage *Storage.TorrentLocal, activeTorrent *t
 		}
 	}
 	downloadedLength := activeTorrent.BytesCompleted() - discardByteLength
+	if downloadedLength < 0 {
+		downloadedLength = 0
+	}
 	return downloadedLength
 }
 
@@ -146,11 +185,12 @@ func CalculateTorrentStatus(t *torrent.Torrent, c *ClientDB, config Settings.Ful
 		c.Status = "Stopped"
 		c.MaxConnections = 0
 		t.SetMaxEstablishedConns(0)
+
 	} else { //Only has 2 states in storage, stopped or running, so we know it should be running, and the websocket request handled updating the database with connections and status
 		bytesMissing := totalSize - bytesCompleted
 		c.MaxConnections = 80
-		t.SetMaxEstablishedConns(80) //TODO this should not be needed but apparently is needed
-		t.DownloadAll()              //ensure that we are setting the torrent to download
+		t.SetMaxEstablishedConns(80)
+		//t.DownloadAll() //ensure that we are setting the torrent to download
 		if t.Seeding() && t.Stats().ActivePeers > 0 && bytesMissing == 0 {
 			c.Status = "Seeding"
 		} else if t.Stats().ActivePeers > 0 && bytesMissing > 0 {

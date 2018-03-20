@@ -95,6 +95,7 @@ func main() {
 	Storage.Logger = Logger
 	Settings.Logger = Logger
 	Config := Settings.FullClientSettingsNew() //grabbing from settings.go
+	Engine.Config = Config
 	if Config.LoggingOutput == "file" {
 		_, err := os.Stat("logs")
 		if os.IsNotExist(err) {
@@ -135,6 +136,7 @@ func main() {
 	defer db.Close() //defering closing the database until the program closes
 
 	tokens := Storage.IssuedTokensList{} //if first run setting up the authentication tokens
+	var signingKey []byte
 	err = db.One("ID", 3, &tokens)
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"RSSFeedStore": tokens, "error": err}).Info("No Tokens database found, assuming first run, generating token...")
@@ -147,11 +149,9 @@ func main() {
 				Issuer: "goTorrentServer",
 			},
 		}
-		signingkey := Settings.GenerateSigningKey() //Running this will invalidate any certs you already issued!!
-		fmt.Println("SigningKey", signingkey)
-		authString := Settings.GenerateToken(claims, signingkey)
-		tokens.SigningKey = signingkey
-		fmt.Println("ClientToken: ", authString)
+		signingKey = Settings.GenerateSigningKey() //Running this will invalidate any certs you already issued!!
+		authString := Settings.GenerateToken(claims, signingKey)
+		tokens.SigningKey = signingKey
 		tokens.FirstToken = authString
 		tokens.TokenNames = append(tokens.TokenNames, Storage.SingleToken{"firstClient"})
 		err := ioutil.WriteFile("clientAuth.txt", []byte(authString), 0755)
@@ -159,6 +159,9 @@ func main() {
 			Logger.WithFields(logrus.Fields{"error": err}).Warn("Unable to write client auth to file..")
 		}
 		db.Save(&tokens) //Writing all of that to the database
+	} else { //Already have a signing key so pulling that signing key out of the database to sign any key requests
+		tokens := Storage.FetchJWTTokens(db)
+		signingKey = tokens.SigningKey
 	}
 
 	oldConfig, err := Storage.FetchConfig(db)
@@ -178,17 +181,14 @@ func main() {
 	cronEngine := Engine.InitializeCronEngine() //Starting the cron engine for tasks
 	Logger.Debug("Cron Engine Initialized...")
 
-	torrentLocalStorage := Storage.TorrentLocal{}     //creating a new struct that stores all of our local storage info
-	var TorrentLocalArray = []*Storage.TorrentLocal{} //this is an array of ALL of the local storage torrents, they will be added back in via hash
-	var RunningTorrentArray = []Engine.ClientDB{}     //this stores ALL of the torrents that are running, used for client update pushes combines Local Storage and Running tclient info
+	torrentLocalStorage := Storage.TorrentLocal{} //creating a new struct that stores all of our local storage info
+	var RunningTorrentArray = []Engine.ClientDB{} //this stores ALL of the torrents that are running, used for client update pushes combines Local Storage and Running tclient info
 	var PreviousTorrentArray = []Engine.ClientDB{}
 
-	TorrentLocalArray = Storage.FetchAllStoredTorrents(db) //pulling in all the already added torrents
+	TorrentLocalArray := Storage.FetchAllStoredTorrents(db) //pulling in all the already added torrents - this is an array of ALL of the local storage torrents, they will be added back in via hash
 
 	if TorrentLocalArray != nil { //the first creation of the running torrent array //since we are adding all of them in we use a coroutine... just allows the web ui to load then it will load in the torrents
-		go func() { //TODO instead of running all torrent fetches in coroutine see if possible to run each single one in a routine so we don't wait for ALL of them to be verified
-			RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db)
-		}()
+		go Engine.CreateInitialTorrentArray(tclient, TorrentLocalArray, db) //adding all of the stored torrents into the torrent client
 	} else {
 		Logger.Info("Database is empty, no torrents loaded")
 	}
@@ -254,16 +254,28 @@ func main() {
 					handleAuthentication(conn, db)
 				}
 
+			case "newAuthToken":
+				claims := Settings.GoTorrentClaims{
+					payloadData["ClientName"].(string),
+					jwt.StandardClaims{
+						Issuer: "goTorrentServer",
+					},
+				}
+				Logger.WithFields(logrus.Fields{"clientName": payloadData["ClientName"].(string)}).Info("New Auth Token creation request")
+				fmt.Println("Signing Key", signingKey)
+				token := Settings.GenerateToken(claims, signingKey)
+				tokenReturn := Settings.TokenReturn{TokenReturn: token}
+				tokensDB := Storage.FetchJWTTokens(db)
+				tokensDB.TokenNames = append(tokens.TokenNames, Storage.SingleToken{payloadData["ClientName"].(string)})
+				db.Update(&tokensDB) //adding the new token client name to the database
+				conn.WriteJSON(tokenReturn)
+
 			case "torrentListRequest":
 				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested TorrentList Update")
 				TorrentLocalArray = Storage.FetchAllStoredTorrents(db)                                                               //Required to re-read th database since we write to the DB and this will pull the changes from it
 				RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db) //Updates the RunningTorrentArray with the current client data as well
 				PreviousTorrentArray = RunningTorrentArray
-				//Logger.WithFields(logrus.Fields{"message": msg}).Infof("%+v\n", RunningTorrentArray)
-				var torrentlistArray = new(Engine.TorrentList)
-				torrentlistArray.MessageType = "torrentList"
-				torrentlistArray.ClientDBstruct = RunningTorrentArray
-				torrentlistArray.Totaltorrents = len(RunningTorrentArray)
+				torrentlistArray := Engine.TorrentList{MessageType: "torrentList", ClientDBstruct: RunningTorrentArray, Totaltorrents: len(RunningTorrentArray)}
 				Logger.WithFields(logrus.Fields{"torrentList": torrentlistArray, "previousTorrentList": PreviousTorrentArray}).Debug("Previous and Current Torrent Lists for sending to client")
 				conn.WriteJSON(torrentlistArray)
 
@@ -359,7 +371,7 @@ func main() {
 				fullRSSFeeds.RSSFeeds = append(fullRSSFeeds.RSSFeeds, newRSSFeedFull) // add the new RSS feed to the stack
 				Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "info", Payload: "Adding RSS feed..."}, conn)
 				Engine.ForceRSSRefresh(db, fullRSSFeeds)
-				//forcing an RSS refresh to fully populate all rss feeds TODO maybe just push the update of the new RSS feed and leave cron to update?  But user would most likely expect and immediate update
+				//forcing an RSS refresh to fully populate all rss feeds
 
 			case "deleteRSSFeed":
 				deleteRSSFeed := payloadData["RSSURL"].(string)
@@ -458,16 +470,13 @@ func main() {
 			case "stopTorrents":
 				torrentHashes := payloadData["TorrentHashes"].([]interface{})
 				Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "info", Payload: "Received Stop Request"}, conn)
-				for _, singleTorrent := range runningTorrents {
-
+				for _, singleTorrent := range tclient.Torrents() {
 					for _, singleSelection := range torrentHashes {
 						if singleTorrent.InfoHash().String() == singleSelection {
 							Logger.WithFields(logrus.Fields{"selection": singleSelection}).Info("Matched for stopping torrents")
 							oldTorrentInfo := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String())
 							oldTorrentInfo.TorrentStatus = "Stopped"
 							oldTorrentInfo.MaxConnections = 0
-							oldMax := singleTorrent.SetMaxEstablishedConns(0) //Forcing the max amount of connections allowed to zero effectively stopping it
-							Logger.WithFields(logrus.Fields{"oldMaxConnections": oldMax, "torrent": singleTorrent}).Info("Forcing connections to zero for torrent")
 							Storage.UpdateStorageTick(db, oldTorrentInfo) //Updating the torrent status
 						}
 					}
@@ -481,15 +490,14 @@ func main() {
 				for _, singleTorrent := range runningTorrents {
 					for _, singleSelection := range torrentHashes {
 						if singleTorrent.InfoHash().String() == singleSelection {
-							singleTorrent.Drop()
+							oldTorrentInfo := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String())
 							Logger.WithFields(logrus.Fields{"selection": singleSelection}).Info("Matched for deleting torrents")
 							if withData {
-								Logger.WithFields(logrus.Fields{"selection": singleSelection}).Info("Deleting torrent and data")
-								Storage.DelTorrentLocalStorageAndFiles(db, singleTorrent.InfoHash().String(), Config.TorrentConfig.DataDir)
+								oldTorrentInfo.TorrentStatus = "DroppedData" //Will be cleaned up the next engine loop since deleting a torrent mid loop can cause issues
 							} else {
-								Logger.WithFields(logrus.Fields{"selection": singleSelection}).Info("Deleting just the torrent")
-								Storage.DelTorrentLocalStorage(db, singleTorrent.InfoHash().String())
+								oldTorrentInfo.TorrentStatus = "Dropped"
 							}
+							Storage.UpdateStorageTick(db, oldTorrentInfo)
 						}
 					}
 				}
@@ -505,9 +513,7 @@ func main() {
 							oldTorrentInfo := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String())
 							oldTorrentInfo.TorrentStatus = "Running"
 							oldTorrentInfo.MaxConnections = 80
-							oldMax := singleTorrent.SetMaxEstablishedConns(80)
-							Logger.WithFields(logrus.Fields{"Previous Max Connections": oldMax, "Torrent": oldTorrentInfo.TorrentName}).Info("Setting max connection from zero to")
-							singleTorrent.DownloadAll()                   //forcing a download all just in case TODO.. might reset priorities of file dl
+							Logger.WithFields(logrus.Fields{"Torrent": oldTorrentInfo.TorrentName}).Info("Changing database to torrent running with 80 max connections")
 							Storage.UpdateStorageTick(db, oldTorrentInfo) //Updating the torrent status
 						}
 					}
@@ -526,9 +532,7 @@ func main() {
 							oldTorrentInfo.TorrentStatus = "Running"
 							oldTorrentInfo.MaxConnections = 80
 							fmt.Println("OldtorrentinfoName", oldTorrentInfo.TorrentName)
-							oldMax := singleTorrent.SetMaxEstablishedConns(80)
-							singleTorrent.DownloadAll()
-							Logger.WithFields(logrus.Fields{"Previous Max Connections": oldMax, "NewMax": oldTorrentInfo.MaxConnections, "Torrent": oldTorrentInfo.TorrentName}).Info("Setting max connection from zero to")
+							Logger.WithFields(logrus.Fields{"NewMax": oldTorrentInfo.MaxConnections, "Torrent": oldTorrentInfo.TorrentName}).Info("Setting max connection from zero to 80")
 							Storage.UpdateStorageTick(db, oldTorrentInfo) //Updating the torrent status
 						}
 					}
