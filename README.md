@@ -46,6 +46,8 @@ Image of the frontend UI
  - [X] Mostly generated client config from toml.config on first run
 
  - [X] Ability to view TOML settings from WebUI (and perhaps change a few as well)
+ 
+ - [X] Ability to set priority for individual files (needs more testing!)
 
  - [ ] Unit testing completed for a large portion of the package
  
@@ -53,14 +55,11 @@ Image of the frontend UI
  
  - [ ] Put the "Move torrent after download" into own goroutine with checks so the WebUI doesn't freeze when moving torrent
  
- - [ ] Ability to set priority for individual files (just added to anacrolix/torrent so coming soon, already added to my UI)
  
-
-
  
 - Late 2018
 
- - [ ] Define the websocket API for users to write their own clients/extensions
+ - [X] Define the websocket API for users to write their own clients/extensions
  
  - [ ] React-native Android app (I don't own any Mac products so there will be no iPhone version)
 
