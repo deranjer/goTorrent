@@ -65,7 +65,7 @@ Image of the frontend UI
 
 # Documentation
 
-All the documentation is available [here](https://deranjer.github.io/)
+All the documentation is available [here](https://deranjer.github.io/goTorrentDocs/)
 
 
 # Special Thanks
