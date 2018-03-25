@@ -15,7 +15,7 @@ import (
 )
 
 //MoveAndLeaveSymlink takes the file from the default download dir and moves it to the user specified directory and then leaves a symlink behind.
-func MoveAndLeaveSymlink(config Settings.FullClientSettings, tHash string, db *storm.DB, moveDone bool, oldPath string) { //moveDone and oldPath are for moving a completed torrent
+func MoveAndLeaveSymlink(config Settings.FullClientSettings, tHash string, db *storm.DB, moveDone bool, oldPath string) error { //moveDone and oldPath are for moving a completed torrent
 	tStorage := Storage.FetchTorrentFromStorage(db, tHash)
 	Logger.WithFields(logrus.Fields{"Torrent Name": tStorage.TorrentName}).Info("Move and Create symlink started for torrent")
 	var oldFilePath string
@@ -25,6 +25,8 @@ func MoveAndLeaveSymlink(config Settings.FullClientSettings, tHash string, db *s
 		oldFilePath, err = filepath.Abs(oldFilePathTemp)
 		if err != nil {
 			Logger.WithFields(logrus.Fields{"Torrent Name": tStorage.TorrentName, "Filepath": oldFilePath}).Error("Cannot create absolute file path!")
+			moveDone = false
+			return err
 		}
 	} else {
 		oldFilePathTemp := filepath.Join(config.TorrentConfig.DataDir, tStorage.TorrentName)
@@ -32,24 +34,31 @@ func MoveAndLeaveSymlink(config Settings.FullClientSettings, tHash string, db *s
 		oldFilePath, err = filepath.Abs(oldFilePathTemp)
 		if err != nil {
 			Logger.WithFields(logrus.Fields{"Torrent Name": tStorage.TorrentName, "Filepath": oldFilePath}).Error("Cannot create absolute file path!")
+			moveDone = false
+			return err
 		}
 	}
 	newFilePathTemp := filepath.Join(tStorage.StoragePath, tStorage.TorrentName)
 	newFilePath, err := filepath.Abs(newFilePathTemp)
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"Torrent Name": tStorage.TorrentName, "Filepath": newFilePath}).Error("Cannot create absolute file path for new file path!")
+		moveDone = false
+		return err
 	}
 	_, err = os.Stat(tStorage.StoragePath)
 	if os.IsNotExist(err) {
 		err := os.MkdirAll(tStorage.StoragePath, 0755)
 		if err != nil {
 			Logger.WithFields(logrus.Fields{"New File Path": newFilePath, "error": err}).Error("Cannot create new directory")
+			moveDone = false
+			return err
 		}
 	}
 	oldFileInfo, err := os.Stat(oldFilePath)
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"Old File info": oldFileInfo, "Old File Path": oldFilePath, "error": err}).Error("Cannot find the old file to copy/symlink!")
-		return
+		moveDone = false
+		return err
 	}
 
 	if oldFilePath != newFilePath {
@@ -58,6 +67,8 @@ func MoveAndLeaveSymlink(config Settings.FullClientSettings, tHash string, db *s
 		err := folderCopy.Copy(oldFilePath, newFilePath) //copy the folder to the new location
 		if err != nil {
 			Logger.WithFields(logrus.Fields{"Old File Path": oldFilePath, "New File Path": newFilePath, "error": err}).Error("Error Copying Folder!")
+			moveDone = false
+			return err
 		}
 		os.Chmod(newFilePath, 0777)
 		if runtime.GOOS != "windows" { //TODO the windows symlink is broken on windows 10 creator edition, so on the other platforms create symlink (windows will copy) until Go1.11
@@ -65,6 +76,8 @@ func MoveAndLeaveSymlink(config Settings.FullClientSettings, tHash string, db *s
 			err = os.Symlink(newFilePath, oldFilePath)
 			if err != nil {
 				Logger.WithFields(logrus.Fields{"Old File Path": oldFilePath, "New File Path": newFilePath, "error": err}).Error("Error creating symlink")
+				moveDone = false
+				return err
 			}
 		}
 		if moveDone == false {
@@ -75,7 +88,7 @@ func MoveAndLeaveSymlink(config Settings.FullClientSettings, tHash string, db *s
 		tStorage.StoragePath = filepath.Dir(newFilePath)
 		Storage.UpdateStorageTick(db, tStorage)
 	}
-
+	return nil
 }
 
 func notifyUser(tStorage Storage.TorrentLocal, config Settings.FullClientSettings, db *storm.DB) {

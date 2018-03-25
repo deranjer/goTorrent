@@ -23,6 +23,11 @@ func secondsToMinutes(inSeconds int64) string {
 	return str
 }
 
+//VerifyData just verifies the data of a torrent by hash
+func VerifyData(singleTorrent *torrent.Torrent) {
+	singleTorrent.VerifyData()
+}
+
 //MakeRange creates a range of pieces to set their priority based on a file
 func MakeRange(min, max int) []int {
 	a := make([]int, max-min+1)
