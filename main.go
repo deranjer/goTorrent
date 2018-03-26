@@ -273,12 +273,15 @@ func main() {
 
 			case "torrentListRequest":
 				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested TorrentList Update")
-				TorrentLocalArray = Storage.FetchAllStoredTorrents(db)                                                               //Required to re-read th database since we write to the DB and this will pull the changes from it
-				RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db) //Updates the RunningTorrentArray with the current client data as well
-				PreviousTorrentArray = RunningTorrentArray
-				torrentlistArray := Engine.TorrentList{MessageType: "torrentList", ClientDBstruct: RunningTorrentArray, Totaltorrents: len(RunningTorrentArray)}
-				Logger.WithFields(logrus.Fields{"torrentList": torrentlistArray, "previousTorrentList": PreviousTorrentArray}).Debug("Previous and Current Torrent Lists for sending to client")
-				conn.WriteJSON(torrentlistArray)
+
+				go func() { //running updates in separate thread so can still accept commands
+					TorrentLocalArray = Storage.FetchAllStoredTorrents(db)                                                               //Required to re-read th database since we write to the DB and this will pull the changes from it
+					RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db) //Updates the RunningTorrentArray with the current client data as well
+					PreviousTorrentArray = RunningTorrentArray
+					torrentlistArray := Engine.TorrentList{MessageType: "torrentList", ClientDBstruct: RunningTorrentArray, Totaltorrents: len(RunningTorrentArray)}
+					Logger.WithFields(logrus.Fields{"torrentList": torrentlistArray, "previousTorrentList": PreviousTorrentArray}).Debug("Previous and Current Torrent Lists for sending to client")
+					conn.WriteJSON(torrentlistArray)
+				}()
 
 			case "torrentFileListRequest": //client requested a filelist update
 				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested FileList Update")
@@ -292,7 +295,7 @@ func main() {
 				torrentPeerList := Engine.CreatePeerListArray(tclient, peerListArrayRequest)
 				conn.WriteJSON(torrentPeerList)
 
-			case "fetchTorrentsByLabel": //TODO test this to make sure it works
+			case "fetchTorrentsByLabel":
 				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested Torrents by Label")
 				label := payloadData["Label"].(string)
 				torrentsByLabel := Storage.FetchTorrentsByLabel(db, label)
