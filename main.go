@@ -103,16 +103,17 @@ func main() {
 			if err != nil {
 				fmt.Println("Unable to create 'log' folder for logging.... please check permissions.. forcing output to stdout", err)
 				Logger.Out = os.Stdout
-			} else {
-				os.Remove("logs/server.log")                                               //cleanup the old log on every restart
-				file, err := os.OpenFile("logs/server.log", os.O_CREATE|os.O_WRONLY, 0755) //creating the log file
-				defer file.Close()                                                         //TODO.. since we write to this constantly how does close work?
-				if err != nil {
-					fmt.Println("Unable to create file for logging.... please check permissions.. forcing output to stdout")
-					Logger.Out = os.Stdout
-				}
-				Logger.Out = file
 			}
+		} else {
+			os.Remove("logs/server.log")                                               //cleanup the old log on every restart
+			file, err := os.OpenFile("logs/server.log", os.O_CREATE|os.O_WRONLY, 0755) //creating the log file
+			//defer file.Close()                                                         //TODO.. since we write to this constantly how does close work?
+			if err != nil {
+				fmt.Println("Unable to create file for logging.... please check permissions.. forcing output to stdout")
+				Logger.Out = os.Stdout
+			}
+			fmt.Println("Logging to file logs/server.log")
+			Logger.Out = file
 		}
 	} else {
 		Logger.Out = os.Stdout

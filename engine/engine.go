@@ -280,8 +280,11 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 			Storage.UpdateStorageTick(db, tStorage)
 			go func() { //moving torrent in separate go-routine then verifying that the data is still there and correct
 				err := MoveAndLeaveSymlink(config, singleTorrent.InfoHash().String(), db, false, "") //can take some time to move file so running this in another thread TODO make this a goroutine and skip this block if the routine is still running
-				if err != nil {
+				if err != nil {                                                                      //If we fail, print the error and attempt a retry
+					Logger.WithFields(logrus.Fields{"singleTorrent": singleTorrentFromStorage.TorrentName, "error": err}).Info("Failed to move Torrent!")
 					VerifyData(singleTorrent)
+					tStorage.TorrentMoved = false
+					Storage.UpdateStorageTick(db, tStorage)
 				}
 			}()
 
