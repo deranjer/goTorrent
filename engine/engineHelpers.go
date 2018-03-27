@@ -74,7 +74,7 @@ func CopyFile(srcFile string, destFile string) { //TODO move this to our importe
 
 }
 
-//SetFilePriority sets the priorities for all of the files in a torrent
+//SetFilePriority sets the priorities for all of the files in all of the torrents
 func SetFilePriority(t *torrent.Client, db *storm.DB) {
 	storedTorrents := Storage.FetchAllStoredTorrents(db)
 	for _, singleTorrent := range t.Torrents() {

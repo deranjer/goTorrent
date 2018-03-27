@@ -284,19 +284,19 @@ func main() {
 				}()
 
 			case "torrentFileListRequest": //client requested a filelist update
-				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested FileList Update")
+				Logger.WithFields(logrus.Fields{"message": msg}).Info("Client Requested FileList Update")
 				fileListArrayRequest := payloadData["FileListHash"].(string)
 				FileListArray := Engine.CreateFileListArray(tclient, fileListArrayRequest, db, Config)
 				conn.WriteJSON(FileListArray) //writing the JSON to the client
 
 			case "torrentPeerListRequest":
-				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested PeerList Update")
+				Logger.WithFields(logrus.Fields{"message": msg}).Info("Client Requested PeerList Update")
 				peerListArrayRequest := payloadData["PeerListHash"].(string)
 				torrentPeerList := Engine.CreatePeerListArray(tclient, peerListArrayRequest)
 				conn.WriteJSON(torrentPeerList)
 
 			case "fetchTorrentsByLabel":
-				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested Torrents by Label")
+				Logger.WithFields(logrus.Fields{"message": msg}).Info("Client Requested Torrents by Label")
 				label := payloadData["Label"].(string)
 				torrentsByLabel := Storage.FetchTorrentsByLabel(db, label)
 				RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db)
@@ -311,7 +311,7 @@ func main() {
 				conn.WriteJSON(labelRunningArray)
 
 			case "changeStorageValue":
-				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested Storage Location Update")
+				Logger.WithFields(logrus.Fields{"message": msg}).Info("Client Requested Storage Location Update")
 				newStorageLocation := payloadData["StorageValue"].(string)
 				hashes := payloadData["ChangeStorageHashes"].([]interface{})
 				for _, singleHash := range hashes {
@@ -332,12 +332,12 @@ func main() {
 				}
 
 			case "settingsFileRequest":
-				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested Settings File")
+				Logger.WithFields(logrus.Fields{"message": msg}).Info("Client Requested Settings File")
 				clientSettingsFile := Engine.SettingsFile{MessageType: "settingsFile", Config: Config}
 				conn.WriteJSON(clientSettingsFile)
 
 			case "rssFeedRequest":
-				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested RSS Update")
+				Logger.WithFields(logrus.Fields{"message": msg}).Info("Client Requested RSS Update")
 				RSSList := Storage.FetchRSSFeeds(db)
 				RSSJSONFeed := Engine.RSSJSONList{MessageType: "rssList", TotalRSSFeeds: len(RSSList.RSSFeeds)}
 				RSSsingleFeed := Engine.RSSFeedsNames{}
@@ -350,9 +350,9 @@ func main() {
 
 			case "addRSSFeed":
 				newRSSFeed := payloadData["RSSURL"].(string)
-				Logger.WithFields(logrus.Fields{"message": newRSSFeed}).Debug("Client Added RSS Feed")
+				Logger.WithFields(logrus.Fields{"message": newRSSFeed}).Info("Client Added RSS Feed")
 				fullRSSFeeds := Storage.FetchRSSFeeds(db)
-				Logger.WithFields(logrus.Fields{"RSSFeeds": fullRSSFeeds}).Debug("Pulled Full RSS Feeds")
+				Logger.WithFields(logrus.Fields{"RSSFeeds": fullRSSFeeds}).Info("Pulled Full RSS Feeds")
 				for _, singleFeed := range fullRSSFeeds.RSSFeeds {
 					if newRSSFeed == singleFeed.URL || newRSSFeed == "" {
 						Logger.WithFields(logrus.Fields{"RSSFeed": newRSSFeed}).Warn("Empty URL or Duplicate RSS URL to one already in database!  Rejecting submission")
@@ -379,7 +379,7 @@ func main() {
 
 			case "deleteRSSFeed":
 				deleteRSSFeed := payloadData["RSSURL"].(string)
-				Logger.WithFields(logrus.Fields{"message": deleteRSSFeed}).Debug("Deleting RSS Feed")
+				Logger.WithFields(logrus.Fields{"message": deleteRSSFeed}).Info("Deleting RSS Feed")
 				Storage.DeleteRSSFeed(db, deleteRSSFeed)
 				fullRSSFeeds := Storage.FetchRSSFeeds(db)
 				Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "info", Payload: "Deleting RSS feed..."}, conn)
@@ -390,7 +390,7 @@ func main() {
 				Logger.WithFields(logrus.Fields{"RSSFeed": RSSFeedURL}).Info("Requesting torrentList for feed..")
 				UpdatedRSSFeed := Engine.RefreshSingleRSSFeed(db, Storage.FetchSpecificRSSFeed(db, RSSFeedURL))
 				TorrentRSSList := Engine.SingleRSSFeedMessage{MessageType: "rssTorrentList", URL: RSSFeedURL, Name: UpdatedRSSFeed.Name, TotalTorrents: len(UpdatedRSSFeed.Torrents), Torrents: UpdatedRSSFeed.Torrents}
-				Logger.WithFields(logrus.Fields{"TorrentRSSList": TorrentRSSList}).Debug("Returning Torrent list from RSSFeed to client")
+				Logger.WithFields(logrus.Fields{"TorrentRSSList": TorrentRSSList}).Info("Returning Torrent list from RSSFeed to client")
 				conn.WriteJSON(TorrentRSSList)
 
 			case "magnetLinkSubmit": //if we detect a magnet link we will be adding a magnet torrent
@@ -513,10 +513,29 @@ func main() {
 				for _, singleTorrent := range runningTorrents {
 					for _, singleSelection := range torrentHashes {
 						if singleTorrent.InfoHash().String() == singleSelection {
-							Logger.WithFields(logrus.Fields{"infoHash": singleTorrent.InfoHash().String()}).Debug("Found matching torrent to start")
+							Logger.WithFields(logrus.Fields{"infoHash": singleTorrent.InfoHash().String()}).Info("Found matching torrent to start")
 							oldTorrentInfo := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String())
 							oldTorrentInfo.TorrentStatus = "Running"
 							oldTorrentInfo.MaxConnections = 80
+							singleTorrent.DownloadAll()              //set all of the pieces to download (piece prio is NE to file prio)
+							NumPieces := singleTorrent.NumPieces()   //find the number of pieces
+							singleTorrent.CancelPieces(1, NumPieces) //cancel all of the pieces to use file priority
+							for _, file := range singleTorrent.Files() {
+								for _, sentFile := range oldTorrentInfo.TorrentFilePriority {
+									if file.Path() == sentFile.TorrentFilePath {
+										switch sentFile.TorrentFilePriority {
+										case "High":
+											file.SetPriority(torrent.PiecePriorityHigh)
+										case "Normal":
+											file.SetPriority(torrent.PiecePriorityNormal)
+										case "Cancel":
+											file.SetPriority(torrent.PiecePriorityNone)
+										default:
+											file.SetPriority(torrent.PiecePriorityNormal)
+										}
+									}
+								}
+							}
 							Logger.WithFields(logrus.Fields{"Torrent": oldTorrentInfo.TorrentName}).Info("Changing database to torrent running with 80 max connections")
 							Storage.UpdateStorageTick(db, oldTorrentInfo) //Updating the torrent status
 						}

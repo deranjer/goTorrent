@@ -184,8 +184,6 @@ func StartTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.To
 	for _, singleFile := range clientTorrent.Files() {                    //setting all of the file priorities to normal
 		singleFile.SetPriority(torrent.PiecePriorityNormal)
 	}
-	fmt.Println("Downloading ALL") //starting the download
-
 	CreateServerPushMessage(ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "success", Payload: "Torrent added!"}, Conn)
 }
 
@@ -221,17 +219,13 @@ func CreateInitialTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 			Logger.WithFields(logrus.Fields{"torrentFile": singleTorrent.Name(), "error": err}).Error("Unable to add infobytes to the torrent!")
 		}
 		if singleTorrentFromStorage.TorrentStatus != "Completed" && singleTorrentFromStorage.TorrentStatus != "Stopped" {
-			fmt.Println("Starting torrent as download", singleTorrent.Name())
 			singleTorrent.DownloadAll()                        //set all of the pieces to download (piece prio is NE to file prio)
 			NumPieces := singleTorrent.NumPieces()             //find the number of pieces
 			singleTorrent.CancelPieces(1, NumPieces)           //cancel all of the pieces to use file priority
 			for _, singleFile := range singleTorrent.Files() { //setting all of the file priorities to normal
 				singleFile.SetPriority(torrent.PiecePriorityNormal)
 			}
-		} else {
-			fmt.Println("Torrent status is....", singleTorrentFromStorage.TorrentStatus)
 		}
-
 	}
 	SetFilePriority(tclient, db) //Setting the desired file priority from storage
 }
