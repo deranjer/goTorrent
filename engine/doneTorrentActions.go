@@ -3,7 +3,6 @@ package engine
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 
 	"github.com/asdine/storm"
 	Settings "github.com/deranjer/goTorrent/settings"
@@ -71,7 +70,7 @@ func MoveAndLeaveSymlink(config Settings.FullClientSettings, tHash string, db *s
 			return err
 		}
 		os.Chmod(newFilePath, 0777)
-		if runtime.GOOS != "windows" { //TODO the windows symlink is broken on windows 10 creator edition, so on the other platforms create symlink (windows will copy) until Go1.11
+		/* if runtime.GOOS != "windows" { //TODO the windows symlink is broken on windows 10 creator edition, so on the other platforms create symlink (windows will copy) until Go1.11
 			os.RemoveAll(oldFilePath)
 			err = os.Symlink(newFilePath, oldFilePath)
 			if err != nil {
@@ -79,7 +78,7 @@ func MoveAndLeaveSymlink(config Settings.FullClientSettings, tHash string, db *s
 				moveDone = false
 				return err
 			}
-		}
+		} */
 		if moveDone == false {
 			tStorage.TorrentMoved = true     //TODO error handling instead of just saying torrent was moved when it was not
 			notifyUser(tStorage, config, db) //Only notify if we haven't moved yet, don't want to push notify user every time user uses change storage button
