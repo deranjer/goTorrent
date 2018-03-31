@@ -522,7 +522,7 @@ func main() {
 							singleTorrent.CancelPieces(1, NumPieces) //cancel all of the pieces to use file priority
 							for _, file := range singleTorrent.Files() {
 								for _, sentFile := range oldTorrentInfo.TorrentFilePriority {
-									if file.Path() == sentFile.TorrentFilePath {
+									if file.DisplayPath() == sentFile.TorrentFilePath {
 										switch sentFile.TorrentFilePriority {
 										case "High":
 											file.SetPriority(torrent.PiecePriorityHigh)
