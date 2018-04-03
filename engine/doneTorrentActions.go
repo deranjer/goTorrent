@@ -46,7 +46,7 @@ func MoveAndLeaveSymlink(config Settings.FullClientSettings, tHash string, db *s
 	}
 	_, err = os.Stat(tStorage.StoragePath)
 	if os.IsNotExist(err) {
-		err := os.MkdirAll(tStorage.StoragePath, 0755)
+		err := os.MkdirAll(tStorage.StoragePath, 0777)
 		if err != nil {
 			Logger.WithFields(logrus.Fields{"New File Path": newFilePath, "error": err}).Error("Cannot create new directory")
 			moveDone = false
@@ -62,11 +62,10 @@ func MoveAndLeaveSymlink(config Settings.FullClientSettings, tHash string, db *s
 
 	if oldFilePath != newFilePath {
 		newFilePathDir := filepath.Dir(newFilePath)
-		os.Mkdir(newFilePathDir, 0755)
+		os.Mkdir(newFilePathDir, 0777)
 		err := folderCopy.Copy(oldFilePath, newFilePath) //copy the folder to the new location
 		if err != nil {
 			Logger.WithFields(logrus.Fields{"Old File Path": oldFilePath, "New File Path": newFilePath, "error": err}).Error("Error Copying Folder!")
-			moveDone = false
 			return err
 		}
 		os.Chmod(newFilePath, 0777)
