@@ -68,7 +68,14 @@ func MoveAndLeaveSymlink(config Settings.FullClientSettings, tHash string, db *s
 			Logger.WithFields(logrus.Fields{"Old File Path": oldFilePath, "New File Path": newFilePath, "error": err}).Error("Error Copying Folder!")
 			return err
 		}
-		os.Chmod(newFilePath, 0777)
+		//os.Chmod(newFilePath, 0777)
+		err = filepath.Walk(newFilePath, func(path string, info os.FileInfo, err error) error { //Walking the file path to change the permissions
+			if err != nil {
+				Logger.WithFields(logrus.Fields{"file": path, "error": err}).Error("Potentially non-critical error, continuing..")
+			}
+			os.Chmod(path, 0777)
+			return nil
+		})
 		/* if runtime.GOOS != "windows" { //TODO the windows symlink is broken on windows 10 creator edition, so on the other platforms create symlink (windows will copy) until Go1.11
 			os.RemoveAll(oldFilePath)
 			err = os.Symlink(newFilePath, oldFilePath)
