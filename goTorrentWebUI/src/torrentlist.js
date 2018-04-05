@@ -136,7 +136,7 @@ class TorrentListTable extends React.Component {
                     <TableColumnReordering order={this.state.columnOrder} onOrderChange={this.changeColumnOrder} />
                     <IntegratedSelection />
                     <TableSelection selectByRowClick highlightSelected showSelectAll />
-                    <TableHeaderRow allowSorting allowResizing allowDragging />
+                    <TableHeaderRow showSortingControls allowSorting allowResizing allowDragging />
                 </Grid>
             </Paper>
         );
