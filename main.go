@@ -265,7 +265,7 @@ func main() {
 				Logger.WithFields(logrus.Fields{"clientName": payloadData["ClientName"].(string)}).Info("New Auth Token creation request")
 				fmt.Println("Signing Key", signingKey)
 				token := Settings.GenerateToken(claims, signingKey)
-				tokenReturn := Settings.TokenReturn{TokenReturn: token}
+				tokenReturn := Settings.TokenReturn{MessageType: "TokenReturn", TokenReturn: token}
 				tokensDB := Storage.FetchJWTTokens(db)
 				tokensDB.TokenNames = append(tokens.TokenNames, Storage.SingleToken{payloadData["ClientName"].(string)})
 				db.Update(&tokensDB) //adding the new token client name to the database

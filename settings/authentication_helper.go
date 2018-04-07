@@ -8,12 +8,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+//AuthRequest is a struct sent by a client with an authstring (JWT Token) to validate they have access to the server
 type AuthRequest struct {
 	MessageType string `json:"MessageType"`
 	AuthString  string `json:"AuthString"`
 }
 
+//TokenReturn is a struct sent by the server to a client with a new generated authstring
 type TokenReturn struct {
+	MessageType string `json:"MessageType"`
 	TokenReturn string `json:"TokenReturn"`
 }
 

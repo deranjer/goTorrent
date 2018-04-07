@@ -129,6 +129,13 @@ const reducer = (state = initialState, action) => {
                 ...state,
                 serverPushMessage: action.serverPushMessage
             }
+        
+        case actionTypes.TOKEN_RETURN:
+            console.log("New token return", action.tokenReturn)
+            return {
+                ... state,
+                tokenReturn: action.tokenReturn
+            }
  
         case actionTypes.SET_BUTTON_STATE:
             if (action.buttonState.length === 0) { //if selection is empty buttons will be default and selectionHashes will be blanked out and pushed to redux

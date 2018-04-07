@@ -21,6 +21,7 @@ let serverMessage = [];
 let serverPushMessage = [];
 let webSocketState = false;
 let settingsFile = [];
+let tokenReturn = "";
 
 var torrentListRequest = {
     MessageType: "torrentListRequest"
@@ -29,7 +30,7 @@ var torrentListRequest = {
 
 
 
-//websocket is started in kickwebsocket.js and is picked up here so "ws" is already defined 22
+//websocket is started in kickwebsocket.js and is picked up here so "ws" is already defined
 ws.onmessage = function (evt) { //When we recieve a message from the websocket
     var serverMessage = JSON.parse(evt.data)
     console.log("message", serverMessage.MessageType)
@@ -134,6 +135,10 @@ ws.onmessage = function (evt) { //When we recieve a message from the websocket
             settingsFile = [];
             console.log("Settings File Returned", serverMessage)
             settingsFile = serverMessage.Config
+
+        case "TokenReturn":
+            tokenReturn = serverMessage.TokenReturn
+            console.log("Token Returned", serverMessage)
     }
                                     
 }
@@ -222,8 +227,13 @@ class BackendSocket extends React.Component {
             console.log("PROPSSERVER", this.props.serverPushMessage, "SERVERPUSH", serverPushMessage)
             this.props.newServerMessage(serverPushMessage)
         }
-        if (this.props.settingsModalOpen) { //TODO don't really need to updaate every tick currently until we can edit config
+        if (this.props.settingsModalOpen) { //TODO don't really need to update every tick currently until we can edit config
             this.props.newSettingsFile(settingsFile)
+        }
+
+        if (tokenReturn != ""){ //If we get a return token
+            console.log("Dispatching token return", tokenReturn)
+            this.props.newTokenReturn(tokenReturn)
         }
         
         ws.send(JSON.stringify(torrentListRequest))//talking to the server to get the torrent list
@@ -264,6 +274,9 @@ class BackendSocket extends React.Component {
         if (nextProps.selectionHashes.length === 1){ //if we have a selection pass it on for the tabs to verify
             this.selectionHandler(nextProps.selectionHashes, nextProps.selectedTab)
         }
+        if (nextProps.tokenReturn != this.props.tokenReturn){  //clearing out the token if we switch from the API tab
+            tokenReturn = nextProps.tokenReturn
+        }
     }
 
 
@@ -287,6 +300,7 @@ const mapStateToProps = state => {
         RSSTorrentList: state.RSSTorrentList,
         serverPushMessage: state.serverPushMessage,
         settingsModalOpen: state.settingsModalOpen,
+        tokenReturn: state.tokenReturn,
 
     };
   }
@@ -301,9 +315,8 @@ const mapDispatchToProps = dispatch => {
         RSSTorrentList: (RSSTorrentList) => dispatch({type: actionTypes.RSS_TORRENT_LIST, RSSTorrentList}),
         newServerMessage: (serverPushMessage) => dispatch({type: actionTypes.SERVER_MESSAGE, serverPushMessage}),
         webSocketStateUpdate: (webSocketState) => dispatch({type: actionTypes.WEBSOCKET_STATE, webSocketState}),
-        newSettingsFile: (settingsFile) => dispatch({type: actionTypes.NEW_SETTINGS_FILE, settingsFile})
-        //changeSelection: (selection) => dispatch({type: actionTypes.CHANGE_SELECTION, selection}),//forcing an update to the buttons
-
+        newSettingsFile: (settingsFile) => dispatch({type: actionTypes.NEW_SETTINGS_FILE, settingsFile}),
+        newTokenReturn: (tokenReturn) => dispatch({type: actionTypes.TOKEN_RETURN, tokenReturn}),
     }
 }
 
