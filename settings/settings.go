@@ -40,6 +40,7 @@ type FullClientSettings struct {
 	DefaultMoveFolder  string
 	TorrentWatchFolder string
 	ClientConnectSettings
+	MaxActiveTorrents int
 }
 
 //default is called if there is a parsing error
@@ -70,6 +71,8 @@ func dhtServerSettings(dhtConfig dht.ServerConfig) dht.ServerConfig {
 func calculateRateLimiters(uploadRate, downloadRate string) (*rate.Limiter, *rate.Limiter) { //TODO reorg
 	var uploadRateLimiterSize int
 	var downloadRateLimiterSize int
+	var downloadRateLimiter *rate.Limiter
+	var uploadRateLimiter *rate.Limiter
 
 	switch uploadRate {
 	case "Low":
@@ -79,8 +82,8 @@ func calculateRateLimiters(uploadRate, downloadRate string) (*rate.Limiter, *rat
 	case "High":
 		uploadRateLimiterSize = 1500000
 	default:
-		downloadRateLimiter := rate.NewLimiter(rate.Inf, 0)
-		uploadRateLimiter := rate.NewLimiter(rate.Inf, 0)
+		downloadRateLimiter = rate.NewLimiter(rate.Inf, 0)
+		uploadRateLimiter = rate.NewLimiter(rate.Inf, 0)
 		return downloadRateLimiter, uploadRateLimiter
 	}
 
@@ -89,17 +92,18 @@ func calculateRateLimiters(uploadRate, downloadRate string) (*rate.Limiter, *rat
 		downloadRateLimiterSize = 50000
 	case "Medium":
 		downloadRateLimiterSize = 500000
+		fmt.Println("Medium Rate Limit...")
 	case "High":
 		downloadRateLimiterSize = 1500000
 	default:
-		downloadRateLimiter := rate.NewLimiter(rate.Inf, 0)
-		uploadRateLimiter := rate.NewLimiter(rate.Inf, 0)
+		downloadRateLimiter = rate.NewLimiter(rate.Inf, 0)
+		uploadRateLimiter = rate.NewLimiter(rate.Inf, 0)
 		return downloadRateLimiter, uploadRateLimiter
 	}
 	var limitPerSecondUl = rate.Limit(uploadRateLimiterSize)
-	uploadRateLimiter := rate.NewLimiter(limitPerSecondUl, uploadRateLimiterSize)
+	uploadRateLimiter = rate.NewLimiter(limitPerSecondUl, uploadRateLimiterSize)
 	var limitPerSecondDl = rate.Limit(uploadRateLimiterSize)
-	downloadRateLimiter := rate.NewLimiter(limitPerSecondDl, downloadRateLimiterSize)
+	downloadRateLimiter = rate.NewLimiter(limitPerSecondDl, downloadRateLimiterSize)
 	return downloadRateLimiter, uploadRateLimiter
 }
 
@@ -177,9 +181,9 @@ func FullClientSettingsNew() FullClientSettings {
 	//Rate Limiters
 	//var uploadRateLimiter *rate.Limiter
 	//var downloadRateLimiter *rate.Limiter
-	//uploadRate := viper.GetString("serverConfig.UploadRateLimit")
-	//downloadRate := viper.GetString("serverConfig.DownloadRateLimit")
-	//downloadRateLimiter, uploadRateLimiter = calculateRateLimiters(uploadRate, downloadRate)
+	uploadRate := viper.GetString("serverConfig.UploadRateLimit")
+	downloadRate := viper.GetString("serverConfig.DownloadRateLimit")
+	downloadRateLimiter, uploadRateLimiter := calculateRateLimiters(uploadRate, downloadRate)
 	//Internals
 	dataDir := filepath.ToSlash(viper.GetString("torrentClientConfig.DownloadDir")) //Converting the string literal into a filepath
 	dataDirAbs, err := filepath.Abs(dataDir)                                        //Converting to an absolute file path
@@ -191,6 +195,7 @@ func FullClientSettingsNew() FullClientSettings {
 	noDHT := viper.GetBool("torrentClientConfig.NoDHT")
 	noUpload := viper.GetBool("torrentClientConfig.NoUpload")
 	seed := viper.GetBool("torrentClientConfig.Seed")
+	maxActiveTorrents := viper.GetInt("serverConfig.MaxActiveTorrents")
 
 	peerID := viper.GetString("torrentClientConfig.PeerID")
 	disableUTP := viper.GetBool("torrentClientConfig.DisableUTP")
@@ -213,21 +218,21 @@ func FullClientSettingsNew() FullClientSettings {
 	}
 
 	tConfig := torrent.Config{
-		DataDir:    dataDirAbs,
-		ListenAddr: listenAddr,
-		DisablePEX: disablePex,
-		NoDHT:      noDHT,
-		DHTConfig:  dhtServerConfig,
-		NoUpload:   noUpload,
-		Seed:       seed,
-		//UploadRateLimiter:   uploadRateLimiter,
-		//DownloadRateLimiter: downloadRateLimiter,
-		PeerID:           peerID,
-		DisableUTP:       disableUTP,
-		DisableTCP:       disableTCP,
-		DisableIPv6:      disableIPv6,
-		Debug:            debug,
-		EncryptionPolicy: encryptionPolicy,
+		DataDir:             dataDirAbs,
+		ListenAddr:          listenAddr,
+		DisablePEX:          disablePex,
+		NoDHT:               noDHT,
+		DHTConfig:           dhtServerConfig,
+		NoUpload:            noUpload,
+		Seed:                seed,
+		UploadRateLimiter:   uploadRateLimiter,
+		DownloadRateLimiter: downloadRateLimiter,
+		PeerID:              peerID,
+		DisableUTP:          disableUTP,
+		DisableTCP:          disableTCP,
+		DisableIPv6:         disableIPv6,
+		Debug:               debug,
+		EncryptionPolicy:    encryptionPolicy,
 	}
 
 	Config := FullClientSettings{
@@ -248,6 +253,7 @@ func FullClientSettingsNew() FullClientSettings {
 		TorrentConfig:      tConfig,
 		DefaultMoveFolder:  defaultMoveFolderAbs,
 		TorrentWatchFolder: torrentWatchFolderAbs,
+		MaxActiveTorrents:  maxActiveTorrents,
 	}
 
 	return Config

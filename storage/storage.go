@@ -83,6 +83,7 @@ type TorrentLocal struct {
 	TorrentSize         int64 //If we cancel a file change the download size since we won't be downloading that file
 	UploadRatio         string
 	TorrentFilePriority []TorrentFilePriority
+	QueuedStatus        string //Either "Queued", "Active", or "None"
 }
 
 //SaveConfig saves the config to the database to compare for changes to settings.toml on restart

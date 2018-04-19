@@ -24,3 +24,4 @@ config.toml.old
 /public/static/js/kickwebsocket-generated.js
 clientAuth.txt
 dist
+debScripts/

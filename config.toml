@@ -1,7 +1,7 @@
 [serverConfig]
 
     ServerPort = ":8000" #leave format as is it expects a string with colon
-    ServerAddr = "192.168.1.100" #Put in the IP address you want to bind to
+    ServerAddr = "192.168.1.8" #Put in the IP address you want to bind to
     LogLevel = "Info" # Options = Debug, Info, Warn, Error, Fatal, Panic
     LogOutput = "stdout" #Options = file, stdout #file will print it to logs/server.log
 
@@ -13,8 +13,10 @@
     
     #Limits your upload and download speed globally, all are averages and not burst protected (usually burst on start).
     #Low = ~.05MB/s, Medium = ~.5MB/s, High = ~1.5MB/s
-    UploadRateLimit = "Unlimited"  #Options are "Low", "Medium", "High", "Unlimited" #Unlimited is default
-    DownloadRateLimit = "Unlimited"
+    UploadRateLimit = "Medium"  #Options are "Low", "Medium", "High", "Unlimited" #Unlimited is default
+    DownloadRateLimit = "Medium"
+    #Maximum number of allowed active torrents, the rest will be queued
+    MaxActiveTorrents = 1
 
 [goTorrentWebUI]
     #Basic goTorrentWebUI authentication (not terribly secure, implemented in JS, password is hashed to SHA256, not salted, basically don't depend on this if you require very good security)

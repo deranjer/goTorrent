@@ -94,6 +94,8 @@ func main() {
 	Engine.Logger = Logger //Injecting the logger into all the packages
 	Storage.Logger = Logger
 	Settings.Logger = Logger
+	var activeTorrents []string
+	var queuedTorrents []string
 	Config := Settings.FullClientSettingsNew() //grabbing from settings.go
 	Engine.Config = Config
 	if Config.LoggingOutput == "file" {
@@ -123,7 +125,7 @@ func main() {
 	httpAddr := Config.HTTPAddr
 	os.MkdirAll(Config.TFileUploadFolder, 0755)  //creating a directory to store uploaded torrent files
 	os.MkdirAll(Config.TorrentWatchFolder, 0755) //creating a directory to watch for added .torrent files
-	//Logger.WithFields(logrus.Fields{"Config": Config}).Info("Torrent Client Config has been generated...")
+	Logger.WithFields(logrus.Fields{"Config": Config}).Info("Torrent Client Config has been generated...")
 
 	tclient, err := torrent.NewClient(&Config.TorrentConfig) //pulling out the torrent specific config to use
 	if err != nil {
@@ -189,12 +191,12 @@ func main() {
 	TorrentLocalArray := Storage.FetchAllStoredTorrents(db) //pulling in all the already added torrents - this is an array of ALL of the local storage torrents, they will be added back in via hash
 
 	if TorrentLocalArray != nil { //the first creation of the running torrent array //since we are adding all of them in we use a coroutine... just allows the web ui to load then it will load in the torrents
-		go Engine.CreateInitialTorrentArray(tclient, TorrentLocalArray, db) //adding all of the stored torrents into the torrent client
+		go Engine.CreateInitialTorrentArray(tclient, TorrentLocalArray, db, Config, activeTorrents, queuedTorrents) //adding all of the stored torrents into the torrent client
 	} else {
 		Logger.Info("Database is empty, no torrents loaded")
 	}
-	Engine.CheckTorrentWatchFolder(cronEngine, db, tclient, torrentLocalStorage, Config) //Every 5 minutes the engine will check the specified folder for new .torrent files
-	Engine.RefreshRSSCron(cronEngine, db, tclient, torrentLocalStorage, Config)          // Refresing the RSS feeds on an hourly basis to add torrents that show up in the RSS feed
+	Engine.CheckTorrentWatchFolder(cronEngine, db, tclient, torrentLocalStorage, Config, activeTorrents, queuedTorrents) //Every 5 minutes the engine will check the specified folder for new .torrent files
+	Engine.RefreshRSSCron(cronEngine, db, tclient, torrentLocalStorage, Config, activeTorrents, queuedTorrents)          // Refresing the RSS feeds on an hourly basis to add torrents that show up in the RSS feed
 
 	router := mux.NewRouter()         //setting up the handler for the web backend
 	router.HandleFunc("/", serveHome) //Serving the main page for our SPA
@@ -202,7 +204,7 @@ func main() {
 	http.Handle("/", router)
 	router.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) { //TODO, remove this
 		TorrentLocalArray = Storage.FetchAllStoredTorrents(db)
-		RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db) //Updates the RunningTorrentArray with the current client data as well
+		RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db, activeTorrents, queuedTorrents) //Updates the RunningTorrentArray with the current client data as well
 		var torrentlistArray = new(Engine.TorrentList)
 		torrentlistArray.MessageType = "torrentList"          //setting the type of message
 		torrentlistArray.ClientDBstruct = RunningTorrentArray //the full JSON that includes the number of torrents as the root
@@ -275,8 +277,8 @@ func main() {
 				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested TorrentList Update")
 
 				go func() { //running updates in separate thread so can still accept commands
-					TorrentLocalArray = Storage.FetchAllStoredTorrents(db)                                                               //Required to re-read th database since we write to the DB and this will pull the changes from it
-					RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db) //Updates the RunningTorrentArray with the current client data as well
+					TorrentLocalArray = Storage.FetchAllStoredTorrents(db)                                                                                               //Required to re-read th database since we write to the DB and this will pull the changes from it
+					RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db, activeTorrents, queuedTorrents) //Updates the RunningTorrentArray with the current client data as well
 					PreviousTorrentArray = RunningTorrentArray
 					torrentlistArray := Engine.TorrentList{MessageType: "torrentList", ClientDBstruct: RunningTorrentArray, Totaltorrents: len(RunningTorrentArray)}
 					Logger.WithFields(logrus.Fields{"torrentList": torrentlistArray, "previousTorrentList": PreviousTorrentArray}).Debug("Previous and Current Torrent Lists for sending to client")
@@ -299,7 +301,7 @@ func main() {
 				Logger.WithFields(logrus.Fields{"message": msg}).Info("Client Requested Torrents by Label")
 				label := payloadData["Label"].(string)
 				torrentsByLabel := Storage.FetchTorrentsByLabel(db, label)
-				RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db)
+				RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db, activeTorrents, queuedTorrents)
 				labelRunningArray := []Engine.ClientDB{}
 				for _, torrent := range RunningTorrentArray { //Ranging over the running torrents and if the hashes match we have torrents by label
 					for _, label := range torrentsByLabel {
@@ -422,7 +424,7 @@ func main() {
 					}
 					Logger.WithFields(logrus.Fields{"clientTorrent": clientTorrent, "magnetLink": magnetLink}).Info("Adding torrent to client!")
 					Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "info", Payload: "Received MagnetLink"}, conn)
-					go Engine.StartTorrent(clientTorrent, torrentLocalStorage, db, "magnet", "", storageValue, labelValue, Config) //starting the torrent and creating local DB entry
+					go Engine.AddTorrent(clientTorrent, torrentLocalStorage, db, "magnet", "", storageValue, labelValue, Config, activeTorrents, queuedTorrents) //starting the torrent and creating local DB entry
 
 				}
 
@@ -469,7 +471,7 @@ func main() {
 					Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Unable to add Torrent to torrent server"}, conn)
 				}
 				Logger.WithFields(logrus.Fields{"clienttorrent": clientTorrent.Name(), "filename": filePathAbs}).Info("Added torrent")
-				go Engine.StartTorrent(clientTorrent, torrentLocalStorage, db, "file", filePathAbs, storageValue, labelValue, Config)
+				go Engine.AddTorrent(clientTorrent, torrentLocalStorage, db, "file", filePathAbs, storageValue, labelValue, Config, activeTorrents, queuedTorrents)
 
 			case "stopTorrents":
 				torrentHashes := payloadData["TorrentHashes"].([]interface{})
@@ -517,9 +519,8 @@ func main() {
 							oldTorrentInfo := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String())
 							oldTorrentInfo.TorrentStatus = "Running"
 							oldTorrentInfo.MaxConnections = 80
-							singleTorrent.DownloadAll()              //set all of the pieces to download (piece prio is NE to file prio)
-							NumPieces := singleTorrent.NumPieces()   //find the number of pieces
-							singleTorrent.CancelPieces(1, NumPieces) //cancel all of the pieces to use file priority
+							singleTorrent.NewReader() //set all of the pieces to download (piece prio is NE to file prio)
+							oldTorrentInfo.QueuedStatus = "Active"
 							for _, file := range singleTorrent.Files() {
 								for _, sentFile := range oldTorrentInfo.TorrentFilePriority {
 									if file.DisplayPath() == sentFile.TorrentFilePath {

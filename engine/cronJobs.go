@@ -22,7 +22,7 @@ func InitializeCronEngine() *cron.Cron {
 }
 
 //CheckTorrentWatchFolder adds torrents from a watch folder //TODO see if you can use filepath.Abs instead of changing directory
-func CheckTorrentWatchFolder(c *cron.Cron, db *storm.DB, tclient *torrent.Client, torrentLocalStorage Storage.TorrentLocal, config Settings.FullClientSettings) {
+func CheckTorrentWatchFolder(c *cron.Cron, db *storm.DB, tclient *torrent.Client, torrentLocalStorage Storage.TorrentLocal, config Settings.FullClientSettings, activeTorrents []string, queuedTorrents []string) {
 	c.AddFunc("@every 5m", func() {
 		Logger.WithFields(logrus.Fields{"Watch Folder": config.TorrentWatchFolder}).Info("Running the watch folder cron job")
 		torrentFiles, err := ioutil.ReadDir(config.TorrentWatchFolder)
@@ -50,7 +50,7 @@ func CheckTorrentWatchFolder(c *cron.Cron, db *storm.DB, tclient *torrent.Client
 
 				os.Remove(fullFilePathAbs) //delete the torrent after adding it and copying it over
 				Logger.WithFields(logrus.Fields{"Source Folder": fullFilePathAbs, "Destination Folder": fullNewFilePathAbs, "Torrent": file.Name()}).Info("Added torrent from watch folder, and moved torrent file")
-				StartTorrent(clientTorrent, torrentLocalStorage, db, "file", fullNewFilePathAbs, config.DefaultMoveFolder, "default", config)
+				AddTorrent(clientTorrent, torrentLocalStorage, db, "file", fullNewFilePathAbs, config.DefaultMoveFolder, "default", config, activeTorrents, queuedTorrents)
 
 			}
 		}
@@ -58,7 +58,7 @@ func CheckTorrentWatchFolder(c *cron.Cron, db *storm.DB, tclient *torrent.Client
 }
 
 //RefreshRSSCron refreshes all of the RSS feeds on an hourly basis
-func RefreshRSSCron(c *cron.Cron, db *storm.DB, tclient *torrent.Client, torrentLocalStorage Storage.TorrentLocal, config Settings.FullClientSettings) {
+func RefreshRSSCron(c *cron.Cron, db *storm.DB, tclient *torrent.Client, torrentLocalStorage Storage.TorrentLocal, config Settings.FullClientSettings, activeTorrents []string, queuedTorrents []string) {
 	c.AddFunc("@hourly", func() {
 		torrentHashHistory := Storage.FetchHashHistory(db)
 		RSSFeedStore := Storage.FetchRSSFeeds(db)
@@ -86,7 +86,7 @@ func RefreshRSSCron(c *cron.Cron, db *storm.DB, tclient *torrent.Client, torrent
 					Logger.WithFields(logrus.Fields{"err": err, "Torrent": RSSTorrent.Title}).Warn("Unable to add torrent to torrent client!")
 					break //break out of the loop entirely for this message since we hit an error
 				}
-				StartTorrent(clientTorrent, torrentLocalStorage, db, "magnet", "", config.DefaultMoveFolder, "RSS", config) //TODO let user specify torrent default storage location and let change on fly
+				AddTorrent(clientTorrent, torrentLocalStorage, db, "magnet", "", config.DefaultMoveFolder, "RSS", config, activeTorrents, queuedTorrents) //TODO let user specify torrent default storage location and let change on fly
 				singleFeed.Torrents = append(singleFeed.Torrents, singleRSSTorrent)
 
 			}
