@@ -130,19 +130,19 @@ func readTorrentFileFromDB(element *Storage.TorrentLocal, tclient *torrent.Clien
 }
 
 //StartTorrents attempts to start torrents by adding them to the active torrents, then the queue, and by increasing their connections (if they were stopped)
-func StartTorrents(clientTorrent *torrent.Client, torrentHashes []string, activeTorrents []string, queuedTorrents []string) {
+func StartTorrents(clientTorrent *torrent.Client, torrentHashes []string, torrentQueues Storage.TorrentQueues) {
 
 }
 
 //AddTorrent creates the storage.db entry and starts A NEW TORRENT and adds to the running torrent array
-func AddTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.TorrentLocal, torrentDbStorage *storm.DB, torrentType, torrentFilePathAbs, torrentStoragePath, labelValue string, config Settings.FullClientSettings, activeTorrents []string, queuedTorrents []string) {
+func AddTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.TorrentLocal, db *storm.DB, torrentType, torrentFilePathAbs, torrentStoragePath, labelValue string, config Settings.FullClientSettings) {
 	timedOut := timeOutInfo(clientTorrent, 45) //seeing if adding the torrent times out (giving 45 seconds)
 	if timedOut {                              //if we fail to add the torrent return
 		return
 	}
 	var TempHash metainfo.Hash
 	TempHash = clientTorrent.InfoHash()
-	allStoredTorrents := Storage.FetchAllStoredTorrents(torrentDbStorage)
+	allStoredTorrents := Storage.FetchAllStoredTorrents(db)
 	for _, runningTorrentHashes := range allStoredTorrents {
 		if runningTorrentHashes.Hash == TempHash.String() {
 			Logger.WithFields(logrus.Fields{"Hash": TempHash.String()}).Info("Torrent has duplicate hash to already running torrent... will not add to storage")
@@ -180,27 +180,23 @@ func AddTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.Torr
 		TorrentFilePriorityArray = append(TorrentFilePriorityArray, torrentFilePriority)
 
 	}
-
 	torrentLocalStorage.TorrentFilePriority = TorrentFilePriorityArray
-
-	if len(activeTorrents) < config.MaxActiveTorrents {
-		if len(queuedTorrents) > 0 {
-			queuedTorrents = append(queuedTorrents, clientTorrent.InfoHash().String())
-			CreateServerPushMessage(ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "success", Payload: "Torrent queued!"}, Conn)
-			torrentLocalStorage.QueuedStatus = "Queued"
-		} else {
-			clientTorrent.NewReader()
-			activeTorrents = append(activeTorrents, clientTorrent.InfoHash().String())
-			CreateServerPushMessage(ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "success", Payload: "Torrent added!"}, Conn)
-			torrentLocalStorage.QueuedStatus = "Active"
-		}
+	torrentQueues := Storage.FetchQueues(db)
+	if len(torrentQueues.ActiveTorrents) < Config.MaxActiveTorrents {
+		AddTorrentToActive(&torrentLocalStorage, clientTorrent, db)
+		fmt.Println("Adding New torrent to active! ", clientTorrent.Name())
+	} else {
+		AddTorrentToQueue(&torrentLocalStorage, clientTorrent, db)
+		fmt.Println("Adding New torrent to queued! ", clientTorrent.Name())
 	}
-	Storage.AddTorrentLocalStorage(torrentDbStorage, torrentLocalStorage) //writing all of the data to the database
+	Storage.AddTorrentLocalStorage(db, torrentLocalStorage) //writing all of the data to the database
 }
 
 //CreateInitialTorrentArray adds all the torrents on program start from the database
-func CreateInitialTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Storage.TorrentLocal, db *storm.DB, config Settings.FullClientSettings, activeTorrents []string, queuedTorrents []string) {
+func CreateInitialTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Storage.TorrentLocal, db *storm.DB, config Settings.FullClientSettings) {
 	for _, singleTorrentFromStorage := range TorrentLocalArray {
+		torrentQueues := Storage.FetchQueues(db)
+		fmt.Println("Stored Queues From DB.............................", torrentQueues)
 		var singleTorrent *torrent.Torrent
 		var err error
 		if singleTorrentFromStorage.TorrentType == "file" { //if it is a file pull it from the uploaded torrent folder
@@ -229,45 +225,46 @@ func CreateInitialTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		if err != nil {
 			Logger.WithFields(logrus.Fields{"torrentFile": singleTorrent.Name(), "error": err}).Error("Unable to add infobytes to the torrent!")
 		}
-		if singleTorrentFromStorage.QueuedStatus == "Active" {
-			singleTorrent.NewReader()
-			activeTorrents = append(activeTorrents, singleTorrent.InfoHash().String())
-		} else if singleTorrentFromStorage.QueuedStatus == "Queued" {
-			queuedTorrents = append(queuedTorrents, singleTorrent.InfoHash().String())
-		}
-
-		if singleTorrentFromStorage.TorrentStatus != "Completed" && singleTorrentFromStorage.TorrentStatus != "Stopped" {
-			fmt.Println("checking about queueing torrent")
-			if len(activeTorrents) < config.MaxActiveTorrents {
-				fmt.Println("ActiveTOrrents", activeTorrents)
-				singleTorrent.NewReader()
-				singleTorrentFromStorage.QueuedStatus = "Active"
-				activeTorrents = append(activeTorrents, singleTorrent.InfoHash().String()) //adding the torrent hash to the queue
+		fmt.Println("Creating initial FOR: ", singleTorrentFromStorage.Hash, singleTorrentFromStorage.TorrentName)
+		if len(torrentQueues.ActiveTorrents) < Config.MaxActiveTorrents && singleTorrentFromStorage.TorrentStatus != "Stopped" {
+			if singleTorrentFromStorage.TorrentStatus == "Completed" || singleTorrentFromStorage.TorrentStatus == "Seeding" {
+				fmt.Println("Completed Torrents have lower prio.. adding to Queued ", singleTorrent.Name())
+				AddTorrentToQueue(singleTorrentFromStorage, singleTorrent, db)
 			} else {
-				queuedTorrents = append(queuedTorrents, singleTorrent.InfoHash().String())
-				fmt.Println("Queuing torrent")
-				singleTorrentFromStorage.QueuedStatus = "Queued"
+				fmt.Println("adding torrent to active NOW ", singleTorrent.Name())
+				AddTorrentToActive(singleTorrentFromStorage, singleTorrent, db)
 			}
+		} else {
+			fmt.Println("adding torrent to queued NOW ", singleTorrent.Name())
+			AddTorrentToQueue(singleTorrentFromStorage, singleTorrent, db)
 		}
+		//Storage.UpdateQueues(db, torrentQueues)
 		Storage.UpdateStorageTick(db, *singleTorrentFromStorage)
 	}
-	if len(activeTorrents) < config.MaxActiveTorrents && len(queuedTorrents) > 0 { //after all the torrents are added, see if out active torrent list isn't full, then add from the queue
-		fmt.Println("adding torrents from queue (if any in there)")
-		maxCanSend := config.MaxActiveTorrents - len(activeTorrents)
+	torrentQueues := Storage.FetchQueues(db)
+	if len(torrentQueues.ActiveTorrents) < config.MaxActiveTorrents && len(torrentQueues.QueuedTorrents) > 0 { //after all the torrents are added, see if out active torrent list isn't full, then add from the queue
+		fmt.Println("adding torrents from queue (if any in there)", "MaX: ", config.MaxActiveTorrents, "Current: ", torrentQueues.ActiveTorrents)
+		maxCanSend := config.MaxActiveTorrents - len(torrentQueues.ActiveTorrents)
 		torrentsToStart := make([]string, maxCanSend)
-		for i, torrentHash := range queuedTorrents {
+		for i, torrentHash := range torrentQueues.QueuedTorrents {
 			torrentsToStart[i] = torrentHash
+			for _, singleTorrent := range tclient.Torrents() {
+				if singleTorrent.InfoHash().String() == torrentHash {
+					singleTorrentFromStorage := Storage.FetchTorrentFromStorage(db, torrentHash)
+					AddTorrentToActive(&singleTorrentFromStorage, singleTorrent, db)
+				}
+			}
+
 		}
-		StartTorrents(tclient, torrentsToStart, activeTorrents, queuedTorrents)
-
 	}
-
 	SetFilePriority(tclient, db) //Setting the desired file priority from storage
+	fmt.Println("Initial Setup queues", torrentQueues)
 }
 
 //CreateRunningTorrentArray creates the entire torrent list to pass to client
-func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Storage.TorrentLocal, PreviousTorrentArray []ClientDB, config Settings.FullClientSettings, db *storm.DB, activeTorrents []string, queuedTorrents []string) (RunningTorrentArray []ClientDB) {
-
+func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Storage.TorrentLocal, PreviousTorrentArray []ClientDB, config Settings.FullClientSettings, db *storm.DB) (RunningTorrentArray []ClientDB) {
+	torrentQueues := Storage.FetchQueues(db)
+	fmt.Println("torrentQueues", torrentQueues)
 	for _, singleTorrentFromStorage := range TorrentLocalArray {
 		var singleTorrent *torrent.Torrent
 		var TempHash metainfo.Hash
@@ -278,11 +275,12 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		}
 		tickUpdateStruct := Storage.TorrentLocal{} //we are shoving the tick updates into a torrentlocal struct to pass to storage happens at the end of the routine
 		fullClientDB := new(ClientDB)
-
+		//Handling deleted torrents here
 		if singleTorrentFromStorage.TorrentStatus == "Dropped" {
 			Logger.WithFields(logrus.Fields{"selection": singleTorrentFromStorage.TorrentName}).Info("Deleting just the torrent")
 			singleTorrent.Drop()
 			Storage.DelTorrentLocalStorage(db, singleTorrentFromStorage.Hash)
+
 		}
 		if singleTorrentFromStorage.TorrentStatus == "DroppedData" {
 			Logger.WithFields(logrus.Fields{"selection": singleTorrentFromStorage.TorrentName}).Info("Deleting torrent and data")
@@ -351,21 +349,18 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		}
 		CalculateTorrentETA(singleTorrentFromStorage.TorrentSize, calculatedCompletedSize, fullClientDB) //needs to be here since we need the speed calculated before we can estimate the eta.
 
-		if (len(activeTorrents) < config.MaxActiveTorrents) && (len(queuedTorrents) > 0) { //If there is room for another torrent in active torrents, add it.
-			newTorrentHash := queuedTorrents[0]
-			fmt.Println("Moving Torrent to active queue")
+		if (len(torrentQueues.ActiveTorrents) < config.MaxActiveTorrents) && (len(torrentQueues.QueuedTorrents) > 0) { //If there is room for another torrent in active torrents, add it.
+			newTorrentHash := torrentQueues.QueuedTorrents[0]
 			for _, torrent := range tclient.Torrents() {
 				if newTorrentHash == torrent.InfoHash().String() {
-					torrent.NewReader()
-					activeTorrents = append(activeTorrents, newTorrentHash)
-					singleTorrentFromStorage.QueuedStatus = "Active"
+					AddTorrentToActive(singleTorrentFromStorage, singleTorrent, db)
 				}
 			}
 		}
 		fullClientDB.TotalUploadedSize = HumanizeBytes(float32(fullClientDB.TotalUploadedBytes))
 		fullClientDB.UploadRatio = CalculateUploadRatio(singleTorrent, fullClientDB) //calculate the upload ratio
 
-		CalculateTorrentStatus(singleTorrent, fullClientDB, config, singleTorrentFromStorage, calculatedCompletedSize, calculatedTotalSize, activeTorrents, queuedTorrents) //add torrents to the queue, remove from queue, etc
+		CalculateTorrentStatus(singleTorrent, fullClientDB, config, singleTorrentFromStorage, calculatedCompletedSize, calculatedTotalSize, torrentQueues, db) //add torrents to the queue, remove from queue, etc
 
 		tickUpdateStruct.UploadRatio = fullClientDB.UploadRatio
 		tickUpdateStruct.TorrentSize = calculatedTotalSize

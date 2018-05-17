@@ -13,10 +13,10 @@
     
     #Limits your upload and download speed globally, all are averages and not burst protected (usually burst on start).
     #Low = ~.05MB/s, Medium = ~.5MB/s, High = ~1.5MB/s
-    UploadRateLimit = "Medium"  #Options are "Low", "Medium", "High", "Unlimited" #Unlimited is default
-    DownloadRateLimit = "Medium"
+    UploadRateLimit = "Unlimited"  #Options are "Low", "Medium", "High", "Unlimited" #Unlimited is default
+    DownloadRateLimit = "Unlimited"
     #Maximum number of allowed active torrents, the rest will be queued
-    MaxActiveTorrents = 1
+    MaxActiveTorrents = 2
 
 [goTorrentWebUI]
     #Basic goTorrentWebUI authentication (not terribly secure, implemented in JS, password is hashed to SHA256, not salted, basically don't depend on this if you require very good security)

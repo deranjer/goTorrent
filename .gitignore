@@ -2,6 +2,7 @@ downloads/
 downloading/
 downloaded/
 uploadedTorrents/
+boltBrowser/
 storage.db.lock
 storage.db
 storage.db.old

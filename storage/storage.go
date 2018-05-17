@@ -16,6 +16,13 @@ var Logger *logrus.Logger
 //Conn is the global websocket connection used to push server notification messages
 var Conn *websocket.Conn
 
+//TorrentQueues contains the active and queued torrent hashes in slices
+type TorrentQueues struct {
+	ID             int `storm:"id,unique"` //storm requires unique ID (will be 5)
+	ActiveTorrents []string
+	QueuedTorrents []string
+}
+
 //IssuedTokensList contains a slice of all the tokens issues to applications
 type IssuedTokensList struct {
 	ID         int `storm:"id,unique"` //storm requires unique ID (will be 3) to save although there will only be one of these
@@ -83,7 +90,6 @@ type TorrentLocal struct {
 	TorrentSize         int64 //If we cancel a file change the download size since we won't be downloading that file
 	UploadRatio         string
 	TorrentFilePriority []TorrentFilePriority
-	QueuedStatus        string //Either "Queued", "Active", or "None"
 }
 
 //SaveConfig saves the config to the database to compare for changes to settings.toml on restart
@@ -93,6 +99,26 @@ func SaveConfig(torrentStorage *storm.DB, config Settings.FullClientSettings) {
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"database": torrentStorage, "error": err}).Error("Error saving Config to database!")
 	}
+}
+
+//UpdateQueues Saves the slice of hashes that contain the active Torrents
+func UpdateQueues(db *storm.DB, torrentQueues TorrentQueues) {
+	torrentQueues.ID = 5
+	err := db.Save(&torrentQueues)
+	if err != nil {
+		Logger.WithFields(logrus.Fields{"database": db, "error": err}).Error("Unable to write Queues to database!")
+	}
+}
+
+//FetchQueues fetches the activetorrent and queuedtorrent slices from the database
+func FetchQueues(db *storm.DB) TorrentQueues {
+	torrentQueues := TorrentQueues{}
+	err := db.One("ID", 5, &torrentQueues)
+	if err != nil {
+		Logger.WithFields(logrus.Fields{"database": db, "error": err}).Error("Unable to read Database into torrentQueues!")
+		return torrentQueues
+	}
+	return torrentQueues
 }
 
 //FetchConfig fetches the client config from the database
@@ -167,6 +193,8 @@ func UpdateStorageTick(torrentStorage *storm.DB, torrentLocal TorrentLocal) {
 	err := torrentStorage.Update(&torrentLocal)
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"UpdateContents": torrentLocal, "error": err}).Error("Error performing tick update to database!")
+	} else {
+		Logger.WithFields(logrus.Fields{"UpdateContents": torrentLocal, "error": err}).Debug("Performed Update to database!")
 	}
 }
 

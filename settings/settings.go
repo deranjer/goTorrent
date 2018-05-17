@@ -100,10 +100,8 @@ func calculateRateLimiters(uploadRate, downloadRate string) (*rate.Limiter, *rat
 		uploadRateLimiter = rate.NewLimiter(rate.Inf, 0)
 		return downloadRateLimiter, uploadRateLimiter
 	}
-	var limitPerSecondUl = rate.Limit(uploadRateLimiterSize)
-	uploadRateLimiter = rate.NewLimiter(limitPerSecondUl, uploadRateLimiterSize)
-	var limitPerSecondDl = rate.Limit(uploadRateLimiterSize)
-	downloadRateLimiter = rate.NewLimiter(limitPerSecondDl, downloadRateLimiterSize)
+	uploadRateLimiter = rate.NewLimiter(rate.Limit(uploadRateLimiterSize), uploadRateLimiterSize)
+	downloadRateLimiter = rate.NewLimiter(rate.Limit(downloadRateLimiterSize), downloadRateLimiterSize)
 	return downloadRateLimiter, uploadRateLimiter
 }
 
