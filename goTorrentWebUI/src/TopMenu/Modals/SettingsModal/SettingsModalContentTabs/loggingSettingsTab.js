@@ -53,7 +53,7 @@ class LoggingSettingsTab extends React.Component {
             <Grid container spacing={8}>
                 <Grid item xs={12} sm={4}>
                     <Paper className={classes.paper}>Logging Output: <span className={classes.floatRight}>{this.props.settingsFile["LoggingOutput"]} </span></Paper>
-                    <Paper className={classes.paper}>Logging Level: <span className={classes.floatRight}>{logLevel} </span> </Paper>
+                    <Paper className={classes.paper}>Logging Level: <span className={classes.floatRight}>{this.props.settingsFile["LoggingLevel"]} </span> </Paper>
                            
                     
                 </Grid>

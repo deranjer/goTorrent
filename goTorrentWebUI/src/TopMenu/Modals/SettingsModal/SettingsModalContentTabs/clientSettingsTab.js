@@ -35,6 +35,7 @@ class ClientSettingsTab extends React.PureComponent {
                     <Paper className={classes.paper}>HTTP Port: <span className={classes.floatRight}>{this.props.settingsFile["HTTPAddr"]} </span> </Paper>
                     <Paper className={classes.paper}>Use Proxy: <span className={classes.floatRight}>{String(this.props.settingsFile["UseProxy"])} </span> </Paper>
                     <Paper className={classes.paper}>Base URL: <span className={classes.floatRight}>{this.props.settingsFile["BaseURL"]} </span> </Paper>
+                    <Paper className={classes.paper}>Max Active Torrents: <span className={classes.floatRight}>{this.props.settingsFile["MaxActiveTorrents"]} </span> </Paper>
                            
                     
                 </Grid>

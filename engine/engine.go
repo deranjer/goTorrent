@@ -129,11 +129,6 @@ func readTorrentFileFromDB(element *Storage.TorrentLocal, tclient *torrent.Clien
 	return singleTorrent, nil
 }
 
-//StartTorrents attempts to start torrents by adding them to the active torrents, then the queue, and by increasing their connections (if they were stopped)
-func StartTorrents(clientTorrent *torrent.Client, torrentHashes []string, torrentQueues Storage.TorrentQueues) {
-
-}
-
 //AddTorrent creates the storage.db entry and starts A NEW TORRENT and adds to the running torrent array
 func AddTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.TorrentLocal, db *storm.DB, torrentType, torrentFilePathAbs, torrentStoragePath, labelValue string, config Settings.FullClientSettings) {
 	timedOut := timeOutInfo(clientTorrent, 45) //seeing if adding the torrent times out (giving 45 seconds)
@@ -233,7 +228,6 @@ func CreateInitialTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 				AddTorrentToQueue(singleTorrentFromStorage, singleTorrent, db)
 			}
 		} else { //If we already have a queue set up then assign torrents to queue
-			Logger.Info("Existing Queue found in database, reading it in")
 			if singleTorrentFromStorage.TorrentStatus == "Queued" {
 				AddTorrentToQueue(singleTorrentFromStorage, singleTorrent, db)
 			} else {
