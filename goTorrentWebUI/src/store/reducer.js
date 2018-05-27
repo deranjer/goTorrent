@@ -151,10 +151,9 @@ const reducer = (state = initialState, action) => {
                     selectedRows.push(state.torrentList[element])   //pushing the selected rows out of torrentlist
                 });
             
-            
-                let buttonStateTest = selectedRows.filter(element => { //TODO fix this bad mess... we literally just need to filter for stopped and go from there
+                let buttonStateTest = selectedRows.filter(element => { 
                     let result = []
-                    if (element.Status === "Downloading" || element.Status === "Awaiting Peers" || element.Status === "Seeding" || element.Status === "Completed"){
+                    if (element.Status === "Downloading" || element.Status === "Awaiting Peers" || element.Status === "Seeding" || element.Status === "Completed" || element.Status === "Queued"){
                         result.push(element.Status)
                         return result
                     }
@@ -164,7 +163,6 @@ const reducer = (state = initialState, action) => {
                 if (buttonStateTest.length > 0 && buttonStateTest2.length === 0){
 
                     let buttonStateFinal = [{startButton: "default", stopButton: "primary", deleteButton: "secondary", fSeedButton: "default", fRecheckButton: "primary"}]
-                    console.log("ButtonStateFil")
                     return {
                         ...state,
                         buttonState: buttonStateFinal

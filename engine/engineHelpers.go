@@ -188,19 +188,22 @@ func CalculateUploadRatio(t *torrent.Torrent, c *ClientDB) string {
 func StopTorrent(singleTorrent *torrent.Torrent, torrentLocalStorage *Storage.TorrentLocal, db *storm.DB) {
 	torrentQueues := Storage.FetchQueues(db)
 	if torrentLocalStorage.TorrentStatus == "Stopped" { //if we are already stopped
-		fmt.Println("Already stopped, returning....")
+		Logger.WithFields(logrus.Fields{"Torrent Name": torrentLocalStorage.TorrentName}).Info("Torrent Already Stopped, returning...")
 		return
 	}
 	torrentLocalStorage.TorrentStatus = "Stopped"
 	torrentLocalStorage.MaxConnections = 0
 	singleTorrent.SetMaxEstablishedConns(0)
-	fmt.Println("Getting ready to stop....!!!!!!!!")
 	for _, torrentHash := range torrentQueues.ActiveTorrents { //pulling it out of activetorrents
 		if torrentHash == singleTorrent.InfoHash().String() {
 			DeleteTorrentFromQueues(singleTorrent.InfoHash().String(), db)
 		}
 	}
-	fmt.Println("LOCALSTORAGE", *torrentLocalStorage, torrentLocalStorage)
+	for _, torrentHash := range torrentQueues.QueuedTorrents { //pulling it out of queuedTorrent
+		if torrentHash == singleTorrent.InfoHash().String() {
+			DeleteTorrentFromQueues(singleTorrent.InfoHash().String(), db)
+		}
+	}
 	Storage.UpdateStorageTick(db, *torrentLocalStorage)
 	CreateServerPushMessage(ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "success", Payload: "Torrent Stopped!"}, Conn)
 	return
@@ -224,7 +227,6 @@ func AddTorrentToActive(torrentLocalStorage *Storage.TorrentLocal, singleTorrent
 	torrentQueues.ActiveTorrents = append(torrentQueues.ActiveTorrents, singleTorrent.InfoHash().String())
 	torrentLocalStorage.TorrentStatus = "Running"
 	torrentLocalStorage.MaxConnections = 80
-	Logger.WithFields(logrus.Fields{"torrentName": singleTorrent.Name()}).Info("Moving torrent to active, active slice contains ", len(torrentQueues.ActiveTorrents), " torrents: ", torrentQueues.ActiveTorrents)
 	for _, file := range singleTorrent.Files() {
 		for _, sentFile := range torrentLocalStorage.TorrentFilePriority {
 			if file.DisplayPath() == sentFile.TorrentFilePath {
@@ -241,7 +243,7 @@ func AddTorrentToActive(torrentLocalStorage *Storage.TorrentLocal, singleTorrent
 			}
 		}
 	}
-	fmt.Println("Updating Queues from Add To active....", torrentQueues)
+	Logger.WithFields(logrus.Fields{"Torrent Name": torrentLocalStorage.TorrentName}).Info("Adding Torrent to Active Queue")
 	Storage.UpdateQueues(db, torrentQueues)
 }
 
@@ -256,7 +258,7 @@ func RemoveTorrentFromActive(torrentLocalStorage *Storage.TorrentLocal, singleTo
 			torrentLocalStorage.MaxConnections = 0
 			singleTorrent.SetMaxEstablishedConns(0)
 			Storage.UpdateQueues(db, torrentQueues)
-			AddTorrentToQueue(torrentLocalStorage, singleTorrent, db) //Adding the lasttorrent from active to queued
+			//AddTorrentToQueue(torrentLocalStorage, singleTorrent, db) //Adding the lasttorrent from active to queued
 			Storage.UpdateStorageTick(db, *torrentLocalStorage)
 		}
 	}
@@ -273,12 +275,13 @@ func DeleteTorrentFromQueues(torrentHash string, db *storm.DB) {
 		} else {
 			for x, torrentHashQueued := range torrentQueues.QueuedTorrents {
 				if torrentHash == torrentHashQueued {
-					torrentQueues.ActiveTorrents = append(torrentQueues.QueuedTorrents[:x], torrentQueues.QueuedTorrents[x+1:]...)
+					torrentQueues.QueuedTorrents = append(torrentQueues.QueuedTorrents[:x], torrentQueues.QueuedTorrents[x+1:]...)
 					Storage.UpdateQueues(db, torrentQueues)
 				}
 			}
 		}
 	}
+	Logger.WithFields(logrus.Fields{"Torrent Hash": torrentHash}).Info("Removing Torrent from all Queues")
 }
 
 //AddTorrentToQueue adds a torrent to the queue
@@ -286,7 +289,6 @@ func AddTorrentToQueue(torrentLocalStorage *Storage.TorrentLocal, singleTorrent 
 	torrentQueues := Storage.FetchQueues(db)
 	for _, torrentHash := range torrentQueues.QueuedTorrents {
 		if singleTorrent.InfoHash().String() == torrentHash { //don't add duplicate to que but do everything else (TODO, maybe find a better way?)
-			fmt.Println("TORRENTQUEUES", torrentQueues)
 			singleTorrent.SetMaxEstablishedConns(0)
 			torrentLocalStorage.MaxConnections = 0
 			torrentLocalStorage.TorrentStatus = "Queued"
@@ -296,7 +298,6 @@ func AddTorrentToQueue(torrentLocalStorage *Storage.TorrentLocal, singleTorrent 
 		}
 	}
 	torrentQueues.QueuedTorrents = append(torrentQueues.QueuedTorrents, singleTorrent.InfoHash().String())
-	fmt.Println("TORRENTQUEUES", torrentQueues)
 	singleTorrent.SetMaxEstablishedConns(0)
 	torrentLocalStorage.MaxConnections = 0
 	torrentLocalStorage.TorrentStatus = "Queued"
@@ -305,25 +306,37 @@ func AddTorrentToQueue(torrentLocalStorage *Storage.TorrentLocal, singleTorrent 
 	Storage.UpdateStorageTick(db, *torrentLocalStorage)
 }
 
+//RemoveDuplicatesFromQueues removes any duplicates from torrentQueues.QueuedTorrents (which will happen if it is read in from DB)
+func RemoveDuplicatesFromQueues(db *storm.DB) {
+	torrentQueues := Storage.FetchQueues(db)
+	for _, torrentHash := range torrentQueues.ActiveTorrents {
+		for i, queuedHash := range torrentQueues.QueuedTorrents {
+			if torrentHash == queuedHash {
+				torrentQueues.QueuedTorrents = append(torrentQueues.QueuedTorrents[:i], torrentQueues.QueuedTorrents[i+1:]...)
+			}
+		}
+	}
+	Storage.UpdateQueues(db, torrentQueues)
+}
+
 //CalculateTorrentStatus is used to determine what the STATUS column of the frontend will display ll2
 func CalculateTorrentStatus(t *torrent.Torrent, c *ClientDB, config Settings.FullClientSettings, tFromStorage *storage.TorrentLocal, bytesCompleted int64, totalSize int64, torrentQueues Storage.TorrentQueues, db *storm.DB) {
+	if tFromStorage.TorrentStatus == "Stopped" {
+		c.Status = "Stopped"
+		return
+	}
 	if float64(c.TotalUploadedBytes)/float64(bytesCompleted) >= config.SeedRatioStop && tFromStorage.TorrentUploadLimit == true { //If storage shows torrent stopped or if it is over the seeding ratio AND is under the global limit
 		StopTorrent(t, tFromStorage, db)
 
 	} else { //Only has 2 states in storage, stopped or running, so we know it should be running, and the websocket request handled updating the database with connections and status
 		for _, torrentHash := range torrentQueues.QueuedTorrents {
 			if tFromStorage.Hash == torrentHash {
-				//AddTorrentToQueue(tFromStorage, t, db)
-				//Logger.WithFields(logrus.Fields{"TorrentName": tFromStorage.TorrentName, "connections": tFromStorage.MaxConnections}).Info("Torrent is queued, skipping")
-				//t.SetMaxEstablishedConns(0)
 				c.Status = "Queued"
 				return
 			}
 		}
 		if len(torrentQueues.ActiveTorrents) < config.MaxActiveTorrents && tFromStorage.TorrentStatus == "Queued" {
-			fmt.Println("HERE..............ADDDING TO ACTIVE", t.Name())
 			AddTorrentToActive(tFromStorage, t, db)
-			c.Status = "Downloading"
 		}
 		bytesMissing := totalSize - bytesCompleted
 		c.MaxConnections = 80

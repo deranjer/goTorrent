@@ -202,7 +202,6 @@ func main() {
 	} else {
 		Logger.Info("Database is empty, no torrents loaded")
 	}
-	fmt.Println("HERE ACTIVE", torrentQueues.ActiveTorrents)
 	Engine.CheckTorrentWatchFolder(cronEngine, db, tclient, torrentLocalStorage, Config, torrentQueues) //Every 5 minutes the engine will check the specified folder for new .torrent files
 	Engine.RefreshRSSCron(cronEngine, db, tclient, torrentLocalStorage, Config, torrentQueues)          // Refresing the RSS feeds on an hourly basis to add torrents that show up in the RSS feed
 
@@ -432,8 +431,18 @@ func main() {
 					}
 					Logger.WithFields(logrus.Fields{"clientTorrent": clientTorrent, "magnetLink": magnetLink}).Info("Adding torrent to client!")
 					Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "info", Payload: "Received MagnetLink"}, conn)
+					if len(torrentQueues.ActiveTorrents) > Config.MaxActiveTorrents {
+						Logger.WithFields(logrus.Fields{"Name: ": clientTorrent.Name()}).Info("Adding New torrent to active, pushing other torrent to queue")
+						removeTorrent := torrentQueues.ActiveTorrents[:1]
+						for _, singleTorrent := range runningTorrents {
+							if singleTorrent.InfoHash().String() == removeTorrent[0] {
+								oldTorrentInfo := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String())
+								Engine.RemoveTorrentFromActive(&oldTorrentInfo, singleTorrent, db)
+								Storage.UpdateStorageTick(db, oldTorrentInfo)
+							}
+						}
+					}
 					go Engine.AddTorrent(clientTorrent, torrentLocalStorage, db, "magnet", "", storageValue, labelValue, Config) //starting the torrent and creating local DB entry
-
 				}
 
 			case "torrentFileSubmit":
@@ -479,7 +488,18 @@ func main() {
 					Engine.CreateServerPushMessage(Engine.ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "error", Payload: "Unable to add Torrent to torrent server"}, conn)
 				}
 				Logger.WithFields(logrus.Fields{"clienttorrent": clientTorrent.Name(), "filename": filePathAbs}).Info("Added torrent")
-				go Engine.AddTorrent(clientTorrent, torrentLocalStorage, db, "file", filePathAbs, storageValue, labelValue, Config)
+				if len(torrentQueues.ActiveTorrents) >= Config.MaxActiveTorrents {
+					Logger.WithFields(logrus.Fields{"Name: ": clientTorrent.Name()}).Info("Adding New torrent to active, pushing other torrent to queue")
+					removeTorrent := torrentQueues.ActiveTorrents[:1]
+					for _, singleTorrent := range runningTorrents {
+						if singleTorrent.InfoHash().String() == removeTorrent[0] {
+							oldTorrentInfo := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String())
+							Engine.RemoveTorrentFromActive(&oldTorrentInfo, singleTorrent, db)
+							Storage.UpdateStorageTick(db, oldTorrentInfo)
+							go Engine.AddTorrent(clientTorrent, torrentLocalStorage, db, "file", filePathAbs, storageValue, labelValue, Config)
+						}
+					}
+				}
 
 			case "stopTorrents":
 				torrentHashes := payloadData["TorrentHashes"].([]interface{})
@@ -487,13 +507,18 @@ func main() {
 				for _, singleTorrent := range tclient.Torrents() {
 					for _, singleSelection := range torrentHashes {
 						if singleTorrent.InfoHash().String() == singleSelection {
-							fmt.Println("Hash", singleTorrent.InfoHash().String(), "otherhash", singleSelection)
 							Logger.WithFields(logrus.Fields{"selection": singleSelection}).Info("Matched for stopping torrents")
 							oldTorrentInfo := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String())
 							Engine.StopTorrent(singleTorrent, &oldTorrentInfo, db)
-							fmt.Println("Getting ready to write to storage", oldTorrentInfo.Hash, oldTorrentInfo.TorrentStatus)
-							//Storage.UpdateStorageTick(db, oldTorrentInfo) //Updating the torrent status
-							continue
+							if len(torrentQueues.QueuedTorrents) > 1 {
+								addTorrent := torrentQueues.QueuedTorrents[:1]
+								for _, singleTorrent := range runningTorrents {
+									if singleTorrent.InfoHash().String() == addTorrent[0] {
+										Engine.AddTorrentToActive(&torrentLocalStorage, singleTorrent, db)
+									}
+								}
+							}
+
 						}
 					}
 				}
@@ -544,7 +569,7 @@ func main() {
 							oldTorrentInfo := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String())
 							Engine.AddTorrentToActive(&oldTorrentInfo, singleTorrent, db)
 							Logger.WithFields(logrus.Fields{"Torrent": oldTorrentInfo.TorrentName}).Info("Changing database to torrent running with 80 max connections")
-							//Storage.UpdateStorageTick(db, oldTorrentInfo) //Updating the torrent status
+							Storage.UpdateStorageTick(db, oldTorrentInfo) //Updating the torrent status
 						}
 						torrentQueues = Storage.FetchQueues(db)
 						if len(torrentQueues.ActiveTorrents) > Config.MaxActiveTorrents { //Since we are starting a new torrent stop the first torrent in the que if running is full
@@ -573,7 +598,6 @@ func main() {
 							oldTorrentInfo.TorrentUploadLimit = false // no upload limit for this torrent
 							oldTorrentInfo.TorrentStatus = "Running"
 							oldTorrentInfo.MaxConnections = 80
-							fmt.Println("OldtorrentinfoName", oldTorrentInfo.TorrentName)
 							Logger.WithFields(logrus.Fields{"NewMax": oldTorrentInfo.MaxConnections, "Torrent": oldTorrentInfo.TorrentName}).Info("Setting max connection from zero to 80")
 							Storage.UpdateStorageTick(db, oldTorrentInfo) //Updating the torrent status
 						}
