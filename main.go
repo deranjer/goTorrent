@@ -51,7 +51,7 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 func handleAuthentication(conn *websocket.Conn, db *storm.DB) {
 	msg := Engine.Message{}
 	err := conn.ReadJSON(&msg)
-	conn.WriteJSON(msg) //TODO just for testing, remove
+	//conn.WriteJSON(msg) //TODO just for testing, remove
 	payloadData, ok := msg.Payload.(map[string]interface{})
 	clientAuthToken, tokenOk := payloadData["ClientAuthString"].(string)
 	fmt.Println("ClientAuthToken:", clientAuthToken, "TokenOkay", tokenOk, "PayloadData", payloadData, "PayloadData Okay?", ok)
@@ -284,7 +284,7 @@ func main() {
 				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested TorrentList Update")
 
 				go func() { //running updates in separate thread so can still accept commands
-					TorrentLocalArray = Storage.FetchAllStoredTorrents(db)                                                               //Required to re-read th database since we write to the DB and this will pull the changes from it
+					TorrentLocalArray = Storage.FetchAllStoredTorrents(db)                                                               //Required to re-read the database since we write to the DB and this will pull the changes from it
 					RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db) //Updates the RunningTorrentArray with the current client data as well
 					PreviousTorrentArray = RunningTorrentArray
 					torrentlistArray := Engine.TorrentList{MessageType: "torrentList", ClientDBstruct: RunningTorrentArray, Totaltorrents: len(RunningTorrentArray)}

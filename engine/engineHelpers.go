@@ -319,6 +319,20 @@ func RemoveDuplicatesFromQueues(db *storm.DB) {
 	Storage.UpdateQueues(db, torrentQueues)
 }
 
+//ValidateQueues is a sanity check that runs every tick to make sure the queues are in order... tried to avoid this but seems to be required
+func ValidateQueues(db *storm.DB, config Settings.FullClientSettings, tclient *torrent.Client) {
+	torrentQueues := Storage.FetchQueues(db)
+	for len(torrentQueues.ActiveTorrents) > config.MaxActiveTorrents {
+		removeTorrent := torrentQueues.ActiveTorrents[:1]
+		for _, singleTorrent := range tclient.Torrents() {
+			if singleTorrent.InfoHash().String() == removeTorrent[0] {
+				singleTorrentFromStorage := Storage.FetchTorrentFromStorage(db, removeTorrent[0])
+				RemoveTorrentFromActive(&singleTorrentFromStorage, singleTorrent, db)
+			}
+		}
+	}
+}
+
 //CalculateTorrentStatus is used to determine what the STATUS column of the frontend will display ll2
 func CalculateTorrentStatus(t *torrent.Torrent, c *ClientDB, config Settings.FullClientSettings, tFromStorage *storage.TorrentLocal, bytesCompleted int64, totalSize int64, torrentQueues Storage.TorrentQueues, db *storm.DB) {
 	if tFromStorage.TorrentStatus == "Stopped" {

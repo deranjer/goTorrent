@@ -32,6 +32,10 @@ func CreateServerPushMessage(message ServerPushMessage, conn *websocket.Conn) {
 	conn.WriteJSON(message)
 }
 
+func QueueJSONMessage(conn *websocket.Conn){
+	
+}
+
 //RefreshSingleRSSFeed refreshing a single RSS feed to send to the client (so no updating database) mainly by updating the torrent list to display any changes
 func RefreshSingleRSSFeed(db *storm.DB, RSSFeed Storage.SingleRSSFeed) Storage.SingleRSSFeed { //Todo.. duplicate as cron job... any way to merge these to reduce duplication?
 	singleRSSFeed := Storage.SingleRSSFeed{URL: RSSFeed.URL, Name: RSSFeed.Name}
@@ -376,6 +380,7 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		RunningTorrentArray = append(RunningTorrentArray, *fullClientDB)
 
 	}
+	ValidateQueues(db, config, tclient) //Ensure we don't have too many in activeQueue
 	return RunningTorrentArray
 }
 
