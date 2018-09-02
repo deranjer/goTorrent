@@ -109,7 +109,7 @@ func CalculateTorrentSpeed(t *torrent.Torrent, c *ClientDB, oc ClientDB, complet
 	dt := float32(now.Sub(oc.UpdatedAt))     // get the delta time length between now and last updated
 	db := float32(bytes - oc.BytesCompleted) //getting the delta bytes
 	rate := db * (float32(time.Second) / dt) // converting into seconds
-	dbU := float32(bytesUpload - oc.DataBytesWritten)
+	dbU := float32(bytesUpload.Int64() - oc.DataBytesWritten)
 	rateUpload := dbU * (float32(time.Second) / dt)
 	if rate >= 0 {
 		rateMB := rate / 1024 / 1024 //creating MB to calculate ETA
@@ -328,6 +328,27 @@ func ValidateQueues(db *storm.DB, config Settings.FullClientSettings, tclient *t
 			if singleTorrent.InfoHash().String() == removeTorrent[0] {
 				singleTorrentFromStorage := Storage.FetchTorrentFromStorage(db, removeTorrent[0])
 				RemoveTorrentFromActive(&singleTorrentFromStorage, singleTorrent, db)
+			}
+		}
+	}
+	torrentQueues = Storage.FetchQueues(db)
+	for _, singleTorrent := range tclient.Torrents() { //If we have a queued torrent that is missing data, and an active torrent that is seeding, then prioritize the missing data one
+		for _, queuedTorrent := range torrentQueues.QueuedTorrents {
+			if singleTorrent.InfoHash().String() == queuedTorrent {
+				if singleTorrent.BytesMissing() > 0 {
+					for _, activeTorrent := range torrentQueues.ActiveTorrents {
+						for _, singleActiveTorrent := range tclient.Torrents() {
+							if activeTorrent == singleActiveTorrent.InfoHash().String() {
+								if singleActiveTorrent.Seeding() == true {
+									singleTorrentFromStorage := Storage.FetchTorrentFromStorage(db, activeTorrent)
+									RemoveTorrentFromActive(&singleTorrentFromStorage, singleActiveTorrent, db)
+									singleTorrentFromStorage = Storage.FetchTorrentFromStorage(db, queuedTorrent)
+									AddTorrentToActive(&singleTorrentFromStorage, singleTorrent, db)
+								}
+							}
+						}
+					}
+				}
 			}
 		}
 	}

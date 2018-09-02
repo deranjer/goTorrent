@@ -32,8 +32,8 @@ func CreateServerPushMessage(message ServerPushMessage, conn *websocket.Conn) {
 	conn.WriteJSON(message)
 }
 
-func QueueJSONMessage(conn *websocket.Conn){
-	
+func QueueJSONMessage(conn *websocket.Conn) {
+
 }
 
 //RefreshSingleRSSFeed refreshing a single RSS feed to send to the client (so no updating database) mainly by updating the torrent list to display any changes
@@ -332,8 +332,8 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		PercentDone := fmt.Sprintf("%.2f", float32(calculatedCompletedSize)/float32(calculatedTotalSize))
 		fullClientDB.TorrentHash = TempHash
 		fullClientDB.PercentDone = PercentDone
-		fullClientDB.DataBytesRead = fullStruct.ConnStats.BytesReadData       //used for calculations not passed to client calculating up/down speed
-		fullClientDB.DataBytesWritten = fullStruct.ConnStats.BytesWrittenData //used for calculations not passed to client calculating up/down speed
+		fullClientDB.DataBytesRead = fullStruct.ConnStats.BytesReadData.Int64()       //used for calculations not passed to client calculating up/down speed
+		fullClientDB.DataBytesWritten = fullStruct.ConnStats.BytesWrittenData.Int64() //used for calculations not passed to client calculating up/down speed
 		fullClientDB.ActivePeers = activePeersString + " / (" + totalPeersString + ")"
 		fullClientDB.TorrentHashString = TempHash.String()
 		fullClientDB.TorrentName = singleTorrentFromStorage.TorrentName
@@ -347,7 +347,7 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 				TempHash := singleTorrent.InfoHash()
 				if previousElement.TorrentHashString == TempHash.String() { //matching previous to new
 					CalculateTorrentSpeed(singleTorrent, fullClientDB, previousElement, calculatedCompletedSize)
-					fullClientDB.TotalUploadedBytes = singleTorrentFromStorage.UploadedBytes + (fullStruct.ConnStats.BytesWrittenData - previousElement.DataBytesWritten)
+					fullClientDB.TotalUploadedBytes = singleTorrentFromStorage.UploadedBytes + (fullStruct.ConnStats.BytesWrittenData.Int64() - previousElement.DataBytesWritten)
 				}
 			}
 		}

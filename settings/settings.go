@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"golang.org/x/time/rate"
@@ -34,7 +35,7 @@ type FullClientSettings struct {
 	LoggingLevel       logrus.Level
 	LoggingOutput      string
 	Version            int
-	TorrentConfig      torrent.Config `json:"-"`
+	TorrentConfig      torrent.ClientConfig `json:"-"`
 	TFileUploadFolder  string
 	SeedRatioStop      float64
 	DefaultMoveFolder  string
@@ -55,9 +56,9 @@ func defaultConfig() FullClientSettings {
 	Config.HTTPAddr = ":8000"
 	Config.SeedRatioStop = 1.50
 
-	Config.TorrentConfig.DHTConfig = dht.ServerConfig{
-		StartingNodes: dht.GlobalBootstrapAddrs,
-	}
+	//Config.TorrentConfig.DhtStartingNodes = dht.StartingNodesGetter{
+	//	StartingNodes: dht.GlobalBootstrapAddrs,
+	//}
 
 	return Config
 }
@@ -201,13 +202,17 @@ func FullClientSettingsNew() FullClientSettings {
 	disableIPv6 := viper.GetBool("torrentClientConfig.DisableIPv6")
 	debug := viper.GetBool("torrentClientConfig.Debug")
 
-	dhtServerConfig := dht.ServerConfig{
-		StartingNodes: dht.GlobalBootstrapAddrs,
+	//dhtServerConfig := dht.StartingNodesGetter()
+
+	//if viper.IsSet("DHTConfig") {
+	//	fmt.Println("Reading in custom DHT config")
+	//	dhtServerConfig = dhtServerSettings(dhtServerConfig)
+	//}
+	httpAddrPortInt64, err := strconv.ParseInt(httpAddrPort, 10, 0)
+	if err != nil {
+		fmt.Println("Failed creating 64-bit integer for goTorrent Port!", err)
 	}
-	if viper.IsSet("DHTConfig") {
-		fmt.Println("Reading in custom DHT config")
-		dhtServerConfig = dhtServerSettings(dhtServerConfig)
-	}
+	httpAddrPortInt := int(httpAddrPortInt64) //converting to integer
 
 	encryptionPolicy := torrent.EncryptionPolicy{
 		DisableEncryption:  viper.GetBool("EncryptionPolicy.DisableEncryption"),
@@ -215,22 +220,24 @@ func FullClientSettingsNew() FullClientSettings {
 		PreferNoEncryption: viper.GetBool("EncryptionPolicy.PreferNoEncryption"),
 	}
 
-	tConfig := torrent.Config{
-		DataDir:             dataDirAbs,
-		ListenAddr:          listenAddr,
-		DisablePEX:          disablePex,
-		NoDHT:               noDHT,
-		DHTConfig:           dhtServerConfig,
-		NoUpload:            noUpload,
-		Seed:                seed,
-		UploadRateLimiter:   uploadRateLimiter,
-		DownloadRateLimiter: downloadRateLimiter,
-		PeerID:              peerID,
-		DisableUTP:          disableUTP,
-		DisableTCP:          disableTCP,
-		DisableIPv6:         disableIPv6,
-		Debug:               debug,
-		EncryptionPolicy:    encryptionPolicy,
+	tConfig := torrent.NewDefaultClientConfig()
+
+	tConfig.DataDir = dataDirAbs
+	tConfig.ListenPort = httpAddrPortInt
+	tConfig.DisablePEX = disablePex
+	tConfig.NoDHT = noDHT
+	tConfig.NoUpload = noUpload
+	tConfig.Seed = seed
+	tConfig.UploadRateLimiter = uploadRateLimiter
+	tConfig.DownloadRateLimiter = downloadRateLimiter
+	tConfig.PeerID = peerID
+	tConfig.DisableUTP = disableUTP
+	tConfig.DisableTCP = disableTCP
+	tConfig.DisableIPv6 = disableIPv6
+	tConfig.Debug = debug
+	tConfig.EncryptionPolicy = encryptionPolicy
+	if listenAddr != "" {
+		tConfig.SetListenAddr(listenAddr) //Setting the IP address to listen on
 	}
 
 	Config := FullClientSettings{
@@ -248,7 +255,7 @@ func FullClientSettingsNew() FullClientSettings {
 			PushBulletToken:     pushBulletToken,
 		},
 		TFileUploadFolder:  "uploadedTorrents",
-		TorrentConfig:      tConfig,
+		TorrentConfig:      *tConfig,
 		DefaultMoveFolder:  defaultMoveFolderAbs,
 		TorrentWatchFolder: torrentWatchFolderAbs,
 		MaxActiveTorrents:  maxActiveTorrents,
