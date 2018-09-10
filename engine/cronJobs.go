@@ -57,6 +57,60 @@ func CheckTorrentWatchFolder(c *cron.Cron, db *storm.DB, tclient *torrent.Client
 	})
 }
 
+//CheckTorrents runs a upload ratio check, a queue check (essentially anything that should not be frontend dependent)
+func CheckTorrents(c *cron.Cron, db *storm.DB, tclient *torrent.Client, torrentLocalStorage Storage.TorrentLocal, config Settings.FullClientSettings, torrentQueues Storage.TorrentQueues, TorrentLocalArray []*Storage.TorrentLocal) {
+	c.AddFunc("@every 30s", func() {
+		Logger.Info("Running a torrent Ratio and Queue Check")
+		for _, singleTorrentFromStorage := range TorrentLocalArray {
+			//torrentQueues := Storage.FetchQueues(db)
+			var singleTorrent *torrent.Torrent
+			for _, liveTorrent := range tclient.Torrents() { //matching the torrent from storage to the live torrent
+				if singleTorrentFromStorage.Hash == liveTorrent.InfoHash().String() {
+					singleTorrent = liveTorrent
+				}
+			}
+			//var TempHash metainfo.Hash
+			//calculatedTotalSize := CalculateDownloadSize(singleTorrentFromStorage, singleTorrent)
+			calculatedCompletedSize := CalculateCompletedSize(singleTorrentFromStorage, singleTorrent)
+			//TempHash = singleTorrent.InfoHash()
+			bytesCompleted := CalculateCompletedSize(singleTorrentFromStorage, singleTorrent)
+			if float64(singleTorrentFromStorage.UploadedBytes)/float64(bytesCompleted) >= config.SeedRatioStop && singleTorrentFromStorage.TorrentUploadLimit == true { //If storage shows torrent stopped or if it is over the seeding ratio AND is under the global limit
+				StopTorrent(singleTorrent, singleTorrentFromStorage, db)
+			}
+			if len(torrentQueues.ActiveTorrents) < config.MaxActiveTorrents && singleTorrentFromStorage.TorrentStatus == "Queued" {
+				AddTorrentToActive(singleTorrentFromStorage, singleTorrent, db)
+			}
+			if (calculatedCompletedSize == singleTorrentFromStorage.TorrentSize) && (singleTorrentFromStorage.TorrentMoved == false) { //if we are done downloading and haven't moved torrent yet
+				Logger.WithFields(logrus.Fields{"singleTorrent": singleTorrentFromStorage.TorrentName}).Info("Torrent Completed, moving...")
+				tStorage := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String()) //Todo... find a better way to do this in the go-routine currently just to make sure it doesn't trigger multiple times
+				tStorage.TorrentMoved = true
+				Storage.UpdateStorageTick(db, tStorage)
+				go func() { //moving torrent in separate go-routine then verifying that the data is still there and correct
+					err := MoveAndLeaveSymlink(config, singleTorrent.InfoHash().String(), db, false, "") //can take some time to move file so running this in another thread TODO make this a goroutine and skip this block if the routine is still running
+					if err != nil {                                                                      //If we fail, print the error and attempt a retry
+						Logger.WithFields(logrus.Fields{"singleTorrent": singleTorrentFromStorage.TorrentName, "error": err}).Error("Failed to move Torrent!")
+						VerifyData(singleTorrent)
+						tStorage.TorrentMoved = false
+						Storage.UpdateStorageTick(db, tStorage)
+					}
+				}()
+			}
+
+		}
+		ValidateQueues(db, config, tclient)                                                                            //Ensure we don't have too many in activeQueue
+		if (len(torrentQueues.ActiveTorrents) < config.MaxActiveTorrents) && (len(torrentQueues.QueuedTorrents) > 0) { //If there is room for another torrent in active torrents, add it.
+			torrentToAdd := torrentQueues.QueuedTorrents[0]
+			for _, singleTorrent := range tclient.Torrents() {
+				if torrentToAdd == singleTorrent.InfoHash().AsString() {
+					singleTorrentFromStorage := Storage.FetchTorrentFromStorage(db, torrentToAdd)
+					AddTorrentToActive(&singleTorrentFromStorage, singleTorrent, db)
+				}
+			}
+		}
+
+	})
+}
+
 //RefreshRSSCron refreshes all of the RSS feeds on an hourly basis
 func RefreshRSSCron(c *cron.Cron, db *storm.DB, tclient *torrent.Client, torrentLocalStorage Storage.TorrentLocal, config Settings.FullClientSettings, torrentQueues Storage.TorrentQueues) {
 	c.AddFunc("@hourly", func() {

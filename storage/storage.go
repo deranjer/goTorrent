@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -146,11 +147,11 @@ func FetchAllStoredTorrents(torrentStorage *storm.DB) (torrentLocalArray []*Torr
 //AddTorrentLocalStorage is called when adding a new torrent via any method, requires the boltdb pointer and the torrentlocal struct
 func AddTorrentLocalStorage(torrentStorage *storm.DB, local TorrentLocal) {
 	Logger.WithFields(logrus.Fields{"Storage Path": local.StoragePath, "Torrent": local.TorrentName, "File(if file)": local.TorrentFileName}).Info("Adding new Torrent to database")
+	fmt.Println("ENTIRE TORRENT", local)
 	err := torrentStorage.Save(&local)
 	if err != nil {
 		Logger.WithFields(logrus.Fields{"database": torrentStorage, "error": err}).Error("Error adding new Torrent to database!")
 	}
-
 }
 
 //DelTorrentLocalStorage is called to delete a torrent when we fail (for whatever reason to load the information for it).  Deleted by HASH matching.

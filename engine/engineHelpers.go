@@ -360,32 +360,25 @@ func CalculateTorrentStatus(t *torrent.Torrent, c *ClientDB, config Settings.Ful
 		c.Status = "Stopped"
 		return
 	}
-	if float64(c.TotalUploadedBytes)/float64(bytesCompleted) >= config.SeedRatioStop && tFromStorage.TorrentUploadLimit == true { //If storage shows torrent stopped or if it is over the seeding ratio AND is under the global limit
-		StopTorrent(t, tFromStorage, db)
-
-	} else { //Only has 2 states in storage, stopped or running, so we know it should be running, and the websocket request handled updating the database with connections and status
-		for _, torrentHash := range torrentQueues.QueuedTorrents {
-			if tFromStorage.Hash == torrentHash {
-				c.Status = "Queued"
-				return
-			}
+	//Only has 2 states in storage, stopped or running, so we know it should be running, and the websocket request handled updating the database with connections and status
+	for _, torrentHash := range torrentQueues.QueuedTorrents {
+		if tFromStorage.Hash == torrentHash {
+			c.Status = "Queued"
+			return
 		}
-		if len(torrentQueues.ActiveTorrents) < config.MaxActiveTorrents && tFromStorage.TorrentStatus == "Queued" {
-			AddTorrentToActive(tFromStorage, t, db)
-		}
-		bytesMissing := totalSize - bytesCompleted
-		c.MaxConnections = 80
-		t.SetMaxEstablishedConns(80)
-		if t.Seeding() && t.Stats().ActivePeers > 0 && bytesMissing == 0 {
-			c.Status = "Seeding"
-		} else if t.Stats().ActivePeers > 0 && bytesMissing > 0 {
-			c.Status = "Downloading"
-		} else if t.Stats().ActivePeers == 0 && bytesMissing == 0 {
-			c.Status = "Completed"
-		} else if t.Stats().ActivePeers == 0 && bytesMissing > 0 {
-			c.Status = "Awaiting Peers"
-		} else {
-			c.Status = "Unknown"
-		}
+	}
+	bytesMissing := totalSize - bytesCompleted
+	c.MaxConnections = 80
+	t.SetMaxEstablishedConns(80)
+	if t.Seeding() && t.Stats().ActivePeers > 0 && bytesMissing == 0 {
+		c.Status = "Seeding"
+	} else if t.Stats().ActivePeers > 0 && bytesMissing > 0 {
+		c.Status = "Downloading"
+	} else if t.Stats().ActivePeers == 0 && bytesMissing == 0 {
+		c.Status = "Completed"
+	} else if t.Stats().ActivePeers == 0 && bytesMissing > 0 {
+		c.Status = "Awaiting Peers"
+	} else {
+		c.Status = "Unknown"
 	}
 }

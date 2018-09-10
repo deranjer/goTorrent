@@ -65,6 +65,7 @@ func handleAuthentication(conn *websocket.Conn, db *storm.DB) {
 		Logger.WithFields(logrus.Fields{"error": err, "SuppliedToken": clientAuthToken}).Error("Unable to read authentication message")
 	}
 	fmt.Println("Authstring", clientAuthToken)
+	//clientAuthToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjbGllbnROYW1lIjoiZ29Ub3JyZW50V2ViVUkiLCJpc3MiOiJnb1RvcnJlbnRTZXJ2ZXIifQ.Lfqp9tm06CY4XfrqnNDeVLkq9c7rsbibDrUdPko8ffQ"
 	signingKeyStruct := Storage.FetchJWTTokens(db)
 	singingKey := signingKeyStruct.SigningKey
 	token, err := jwt.Parse(clientAuthToken, func(token *jwt.Token) (interface{}, error) {
@@ -77,6 +78,7 @@ func handleAuthentication(conn *websocket.Conn, db *storm.DB) {
 		authFail := Engine.AuthResponse{MessageType: "authResponse", Payload: "Parsing of Token failed, ensure you have the correct token! Closing Connection"}
 		conn.WriteJSON(authFail)
 		Logger.WithFields(logrus.Fields{"error": err, "SuppliedToken": token}).Error("Unable to parse token!")
+		fmt.Println("ENTIRE SUPPLIED TOKEN:", token, "CLIENTAUTHTOKEN", clientAuthToken)
 		conn.Close()
 		return
 	}
@@ -204,6 +206,7 @@ func main() {
 	}
 	Engine.CheckTorrentWatchFolder(cronEngine, db, tclient, torrentLocalStorage, Config, torrentQueues) //Every 5 minutes the engine will check the specified folder for new .torrent files
 	Engine.RefreshRSSCron(cronEngine, db, tclient, torrentLocalStorage, Config, torrentQueues)          // Refresing the RSS feeds on an hourly basis to add torrents that show up in the RSS feed
+	Engine.CheckTorrents(cronEngine, db, tclient, torrentLocalStorage, Config, torrentQueues, TorrentLocalArray)
 
 	router := mux.NewRouter()         //setting up the handler for the web backend
 	router.HandleFunc("/", serveHome) //Serving the main page for our SPA

@@ -141,6 +141,7 @@ func AddTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.Torr
 	}
 	var TempHash metainfo.Hash
 	TempHash = clientTorrent.InfoHash()
+	fmt.Println("GOT INFOHASH", TempHash.String())
 	allStoredTorrents := Storage.FetchAllStoredTorrents(db)
 	for _, runningTorrentHashes := range allStoredTorrents {
 		if runningTorrentHashes.Hash == TempHash.String() {
@@ -274,7 +275,7 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 	for _, singleTorrentFromStorage := range TorrentLocalArray {
 		torrentQueues := Storage.FetchQueues(db)
 		var singleTorrent *torrent.Torrent
-		var TempHash metainfo.Hash
+
 		for _, liveTorrent := range tclient.Torrents() { //matching the torrent from storage to the live torrent
 			if singleTorrentFromStorage.Hash == liveTorrent.InfoHash().String() {
 				singleTorrent = liveTorrent
@@ -287,38 +288,22 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 			Logger.WithFields(logrus.Fields{"selection": singleTorrentFromStorage.TorrentName}).Info("Deleting just the torrent")
 			singleTorrent.Drop()
 			Storage.DelTorrentLocalStorage(db, singleTorrentFromStorage.Hash)
-
 		}
 		if singleTorrentFromStorage.TorrentStatus == "DroppedData" {
 			Logger.WithFields(logrus.Fields{"selection": singleTorrentFromStorage.TorrentName}).Info("Deleting torrent and data")
 			singleTorrent.Drop()
 			Storage.DelTorrentLocalStorageAndFiles(db, singleTorrentFromStorage.Hash, Config.TorrentConfig.DataDir)
-
 		}
 		if singleTorrentFromStorage.TorrentType == "file" { //if it is a file pull it from the uploaded torrent folder
 			fullClientDB.SourceType = "Torrent File"
 		} else {
 			fullClientDB.SourceType = "Magnet Link"
 		}
+		var TempHash metainfo.Hash
+		TempHash = singleTorrent.InfoHash()
 
 		calculatedTotalSize := CalculateDownloadSize(singleTorrentFromStorage, singleTorrent)
 		calculatedCompletedSize := CalculateCompletedSize(singleTorrentFromStorage, singleTorrent)
-		TempHash = singleTorrent.InfoHash()
-		if (calculatedCompletedSize == singleTorrentFromStorage.TorrentSize) && (singleTorrentFromStorage.TorrentMoved == false) { //if we are done downloading and haven't moved torrent yet
-			Logger.WithFields(logrus.Fields{"singleTorrent": singleTorrentFromStorage.TorrentName}).Info("Torrent Completed, moving...")
-			tStorage := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String()) //Todo... find a better way to do this in the go-routine currently just to make sure it doesn't trigger multiple times
-			tStorage.TorrentMoved = true
-			Storage.UpdateStorageTick(db, tStorage)
-			go func() { //moving torrent in separate go-routine then verifying that the data is still there and correct
-				err := MoveAndLeaveSymlink(config, singleTorrent.InfoHash().String(), db, false, "") //can take some time to move file so running this in another thread TODO make this a goroutine and skip this block if the routine is still running
-				if err != nil {                                                                      //If we fail, print the error and attempt a retry
-					Logger.WithFields(logrus.Fields{"singleTorrent": singleTorrentFromStorage.TorrentName, "error": err}).Error("Failed to move Torrent!")
-					VerifyData(singleTorrent)
-					tStorage.TorrentMoved = false
-					Storage.UpdateStorageTick(db, tStorage)
-				}
-			}()
-		}
 		fullStruct := singleTorrent.Stats()
 		activePeersString := strconv.Itoa(fullStruct.ActivePeers) //converting to strings
 		totalPeersString := fmt.Sprintf("%v", fullStruct.TotalPeers)
@@ -353,19 +338,6 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		}
 		CalculateTorrentETA(singleTorrentFromStorage.TorrentSize, calculatedCompletedSize, fullClientDB) //needs to be here since we need the speed calculated before we can estimate the eta.
 
-		if (len(torrentQueues.ActiveTorrents) < config.MaxActiveTorrents) && (len(torrentQueues.QueuedTorrents) > 0) { //If there is room for another torrent in active torrents, add it.
-			var newTorrentHash string
-			for _, torrentHash := range torrentQueues.QueuedTorrents {
-				if singleTorrentFromStorage.TorrentStatus != "Stopped" {
-					newTorrentHash = torrentHash
-				}
-			}
-			for _, torrent := range tclient.Torrents() {
-				if newTorrentHash == torrent.InfoHash().String() {
-					AddTorrentToActive(singleTorrentFromStorage, singleTorrent, db)
-				}
-			}
-		}
 		fullClientDB.TotalUploadedSize = HumanizeBytes(float32(fullClientDB.TotalUploadedBytes))
 		fullClientDB.UploadRatio = CalculateUploadRatio(singleTorrent, fullClientDB) //calculate the upload ratio
 
