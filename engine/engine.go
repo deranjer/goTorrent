@@ -189,7 +189,6 @@ func AddTorrent(clientTorrent *torrent.Torrent, torrentLocalStorage Storage.Torr
 //CreateInitialTorrentArray adds all the torrents on program start from the database
 func CreateInitialTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Storage.TorrentLocal, db *storm.DB, config Settings.FullClientSettings) {
 	for _, singleTorrentFromStorage := range TorrentLocalArray {
-
 		var singleTorrent *torrent.Torrent
 		var err error
 		if singleTorrentFromStorage.TorrentType == "file" { //if it is a file pull it from the uploaded torrent folder
@@ -203,7 +202,6 @@ func CreateInitialTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 			if err != nil {
 				continue
 			}
-
 		}
 		if len(singleTorrentFromStorage.InfoBytes) == 0 { //TODO.. kind of a fringe scenario.. not sure if needed since the db should always have the infobytes
 			timeOut := timeOutInfo(singleTorrent, 45)
@@ -219,13 +217,17 @@ func CreateInitialTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 			Logger.WithFields(logrus.Fields{"torrentFile": singleTorrent.Name(), "error": err}).Error("Unable to add infobytes to the torrent!")
 		}
 		torrentQueues := Storage.FetchQueues(db)
+		if singleTorrentFromStorage.TorrentStatus == "Stopped" {
+			singleTorrent.SetMaxEstablishedConns(0)
+			continue
+		}
 		if len(torrentQueues.ActiveTorrents) == 0 && len(torrentQueues.QueuedTorrents) == 0 { // If empty, run through all the torrents and assign them
-			if len(torrentQueues.ActiveTorrents) < Config.MaxActiveTorrents && singleTorrentFromStorage.TorrentStatus != "Stopped" {
+			if len(torrentQueues.ActiveTorrents) < Config.MaxActiveTorrents {
 				if singleTorrentFromStorage.TorrentStatus == "Completed" || singleTorrentFromStorage.TorrentStatus == "Seeding" {
 					Logger.WithFields(logrus.Fields{"Torrent Name": singleTorrentFromStorage.TorrentName}).Info("Completed Torrents have lower priority, adding to Queued")
 					AddTorrentToQueue(singleTorrentFromStorage, singleTorrent, db)
 				} else {
-					Logger.WithFields(logrus.Fields{"Torrent Name": singleTorrentFromStorage.TorrentName}).Info("Adding Torrent to Active Queue")
+					Logger.WithFields(logrus.Fields{"Torrent Name": singleTorrentFromStorage.TorrentName}).Info("Adding Torrent to Active Queue (Initial Torrent Load)")
 					AddTorrentToActive(singleTorrentFromStorage, singleTorrent, db)
 				}
 			} else {
@@ -236,7 +238,8 @@ func CreateInitialTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 			if singleTorrentFromStorage.TorrentStatus == "Queued" {
 				AddTorrentToQueue(singleTorrentFromStorage, singleTorrent, db)
 			} else {
-				if len(torrentQueues.ActiveTorrents) < Config.MaxActiveTorrents && singleTorrentFromStorage.TorrentStatus != "Stopped" {
+				if len(torrentQueues.ActiveTorrents) < Config.MaxActiveTorrents {
+					Logger.WithFields(logrus.Fields{"Torrent Name": singleTorrentFromStorage.TorrentName}).Info("Adding Torrent to Active Queue (Initial Torrent Load Second)")
 					AddTorrentToActive(singleTorrentFromStorage, singleTorrent, db)
 				} else {
 					AddTorrentToQueue(singleTorrentFromStorage, singleTorrent, db)
@@ -248,7 +251,7 @@ func CreateInitialTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 	}
 	torrentQueues := Storage.FetchQueues(db)
 	if len(torrentQueues.ActiveTorrents) < config.MaxActiveTorrents && len(torrentQueues.QueuedTorrents) > 0 { //after all the torrents are added, see if out active torrent list isn't full, then add from the queue
-		Logger.WithFields(logrus.Fields{"Max Active: ": config.MaxActiveTorrents, "Current : ": torrentQueues.ActiveTorrents}).Debug("Adding Torrents from queue to active to fill...")
+		Logger.WithFields(logrus.Fields{"Max Active: ": config.MaxActiveTorrents, "Current : ": torrentQueues.ActiveTorrents}).Info("Adding Torrents from queue to active to fill...")
 		maxCanSend := config.MaxActiveTorrents - len(torrentQueues.ActiveTorrents)
 		if maxCanSend > len(torrentQueues.QueuedTorrents) {
 			maxCanSend = len(torrentQueues.QueuedTorrents)
@@ -286,12 +289,14 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		//Handling deleted torrents here
 		if singleTorrentFromStorage.TorrentStatus == "Dropped" {
 			Logger.WithFields(logrus.Fields{"selection": singleTorrentFromStorage.TorrentName}).Info("Deleting just the torrent")
+			DeleteTorrentFromQueues(singleTorrentFromStorage.Hash, db)
 			singleTorrent.Drop()
 			Storage.DelTorrentLocalStorage(db, singleTorrentFromStorage.Hash)
 		}
 		if singleTorrentFromStorage.TorrentStatus == "DroppedData" {
 			Logger.WithFields(logrus.Fields{"selection": singleTorrentFromStorage.TorrentName}).Info("Deleting torrent and data")
 			singleTorrent.Drop()
+			DeleteTorrentFromQueues(singleTorrentFromStorage.Hash, db)
 			Storage.DelTorrentLocalStorageAndFiles(db, singleTorrentFromStorage.Hash, Config.TorrentConfig.DataDir)
 		}
 		if singleTorrentFromStorage.TorrentType == "file" { //if it is a file pull it from the uploaded torrent folder
@@ -352,7 +357,6 @@ func CreateRunningTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 		RunningTorrentArray = append(RunningTorrentArray, *fullClientDB)
 
 	}
-	ValidateQueues(db, config, tclient) //Ensure we don't have too many in activeQueue
 	return RunningTorrentArray
 }
 

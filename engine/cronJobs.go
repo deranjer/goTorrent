@@ -58,10 +58,12 @@ func CheckTorrentWatchFolder(c *cron.Cron, db *storm.DB, tclient *torrent.Client
 }
 
 //CheckTorrents runs a upload ratio check, a queue check (essentially anything that should not be frontend dependent)
-func CheckTorrents(c *cron.Cron, db *storm.DB, tclient *torrent.Client, torrentLocalStorage Storage.TorrentLocal, config Settings.FullClientSettings, torrentQueues Storage.TorrentQueues, TorrentLocalArray []*Storage.TorrentLocal) {
+func CheckTorrentsCron(c *cron.Cron, db *storm.DB, tclient *torrent.Client, config Settings.FullClientSettings) {
 	c.AddFunc("@every 30s", func() {
-		Logger.Info("Running a torrent Ratio and Queue Check")
-		for _, singleTorrentFromStorage := range TorrentLocalArray {
+		Logger.Debug("Running a torrent Ratio and Queue Check")
+		torrentLocalArray := Storage.FetchAllStoredTorrents(db)
+		torrentQueues := Storage.FetchQueues(db)
+		for _, singleTorrentFromStorage := range torrentLocalArray {
 			//torrentQueues := Storage.FetchQueues(db)
 			var singleTorrent *torrent.Torrent
 			for _, liveTorrent := range tclient.Torrents() { //matching the torrent from storage to the live torrent
@@ -78,6 +80,7 @@ func CheckTorrents(c *cron.Cron, db *storm.DB, tclient *torrent.Client, torrentL
 				StopTorrent(singleTorrent, singleTorrentFromStorage, db)
 			}
 			if len(torrentQueues.ActiveTorrents) < config.MaxActiveTorrents && singleTorrentFromStorage.TorrentStatus == "Queued" {
+				Logger.WithFields(logrus.Fields{"Action: Adding Torrent to Active Queue": singleTorrentFromStorage.TorrentName}).Info()
 				AddTorrentToActive(singleTorrentFromStorage, singleTorrent, db)
 			}
 			if (calculatedCompletedSize == singleTorrentFromStorage.TorrentSize) && (singleTorrentFromStorage.TorrentMoved == false) { //if we are done downloading and haven't moved torrent yet
@@ -97,17 +100,7 @@ func CheckTorrents(c *cron.Cron, db *storm.DB, tclient *torrent.Client, torrentL
 			}
 
 		}
-		ValidateQueues(db, config, tclient)                                                                            //Ensure we don't have too many in activeQueue
-		if (len(torrentQueues.ActiveTorrents) < config.MaxActiveTorrents) && (len(torrentQueues.QueuedTorrents) > 0) { //If there is room for another torrent in active torrents, add it.
-			torrentToAdd := torrentQueues.QueuedTorrents[0]
-			for _, singleTorrent := range tclient.Torrents() {
-				if torrentToAdd == singleTorrent.InfoHash().AsString() {
-					singleTorrentFromStorage := Storage.FetchTorrentFromStorage(db, torrentToAdd)
-					AddTorrentToActive(&singleTorrentFromStorage, singleTorrent, db)
-				}
-			}
-		}
-
+		ValidateQueues(db, config, tclient) //Ensure we don't have too many in activeQueue
 	})
 }
 

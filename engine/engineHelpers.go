@@ -186,7 +186,6 @@ func CalculateUploadRatio(t *torrent.Torrent, c *ClientDB) string {
 
 //StopTorrent stops the torrent, updates the database and sends a message.  Since stoptorrent is called by each loop (individually) no need to call an array
 func StopTorrent(singleTorrent *torrent.Torrent, torrentLocalStorage *Storage.TorrentLocal, db *storm.DB) {
-	torrentQueues := Storage.FetchQueues(db)
 	if torrentLocalStorage.TorrentStatus == "Stopped" { //if we are already stopped
 		Logger.WithFields(logrus.Fields{"Torrent Name": torrentLocalStorage.TorrentName}).Info("Torrent Already Stopped, returning...")
 		return
@@ -194,24 +193,19 @@ func StopTorrent(singleTorrent *torrent.Torrent, torrentLocalStorage *Storage.To
 	torrentLocalStorage.TorrentStatus = "Stopped"
 	torrentLocalStorage.MaxConnections = 0
 	singleTorrent.SetMaxEstablishedConns(0)
-	for _, torrentHash := range torrentQueues.ActiveTorrents { //pulling it out of activetorrents
-		if torrentHash == singleTorrent.InfoHash().String() {
-			DeleteTorrentFromQueues(singleTorrent.InfoHash().String(), db)
-		}
-	}
-	for _, torrentHash := range torrentQueues.QueuedTorrents { //pulling it out of queuedTorrent
-		if torrentHash == singleTorrent.InfoHash().String() {
-			DeleteTorrentFromQueues(singleTorrent.InfoHash().String(), db)
-		}
-	}
+	DeleteTorrentFromQueues(singleTorrent.InfoHash().String(), db)
 	Storage.UpdateStorageTick(db, *torrentLocalStorage)
 	CreateServerPushMessage(ServerPushMessage{MessageType: "serverPushMessage", MessageLevel: "success", Payload: "Torrent Stopped!"}, Conn)
-	return
+	Logger.WithFields(logrus.Fields{"Torrent Name": torrentLocalStorage.TorrentName}).Info("Torrent Stopped Success!")
 }
 
 //AddTorrentToActive adds a torrent to the active slice
 func AddTorrentToActive(torrentLocalStorage *Storage.TorrentLocal, singleTorrent *torrent.Torrent, db *storm.DB) {
 	torrentQueues := Storage.FetchQueues(db)
+	if torrentLocalStorage.TorrentStatus == "Stopped" {
+		Logger.WithFields(logrus.Fields{"Torrent Name": torrentLocalStorage.TorrentName}).Info("Torrent set as stopped, skipping add")
+		return
+	}
 	for _, torrentHash := range torrentQueues.ActiveTorrents {
 		if torrentHash == singleTorrent.InfoHash().String() { //If torrent already in active skip
 			return
@@ -243,7 +237,7 @@ func AddTorrentToActive(torrentLocalStorage *Storage.TorrentLocal, singleTorrent
 			}
 		}
 	}
-	Logger.WithFields(logrus.Fields{"Torrent Name": torrentLocalStorage.TorrentName}).Info("Adding Torrent to Active Queue")
+	Logger.WithFields(logrus.Fields{"Torrent Name": torrentLocalStorage.TorrentName}).Info("Adding Torrent to Active Queue (Manual Call)")
 	Storage.UpdateQueues(db, torrentQueues)
 }
 
@@ -268,20 +262,20 @@ func RemoveTorrentFromActive(torrentLocalStorage *Storage.TorrentLocal, singleTo
 //DeleteTorrentFromQueues deletes the torrent from all queues (for a stop or delete action)
 func DeleteTorrentFromQueues(torrentHash string, db *storm.DB) {
 	torrentQueues := Storage.FetchQueues(db)
-	for x, torrentHashActive := range torrentQueues.ActiveTorrents {
+	for x, torrentHashActive := range torrentQueues.ActiveTorrents { //FOR EXTRA CAUTION deleting it from both queues in case a mistake occurred.
 		if torrentHash == torrentHashActive {
 			torrentQueues.ActiveTorrents = append(torrentQueues.ActiveTorrents[:x], torrentQueues.ActiveTorrents[x+1:]...)
-			Storage.UpdateQueues(db, torrentQueues)
-		} else {
-			for x, torrentHashQueued := range torrentQueues.QueuedTorrents {
-				if torrentHash == torrentHashQueued {
-					torrentQueues.QueuedTorrents = append(torrentQueues.QueuedTorrents[:x], torrentQueues.QueuedTorrents[x+1:]...)
-					Storage.UpdateQueues(db, torrentQueues)
-				}
-			}
+			Logger.Info("Removing Torrent from Active:  ", torrentHash)
 		}
 	}
-	Logger.WithFields(logrus.Fields{"Torrent Hash": torrentHash}).Info("Removing Torrent from all Queues")
+	for x, torrentHashQueued := range torrentQueues.QueuedTorrents { //FOR EXTRA CAUTION deleting it from both queues in case a mistake occurred.
+		if torrentHash == torrentHashQueued {
+			torrentQueues.QueuedTorrents = append(torrentQueues.QueuedTorrents[:x], torrentQueues.QueuedTorrents[x+1:]...)
+			Logger.Info("Removing Torrent from Queued", torrentHash)
+		}
+	}
+	Storage.UpdateQueues(db, torrentQueues)
+	Logger.WithFields(logrus.Fields{"Torrent Hash": torrentHash, "TorrentQueues": torrentQueues}).Info("Removing Torrent from all Queues")
 }
 
 //AddTorrentToQueue adds a torrent to the queue
@@ -332,18 +326,24 @@ func ValidateQueues(db *storm.DB, config Settings.FullClientSettings, tclient *t
 		}
 	}
 	torrentQueues = Storage.FetchQueues(db)
-	for _, singleTorrent := range tclient.Torrents() { //If we have a queued torrent that is missing data, and an active torrent that is seeding, then prioritize the missing data one
-		for _, queuedTorrent := range torrentQueues.QueuedTorrents {
+	for _, singleTorrent := range tclient.Torrents() {
+		singleTorrentFromStorage := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String())
+		if singleTorrentFromStorage.TorrentStatus == "Stopped" {
+			continue
+		}
+		for _, queuedTorrent := range torrentQueues.QueuedTorrents { //If we have a queued torrent that is missing data, and an active torrent that is seeding, then prioritize the missing data one
 			if singleTorrent.InfoHash().String() == queuedTorrent {
 				if singleTorrent.BytesMissing() > 0 {
 					for _, activeTorrent := range torrentQueues.ActiveTorrents {
 						for _, singleActiveTorrent := range tclient.Torrents() {
 							if activeTorrent == singleActiveTorrent.InfoHash().String() {
 								if singleActiveTorrent.Seeding() == true {
-									singleTorrentFromStorage := Storage.FetchTorrentFromStorage(db, activeTorrent)
-									RemoveTorrentFromActive(&singleTorrentFromStorage, singleActiveTorrent, db)
-									singleTorrentFromStorage = Storage.FetchTorrentFromStorage(db, queuedTorrent)
-									AddTorrentToActive(&singleTorrentFromStorage, singleTorrent, db)
+									singleActiveTFS := Storage.FetchTorrentFromStorage(db, activeTorrent)
+									Logger.WithFields(logrus.Fields{"TorrentName": singleActiveTFS.TorrentName}).Info("Seeding, Removing from active to add queued")
+									RemoveTorrentFromActive(&singleActiveTFS, singleActiveTorrent, db)
+									singleQueuedTFS := Storage.FetchTorrentFromStorage(db, queuedTorrent)
+									Logger.WithFields(logrus.Fields{"TorrentName": singleQueuedTFS.TorrentName}).Info("Adding torrent to the queue, not active")
+									AddTorrentToActive(&singleQueuedTFS, singleTorrent, db)
 								}
 							}
 						}
