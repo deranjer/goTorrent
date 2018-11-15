@@ -199,6 +199,45 @@ func StopTorrent(singleTorrent *torrent.Torrent, torrentLocalStorage *Storage.To
 	Logger.WithFields(logrus.Fields{"Torrent Name": torrentLocalStorage.TorrentName}).Info("Torrent Stopped Success!")
 }
 
+//AddTorrentToForceStart forces torrent to be high priority on start
+func AddTorrentToForceStart(torrentLocalStorage *Storage.TorrentLocal, singleTorrent *torrent.Torrent, db *storm.DB) {
+	torrentQueues := Storage.FetchQueues(db)
+	for index, torrentHash := range torrentQueues.ActiveTorrents {
+		if torrentHash == singleTorrent.InfoHash().String() { //If torrent already in active remove from active
+			torrentQueues.ActiveTorrents = append(torrentQueues.ActiveTorrents[:index], torrentQueues.ActiveTorrents[index+1:]...)
+		}
+	}
+	for index, queuedTorrentHash := range torrentQueues.QueuedTorrents { //Removing from the queued torrents if in queued torrents
+		if queuedTorrentHash == singleTorrent.InfoHash().String() {
+			torrentQueues.QueuedTorrents = append(torrentQueues.QueuedTorrents[:index], torrentQueues.QueuedTorrents[index+1:]...)
+		}
+	}
+	singleTorrent.NewReader()
+	singleTorrent.SetMaxEstablishedConns(80)
+	torrentQueues.ActiveTorrents = append(torrentQueues.ActiveTorrents, singleTorrent.InfoHash().String())
+	torrentLocalStorage.TorrentStatus = "ForceStart"
+	torrentLocalStorage.MaxConnections = 80
+	for _, file := range singleTorrent.Files() {
+		for _, sentFile := range torrentLocalStorage.TorrentFilePriority {
+			if file.DisplayPath() == sentFile.TorrentFilePath {
+				switch sentFile.TorrentFilePriority {
+				case "High":
+					file.SetPriority(torrent.PiecePriorityHigh)
+				case "Normal":
+					file.SetPriority(torrent.PiecePriorityNormal)
+				case "Cancel":
+					file.SetPriority(torrent.PiecePriorityNone)
+				default:
+					file.SetPriority(torrent.PiecePriorityNormal)
+				}
+			}
+		}
+	}
+	Logger.WithFields(logrus.Fields{"Torrent Name": torrentLocalStorage.TorrentName}).Info("Adding Torrent to ForceStart Queue")
+	Storage.UpdateStorageTick(db, *torrentLocalStorage)
+	Storage.UpdateQueues(db, torrentQueues)
+}
+
 //AddTorrentToActive adds a torrent to the active slice
 func AddTorrentToActive(torrentLocalStorage *Storage.TorrentLocal, singleTorrent *torrent.Torrent, db *storm.DB) {
 	torrentQueues := Storage.FetchQueues(db)
@@ -238,6 +277,7 @@ func AddTorrentToActive(torrentLocalStorage *Storage.TorrentLocal, singleTorrent
 		}
 	}
 	Logger.WithFields(logrus.Fields{"Torrent Name": torrentLocalStorage.TorrentName}).Info("Adding Torrent to Active Queue (Manual Call)")
+	Storage.UpdateStorageTick(db, *torrentLocalStorage)
 	Storage.UpdateQueues(db, torrentQueues)
 }
 
@@ -272,6 +312,12 @@ func DeleteTorrentFromQueues(torrentHash string, db *storm.DB) {
 		if torrentHash == torrentHashQueued {
 			torrentQueues.QueuedTorrents = append(torrentQueues.QueuedTorrents[:x], torrentQueues.QueuedTorrents[x+1:]...)
 			Logger.Info("Removing Torrent from Queued", torrentHash)
+		}
+	}
+	for x, torrentHashActive := range torrentQueues.ForcedTorrents { //FOR EXTRA CAUTION deleting it from all queues in case a mistake occurred.
+		if torrentHash == torrentHashActive {
+			torrentQueues.ForcedTorrents = append(torrentQueues.ForcedTorrents[:x], torrentQueues.ForcedTorrents[x+1:]...)
+			Logger.Info("Removing Torrent from Forced:  ", torrentHash)
 		}
 	}
 	Storage.UpdateQueues(db, torrentQueues)

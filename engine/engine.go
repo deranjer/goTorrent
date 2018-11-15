@@ -221,6 +221,9 @@ func CreateInitialTorrentArray(tclient *torrent.Client, TorrentLocalArray []*Sto
 			singleTorrent.SetMaxEstablishedConns(0)
 			continue
 		}
+		if singleTorrentFromStorage.TorrentStatus == "ForceStart" {
+			AddTorrentToForceStart(singleTorrentFromStorage, singleTorrent, db)
+		}
 		if len(torrentQueues.ActiveTorrents) == 0 && len(torrentQueues.QueuedTorrents) == 0 { // If empty, run through all the torrents and assign them
 			if len(torrentQueues.ActiveTorrents) < Config.MaxActiveTorrents {
 				if singleTorrentFromStorage.TorrentStatus == "Completed" || singleTorrentFromStorage.TorrentStatus == "Seeding" {

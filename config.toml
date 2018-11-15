@@ -35,6 +35,13 @@
     #URL is CASE SENSITIVE
     BaseURL = "domain.com/subroute/"  # MUST be in the format (if you have a subdomain, and must have trailing slash) "yoursubdomain.domain.org/subroute/"
 
+[socksProxy]
+    SocksProxyEnabled = false #bool, either false or true
+    # Sets usage of Socks5 Proxy. Authentication should be included in the url if needed.
+    # Examples: socks5://demo:demo@192.168.99.100:1080
+    # 			 http://proxy.domain.com:3128
+    SocksProxyURL = ""
+
 [EncryptionPolicy]
 
     DisableEncryption = false

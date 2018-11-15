@@ -550,18 +550,18 @@ func main() {
 							Logger.WithFields(logrus.Fields{"infoHash": singleTorrent.InfoHash().String()}).Info("Found matching torrent to start")
 							oldTorrentInfo := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String())
 							Logger.WithFields(logrus.Fields{"Torrent": oldTorrentInfo.TorrentName}).Info("Changing database to torrent running with 80 max connections")
-							oldTorrentInfo.TorrentStatus = "Running"
+							oldTorrentInfo.TorrentStatus = "ForceStart"
 							oldTorrentInfo.MaxConnections = 80
 							Storage.UpdateStorageTick(db, oldTorrentInfo) //Updating the torrent status
-							Engine.AddTorrentToActive(&oldTorrentInfo, singleTorrent, db)
+							Engine.AddTorrentToForceStart(&oldTorrentInfo, singleTorrent, db)
 
 						}
 						torrentQueues = Storage.FetchQueues(db)
-						if len(torrentQueues.ActiveTorrents) > Config.MaxActiveTorrents { //Since we are starting a new torrent stop the first torrent in the que if running is full
+						if len(torrentQueues.ActiveTorrents) > Config.MaxActiveTorrents { //Since we are starting a new torrent stop the last torrent in the que if running is full
 							//removeTorrent := torrentQueues.ActiveTorrents[len(torrentQueues.ActiveTorrents)-1]
-							removeTorrent := torrentQueues.ActiveTorrents[:1]
+							removeTorrent := torrentQueues.ActiveTorrents[len(torrentQueues.ActiveTorrents)-1]
 							for _, singleTorrent := range runningTorrents {
-								if singleTorrent.InfoHash().String() == removeTorrent[0] {
+								if singleTorrent.InfoHash().String() == removeTorrent {
 									oldTorrentInfo := Storage.FetchTorrentFromStorage(db, singleTorrent.InfoHash().String())
 									Engine.RemoveTorrentFromActive(&oldTorrentInfo, singleTorrent, db)
 									Storage.UpdateStorageTick(db, oldTorrentInfo)
@@ -638,7 +638,7 @@ func main() {
 		}
 
 	})
-	if Config.UseProxy {
+	if Config.UseReverseProxy {
 		err := http.ListenAndServe(httpAddr, handlers.ProxyHeaders(router))
 		if err != nil {
 			Logger.WithFields(logrus.Fields{"error": err}).Fatal("Unable to listen on the http Server!")

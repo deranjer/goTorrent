@@ -21,9 +21,11 @@ var Logger *logrus.Logger
 type ClientConnectSettings struct {
 	HTTPAddr            string
 	HTTPAddrIP          string
-	UseProxy            bool
+	UseReverseProxy     bool
+	UseSocksProxy       bool
 	WebsocketClientPort string
 	BaseURL             string
+	SocksProxyURL       string
 	ClientUsername      string
 	ClientPassword      string
 	PushBulletToken     string `json:"-"`
@@ -119,6 +121,7 @@ func FullClientSettingsNew() FullClientSettings {
 
 	var httpAddr string
 	var baseURL string
+	var socksProxyURLBase string
 	var websocketClientPort string
 	var logLevel logrus.Level
 	//logging
@@ -150,6 +153,10 @@ func FullClientSettingsNew() FullClientSettings {
 	if proxySet {
 		baseURL = viper.GetString("reverseProxy.BaseURL")
 		fmt.Println("WebsocketClientPort", viper.GetString("serverConfig.ServerPort"))
+	}
+	socksProxySet := viper.GetBool("socksProxy.ProxyEnabled")
+	if socksProxySet {
+		socksProxyURLBase = viper.GetString("reverseProxy.BaseURL")
 	}
 	//Client Authentication
 	clientAuthEnabled := viper.GetBool("goTorrentWebUI.WebUIAuth")
@@ -247,11 +254,13 @@ func FullClientSettingsNew() FullClientSettings {
 		ClientConnectSettings: ClientConnectSettings{
 			HTTPAddr:            httpAddr,
 			HTTPAddrIP:          httpAddrIP,
-			UseProxy:            proxySet,
+			UseReverseProxy:     proxySet,
+			UseSocksProxy:       socksProxySet,
 			WebsocketClientPort: websocketClientPort,
 			ClientUsername:      webUIUser,
 			ClientPassword:      webUIPasswordHash,
 			BaseURL:             baseURL,
+			SocksProxyURL:       socksProxyURLBase,
 			PushBulletToken:     pushBulletToken,
 		},
 		TFileUploadFolder:  "uploadedTorrents",

@@ -42,7 +42,7 @@ func GenerateClientConfigFile(config FullClientSettings, authString string) {
 		`
 	}
 
-	if config.UseProxy {
+	if config.UseReverseProxy {
 		clientFile = `
 		ClientAuthString = "` + authString + `"
 		` + webUIAuth + `

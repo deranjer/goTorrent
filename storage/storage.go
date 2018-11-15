@@ -22,6 +22,7 @@ type TorrentQueues struct {
 	ID             int `storm:"id,unique"` //storm requires unique ID (will be 5)
 	ActiveTorrents []string
 	QueuedTorrents []string
+	ForcedTorrents []string
 }
 
 //IssuedTokensList contains a slice of all the tokens issues to applications
@@ -79,7 +80,7 @@ type TorrentLocal struct {
 	TempStoragePath     string //The absolute path of where the torrent is temporarily stored as it is downloaded
 	TorrentMoved        bool   //If completed has the torrent been moved to the end location
 	TorrentName         string
-	TorrentStatus       string //"Stopped", "Running"
+	TorrentStatus       string //"Stopped", "Running", "ForceStart"
 	TorrentUploadLimit  bool   //if true this torrent will bypass the upload storage limit (effectively unlimited)
 	MaxConnections      int    //Max connections that the torrent can have to it at one time
 	TorrentType         string //magnet or .torrent file
