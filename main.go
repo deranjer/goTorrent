@@ -33,6 +33,7 @@ var (
 	//Authenticated stores the value of the result of the client that connects to the server
 	Authenticated = false
 	APP_ID        = os.Getenv("APP_ID")
+	sendJSON      = make(chan interface{})
 )
 
 var upgrader = websocket.Upgrader{
@@ -46,6 +47,14 @@ var upgrader = websocket.Upgrader{
 func serveHome(w http.ResponseWriter, r *http.Request) {
 	s1, _ := template.ParseFiles("templates/home.tmpl")
 	s1.ExecuteTemplate(w, "base", map[string]string{"APP_ID": APP_ID})
+}
+
+//HandleMessages creates a queue of JSON messages from the client and executes them in order
+func handleMessages(conn *websocket.Conn) {
+	for {
+		msgJSON := <-sendJSON
+		conn.WriteJSON(msgJSON)
+	}
 }
 
 func handleAuthentication(conn *websocket.Conn, db *storm.DB) {
@@ -244,6 +253,8 @@ func main() {
 		Engine.Conn = conn
 		Storage.Conn = conn
 
+		go handleMessages(conn) //Starting the message channel to handle all the JSON requests from the client
+
 	MessageLoop: //Tagging this so we can continue out of it with any errors we encounter that are failing
 		for {
 			runningTorrents := tclient.Torrents() //getting running torrents here since multiple cases ask for the running torrents
@@ -281,31 +292,30 @@ func main() {
 				tokensDB := Storage.FetchJWTTokens(db)
 				tokensDB.TokenNames = append(tokens.TokenNames, Storage.SingleToken{payloadData["ClientName"].(string)})
 				db.Update(&tokensDB) //adding the new token client name to the database
-				conn.WriteJSON(tokenReturn)
+				sendJSON <- tokenReturn
 
-			case "torrentListRequest":
+			case "torrentListRequest": //This will run automatically if a webUI is open
 				Logger.WithFields(logrus.Fields{"message": msg}).Debug("Client Requested TorrentList Update")
-
 				go func() { //running updates in separate thread so can still accept commands
 					TorrentLocalArray = Storage.FetchAllStoredTorrents(db)                                                               //Required to re-read the database since we write to the DB and this will pull the changes from it
 					RunningTorrentArray = Engine.CreateRunningTorrentArray(tclient, TorrentLocalArray, PreviousTorrentArray, Config, db) //Updates the RunningTorrentArray with the current client data as well
 					PreviousTorrentArray = RunningTorrentArray
 					torrentlistArray := Engine.TorrentList{MessageType: "torrentList", ClientDBstruct: RunningTorrentArray, Totaltorrents: len(RunningTorrentArray)}
 					Logger.WithFields(logrus.Fields{"torrentList": torrentlistArray, "previousTorrentList": PreviousTorrentArray}).Debug("Previous and Current Torrent Lists for sending to client")
-					conn.WriteJSON(torrentlistArray)
+					sendJSON <- torrentlistArray
 				}()
 
 			case "torrentFileListRequest": //client requested a filelist update
 				Logger.WithFields(logrus.Fields{"message": msg}).Info("Client Requested FileList Update")
 				fileListArrayRequest := payloadData["FileListHash"].(string)
 				FileListArray := Engine.CreateFileListArray(tclient, fileListArrayRequest, db, Config)
-				conn.WriteJSON(FileListArray) //writing the JSON to the client
+				sendJSON <- FileListArray
 
 			case "torrentPeerListRequest":
 				Logger.WithFields(logrus.Fields{"message": msg}).Info("Client Requested PeerList Update")
 				peerListArrayRequest := payloadData["PeerListHash"].(string)
 				torrentPeerList := Engine.CreatePeerListArray(tclient, peerListArrayRequest)
-				conn.WriteJSON(torrentPeerList)
+				sendJSON <- torrentPeerList
 
 			case "fetchTorrentsByLabel":
 				Logger.WithFields(logrus.Fields{"message": msg}).Info("Client Requested Torrents by Label")
@@ -320,7 +330,7 @@ func main() {
 						}
 					}
 				}
-				conn.WriteJSON(labelRunningArray)
+				sendJSON <- labelRunningArray
 
 			case "changeStorageValue":
 				Logger.WithFields(logrus.Fields{"message": msg}).Info("Client Requested Storage Location Update")
@@ -346,7 +356,7 @@ func main() {
 			case "settingsFileRequest":
 				Logger.WithFields(logrus.Fields{"message": msg}).Info("Client Requested Settings File")
 				clientSettingsFile := Engine.SettingsFile{MessageType: "settingsFile", Config: Config}
-				conn.WriteJSON(clientSettingsFile)
+				sendJSON <- clientSettingsFile
 
 			case "rssFeedRequest":
 				Logger.WithFields(logrus.Fields{"message": msg}).Info("Client Requested RSS Update")
@@ -358,7 +368,7 @@ func main() {
 					RSSsingleFeed.RSSFeedURL = singleFeed.URL
 					RSSJSONFeed.RSSFeeds = append(RSSJSONFeed.RSSFeeds, RSSsingleFeed)
 				}
-				conn.WriteJSON(RSSJSONFeed)
+				sendJSON <- RSSJSONFeed
 
 			case "addRSSFeed":
 				newRSSFeed := payloadData["RSSURL"].(string)
@@ -403,7 +413,7 @@ func main() {
 				UpdatedRSSFeed := Engine.RefreshSingleRSSFeed(db, Storage.FetchSpecificRSSFeed(db, RSSFeedURL))
 				TorrentRSSList := Engine.SingleRSSFeedMessage{MessageType: "rssTorrentList", URL: RSSFeedURL, Name: UpdatedRSSFeed.Name, TotalTorrents: len(UpdatedRSSFeed.Torrents), Torrents: UpdatedRSSFeed.Torrents}
 				Logger.WithFields(logrus.Fields{"TorrentRSSList": TorrentRSSList}).Info("Returning Torrent list from RSSFeed to client")
-				conn.WriteJSON(TorrentRSSList)
+				sendJSON <- TorrentRSSList
 
 			case "magnetLinkSubmit": //if we detect a magnet link we will be adding a magnet torrent
 				storageValue, ok := payloadData["StorageValue"].(string)
