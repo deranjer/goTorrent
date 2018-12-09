@@ -57,26 +57,23 @@ func CheckTorrentWatchFolder(c *cron.Cron, db *storm.DB, tclient *torrent.Client
 	})
 }
 
-//CheckTorrents runs a upload ratio check, a queue check (essentially anything that should not be frontend dependent)
+//CheckTorrentsCron runs a upload ratio check, a queue check (essentially anything that should not be frontend dependent)
 func CheckTorrentsCron(c *cron.Cron, db *storm.DB, tclient *torrent.Client, config Settings.FullClientSettings) {
 	c.AddFunc("@every 30s", func() {
 		Logger.Debug("Running a torrent Ratio and Queue Check")
 		torrentLocalArray := Storage.FetchAllStoredTorrents(db)
 		torrentQueues := Storage.FetchQueues(db)
 		for _, singleTorrentFromStorage := range torrentLocalArray {
-			//torrentQueues := Storage.FetchQueues(db)
 			var singleTorrent *torrent.Torrent
 			for _, liveTorrent := range tclient.Torrents() { //matching the torrent from storage to the live torrent
 				if singleTorrentFromStorage.Hash == liveTorrent.InfoHash().String() {
 					singleTorrent = liveTorrent
 				}
 			}
-			//var TempHash metainfo.Hash
-			//calculatedTotalSize := CalculateDownloadSize(singleTorrentFromStorage, singleTorrent)
 			calculatedCompletedSize := CalculateCompletedSize(singleTorrentFromStorage, singleTorrent)
-			//TempHash = singleTorrent.InfoHash()
 			bytesCompleted := CalculateCompletedSize(singleTorrentFromStorage, singleTorrent)
 			if float64(singleTorrentFromStorage.UploadedBytes)/float64(bytesCompleted) >= config.SeedRatioStop && singleTorrentFromStorage.TorrentUploadLimit == true { //If storage shows torrent stopped or if it is over the seeding ratio AND is under the global limit
+				Logger.WithFields(logrus.Fields{"Action: Stopping torrent due to seed Ratio": singleTorrentFromStorage.TorrentName}).Info()
 				StopTorrent(singleTorrent, singleTorrentFromStorage, db)
 			}
 			if len(torrentQueues.ActiveTorrents) < config.MaxActiveTorrents && singleTorrentFromStorage.TorrentStatus == "Queued" {

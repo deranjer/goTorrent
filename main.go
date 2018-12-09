@@ -33,7 +33,7 @@ var (
 	//Authenticated stores the value of the result of the client that connects to the server
 	Authenticated = false
 	APP_ID        = os.Getenv("APP_ID")
-	sendJSON      = make(chan interface{})
+	sendJSON      = make(chan interface{}) //channel for JSON messages
 )
 
 var upgrader = websocket.Upgrader{
@@ -60,7 +60,6 @@ func handleMessages(conn *websocket.Conn) {
 func handleAuthentication(conn *websocket.Conn, db *storm.DB) {
 	msg := Engine.Message{}
 	err := conn.ReadJSON(&msg)
-	//conn.WriteJSON(msg) //TODO just for testing, remove
 	payloadData, ok := msg.Payload.(map[string]interface{})
 	clientAuthToken, tokenOk := payloadData["ClientAuthString"].(string)
 	fmt.Println("ClientAuthToken:", clientAuthToken, "TokenOkay", tokenOk, "PayloadData", payloadData, "PayloadData Okay?", ok)
@@ -97,7 +96,7 @@ func handleAuthentication(conn *websocket.Conn, db *storm.DB) {
 		fmt.Println("Claims", claims["ClientName"], claims["Issuer"])
 		Authenticated = true
 	} else {
-		Logger.WithFields(logrus.Fields{"error": err}).Error("Authentication Error occured, cannot complete!")
+		Logger.WithFields(logrus.Fields{"error": err}).Error("Authentication Error occurred, cannot complete!")
 	}
 }
 

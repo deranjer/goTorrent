@@ -51,7 +51,7 @@ func defaultConfig() FullClientSettings {
 	var Config FullClientSettings
 	Config.ID = 4 //Unique ID for StormDB
 	Config.Version = 1.0
-	Config.LoggingLevel = 3                    //Warn level
+	Config.LoggingLevel = logrus.WarnLevel     //Warn level
 	Config.TorrentConfig.DataDir = "downloads" //the absolute or relative path of the default download directory for torrents
 	Config.TFileUploadFolder = "uploadedTorrents"
 	Config.TorrentConfig.Seed = true
@@ -129,19 +129,19 @@ func FullClientSettingsNew() FullClientSettings {
 	logOutput := viper.GetString("serverConfig.LogOutput")
 	switch logLevelString { //Options = Debug 5, Info 4, Warn 3, Error 2, Fatal 1, Panic 0
 	case "Panic":
-		logLevel = 0
+		logLevel = logrus.PanicLevel
 	case "Fatal":
-		logLevel = 1
+		logLevel = logrus.FatalLevel
 	case "Error":
-		logLevel = 2
+		logLevel = logrus.ErrorLevel
 	case "Warn":
-		logLevel = 3
+		logLevel = logrus.WarnLevel
 	case "Info":
-		logLevel = 4
+		logLevel = logrus.InfoLevel
 	case "Debug":
-		logLevel = 5
+		logLevel = logrus.DebugLevel
 	default:
-		logLevel = 3
+		logLevel = logrus.WarnLevel
 
 	}
 	//HTTP, proxy
