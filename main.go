@@ -214,7 +214,7 @@ func main() {
 	}
 	Engine.CheckTorrentWatchFolder(cronEngine, db, tclient, torrentLocalStorage, Config, torrentQueues) //Every 5 minutes the engine will check the specified folder for new .torrent files
 	Engine.RefreshRSSCron(cronEngine, db, tclient, torrentLocalStorage, Config, torrentQueues)          // Refresing the RSS feeds on an hourly basis to add torrents that show up in the RSS feed
-	Engine.CheckTorrentsCron(cronEngine, db, tclient, Config)
+	Engine.CheckTorrentsCron(cronEngine, db, tclient, Config)                                           //Every 30 seconds all torrents are checked to see if queue changes need to be made or they need to be stopped due to ratio
 
 	router := mux.NewRouter()         //setting up the handler for the web backend
 	router.HandleFunc("/", serveHome) //Serving the main page for our SPA

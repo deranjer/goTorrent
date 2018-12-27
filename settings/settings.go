@@ -18,6 +18,7 @@ import (
 //Logger is the injected variable for global logger
 var Logger *logrus.Logger
 
+//ClientConnectSettings contains all the settings for connecting and authenticating to the server
 type ClientConnectSettings struct {
 	HTTPAddr            string
 	HTTPAddrIP          string
@@ -146,7 +147,8 @@ func FullClientSettingsNew() FullClientSettings {
 	}
 	//HTTP, proxy
 	httpAddrIP := viper.GetString("serverConfig.ServerAddr")
-	httpAddrPort := viper.GetString("serverConfig.ServerPort")
+	httpAddrPortRaw := viper.GetString("serverConfig.ServerPort")
+	httpAddrPort := ":" + httpAddrPortRaw //adding the separator required for running the webui
 	httpAddr = httpAddrIP + httpAddrPort
 	proxySet := viper.GetBool("reverseProxy.ProxyEnabled")
 	websocketClientPort = strings.TrimLeft(viper.GetString("serverConfig.ServerPort"), ":") //Trimming off the colon in front of the port
@@ -215,7 +217,8 @@ func FullClientSettingsNew() FullClientSettings {
 	//	fmt.Println("Reading in custom DHT config")
 	//	dhtServerConfig = dhtServerSettings(dhtServerConfig)
 	//}
-	httpAddrPortInt64, err := strconv.ParseInt(httpAddrPort, 10, 0)
+	strippedHTTPPort := strings.TrimPrefix(httpAddrPort, ":")
+	httpAddrPortInt64, err := strconv.ParseInt(strippedHTTPPort, 10, 0)
 	if err != nil {
 		fmt.Println("Failed creating 64-bit integer for goTorrent Port!", err)
 	}
