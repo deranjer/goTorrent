@@ -217,12 +217,12 @@ func FullClientSettingsNew() FullClientSettings {
 	//	fmt.Println("Reading in custom DHT config")
 	//	dhtServerConfig = dhtServerSettings(dhtServerConfig)
 	//}
-	strippedHTTPPort := strings.TrimPrefix(httpAddrPort, ":")
-	httpAddrPortInt64, err := strconv.ParseInt(strippedHTTPPort, 10, 0)
+	strippedDHTPort := strings.TrimPrefix(listenAddr, ":")
+	DHTPortInt64, err := strconv.ParseInt(strippedDHTPort, 10, 0)
 	if err != nil {
 		fmt.Println("Failed creating 64-bit integer for goTorrent Port!", err)
 	}
-	httpAddrPortInt := int(httpAddrPortInt64) //converting to integer
+	DHTPortInt := int(DHTPortInt64) //converting to integer
 
 	encryptionPolicy := torrent.EncryptionPolicy{
 		DisableEncryption:  viper.GetBool("EncryptionPolicy.DisableEncryption"),
@@ -233,7 +233,7 @@ func FullClientSettingsNew() FullClientSettings {
 	tConfig := torrent.NewDefaultClientConfig()
 
 	tConfig.DataDir = dataDirAbs
-	tConfig.ListenPort = httpAddrPortInt
+	tConfig.ListenPort = DHTPortInt
 	tConfig.DisablePEX = disablePex
 	tConfig.NoDHT = noDHT
 	tConfig.NoUpload = noUpload
@@ -246,9 +246,6 @@ func FullClientSettingsNew() FullClientSettings {
 	tConfig.DisableIPv6 = disableIPv6
 	tConfig.Debug = debug
 	tConfig.EncryptionPolicy = encryptionPolicy
-	if listenAddr != "" {
-		tConfig.SetListenAddr(listenAddr) //Setting the IP address to listen on
-	}
 
 	Config := FullClientSettings{
 		LoggingLevel:  logLevel,

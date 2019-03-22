@@ -1,7 +1,7 @@
 [serverConfig]
 
-    ServerPort = "8000" #leave format as is it expects a string with colon
-    ServerAddr = "192.168.1.8" #Put in the IP address you want to bind to
+    ServerPort = "8000" #Required to input as string
+    ServerAddr = "192.168.1.8" #Put in the IP address you want to bind to as string
     LogLevel = "Debug" # Options = Debug, Info, Warn, Error, Fatal, Panic
     LogOutput = "file" #Options = file, stdout #file will print it to logs/server.log
 
