@@ -29,6 +29,9 @@
 
     PushBulletToken = "" #add your pushbullet api token here to notify of torrent completion to pushbullet
 
+    # execute the command when torrent completes
+    NotifyCommand = ""
+
 [reverseProxy]
     #This is for setting up goTorrent behind a reverse Proxy (with SSL, reverse proxy with no SSL will require editing the WSS connection to a WS connection manually)
     ProxyEnabled = false #bool, either false or true

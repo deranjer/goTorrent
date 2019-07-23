@@ -30,6 +30,7 @@ type ClientConnectSettings struct {
 	ClientUsername      string
 	ClientPassword      string
 	PushBulletToken     string `json:"-"`
+	NotifyCommand	    string
 }
 
 //FullClientSettings contains all of the settings for our entire application
@@ -185,6 +186,7 @@ func FullClientSettingsNew() FullClientSettings {
 	}
 	//Notifications
 	pushBulletToken := viper.GetString("notifications.PushBulletToken")
+	notifyCommand := viper.GetString("notifications.NotifyCommand")
 
 	//Rate Limiters
 	//var uploadRateLimiter *rate.Limiter
@@ -262,6 +264,7 @@ func FullClientSettingsNew() FullClientSettings {
 			BaseURL:             baseURL,
 			SocksProxyURL:       socksProxyURLBase,
 			PushBulletToken:     pushBulletToken,
+			NotifyCommand: 		notifyCommand,
 		},
 		TFileUploadFolder:  "uploadedTorrents",
 		TorrentConfig:      *tConfig,
