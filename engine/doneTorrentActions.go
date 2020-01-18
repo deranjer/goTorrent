@@ -1,7 +1,9 @@
 package engine
 
 import (
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/asdine/storm"
@@ -112,5 +114,20 @@ func notifyUser(tStorage Storage.TorrentLocal, config Settings.FullClientSetting
 		Logger.WithFields(logrus.Fields{"Torrent": tStorage.TorrentName, "New File Path": tStorage.StoragePath}).Info("Pushbullet note sent")
 	} else {
 		Logger.WithFields(logrus.Fields{"New File Path": tStorage.StoragePath, "Torrent Name": tStorage.TorrentName}).Info("No pushbullet API key set, not notifying")
+	}
+
+	if config.NotifyCommand != "" {
+		cmd := exec.Command(config.NotifyCommand)
+		cmd.Env = append(os.Environ(),
+			fmt.Sprintf("DIR=%s", tStorage.StoragePath),
+			fmt.Sprintf("PATH=%s", tStorage.TorrentFileName),
+			fmt.Sprintf("SIZE=%d", tStorage.TorrentSize),
+			fmt.Sprintf("FILECNT=%d", len(tStorage.TorrentFile)))
+
+		stdoutStderr, err := cmd.CombinedOutput()
+		if err != nil {
+			Logger.WithFields(logrus.Fields{"Torrent Name": tStorage.TorrentName, "New File Path": tStorage.StoragePath}).Error("NotifyCommand called error:", err)
+		}
+		Logger.WithFields(logrus.Fields{"Torrent Name": tStorage.TorrentName, "New File Path": tStorage.StoragePath}).Info("NotifyCommand called output:", stdoutStderr)
 	}
 }
